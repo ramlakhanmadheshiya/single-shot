@@ -10,3 +10,14 @@
 
 ## Next
 Milestone 2 will add Hazel, aim/trajectory, pellet physics, enemy/crate interactions, a HUD, and three playable test rooms.
+
+
+## Milestone 1 navigation fix (2026-10-03)
+
+The first Foundation report missed a runtime issue: the title node was a child of the container cleared during screen changes. Moved it into the persistent panel shell, kept only temporary widgets in the cleared VBox, and explicitly null transient Settings references before freeing their nodes. Increased panel/control dimensions and title typography, added viewport-aware panel sizing, and set stretch aspect to `expand`.
+
+Added an automated click-through at `tests/ui_navigation.gd` with a log-checking runner at `tests/run_ui_navigation.py`. It covers Main Menu, Chapters, Settings, Credits and Chapter I, exercises all sliders and toggles, cycles Dark/Light/System, checks the persistent title and reference lifetimes, and visits every screen in Dark and Light modes.
+
+**Verification:** `python3 tests/run_ui_navigation.py` passed headlessly. `python3 tests/run_ui_navigation.py --gui` passed through the normal OpenGL Compatibility renderer. Both runs completed without script errors, debugger errors or warnings. Milestone 2 has not started.
+
+**Process update:** Future milestones must include a screen click-through test and remain incomplete until it passes.
