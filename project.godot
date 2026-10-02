@@ -1,0 +1,38 @@
+; Boneyard Bounce — Godot 4.7.2
+config_version=5
+
+[application]
+config/name="Boneyard Bounce"
+run/main_scene="res://game/scenes/main_menu.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+
+[display]
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/stretch/mode="canvas_items"
+window/handheld/orientation=1
+
+[audio]
+default_bus_layout="res://default_bus_layout.tres"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/default_filters/use_nearest_mipmap_filter=false
+environment/defaults/default_clear_color=Color(0.0784, 0.0627, 0.1216, 1)
+
+[autoload]
+Events="*res://game/autoload/events.gd"
+GameState="*res://game/autoload/game_state.gd"
+SaveSystem="*res://game/autoload/save_system.gd"
+AudioManager="*res://game/autoload/audio_manager.gd"
+SceneRouter="*res://game/autoload/scene_router.gd"
+ThemeManager="*res://game/autoload/theme_manager.gd"
+LevelRegistry="*res://game/autoload/level_registry.gd"
+
+[input]
+restart={"deadzone":0.5,"events":[Object(InputEventKey,"physical_keycode":82)]}
+pause={"deadzone":0.5,"events":[Object(InputEventKey,"physical_keycode":4194305)]}
+fire={"deadzone":0.5,"events":[Object(InputEventKey,"physical_keycode":32)]}
