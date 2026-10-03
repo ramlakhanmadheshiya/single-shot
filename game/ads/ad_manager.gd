@@ -2,10 +2,8 @@ extends Node
 ## All ad decisions live here so ads stay polite:
 ## - a small banner at the very bottom of every screen, with layout space reserved
 ##   so it never covers buttons;
-## - an interstitial only between levels: never in the first 5 clears, at most once
-##   every 3 clears and 3 minutes, and never after a failed attempt;
-## - a rewarded ad only when the player asks for +1 hint.
-## Supporters see no banners and no interstitials.
+## - a rewarded ad only when the player agrees to watch one for +1 hint.
+## There are no interstitials. Supporters see no banners and get free hints.
 ## Providers: AdMob on Android (plugin), a visible mock on debug desktop builds,
 ## and nothing at all elsewhere (web, release desktop).
 
@@ -15,14 +13,8 @@ signal rewarded_finished(ok: bool)
 const ADMOB_PROVIDER_PATH: String = "res://game/ads/providers/admob_provider.gd"
 const MockProvider: GDScript = preload("res://game/ads/providers/mock_ad_provider.gd")
 
-const INTERSTITIAL_EVERY: int = 3
-const INTERSTITIAL_MIN_SECONDS: float = 180.0
-const INTERSTITIAL_AFTER_CLEARS: int = 5
-
 var provider: Node = null
 var banner_height: float = 0.0
-var _clears_since_ad: int = 0
-var _last_interstitial_msec: int = -1000000
 var _banner_on: bool = false
 
 
@@ -36,7 +28,6 @@ func _ready() -> void:
 		add_child(provider)
 		provider.banner_resized.connect(_on_banner_resized)
 	Events.supporter_changed.connect(func(_on: bool) -> void: refresh_banner())
-	Events.level_completed.connect(func(_id: String, _stars: int) -> void: _clears_since_ad += 1)
 
 
 func ads_enabled() -> bool:
@@ -66,27 +57,12 @@ func _on_banner_resized(height_px: float) -> void:
 	Events.banner_changed.emit(banner_height)
 
 
-## Called when the player leaves a cleared level. Runs `then` after any ad closes.
-func between_levels(then: Callable) -> void:
-	var now: int = Time.get_ticks_msec()
-	var due: bool = ads_enabled() \
-		and _clears_since_ad >= INTERSTITIAL_EVERY \
-		and Levels.total_cleared() >= INTERSTITIAL_AFTER_CLEARS \
-		and float(now - _last_interstitial_msec) / 1000.0 >= INTERSTITIAL_MIN_SECONDS \
-		and provider.interstitial_ready()
-	if not due:
-		then.call()
-		return
-	_clears_since_ad = 0
-	_last_interstitial_msec = now
-	provider.show_interstitial(func() -> void: then.call())
-
-
 func rewarded_ready() -> bool:
 	return provider != null and provider.rewarded_ready()
 
 
-## Plays a rewarded ad; callback(ok) is true only if the reward was earned.
+## Plays a rewarded ad; callback(ok) is true if the reward was earned, or if the
+## ad could not be shown at all (the player then gets the hint free).
 func show_rewarded(callback: Callable) -> void:
 	if not rewarded_ready():
 		callback.call(false)

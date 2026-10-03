@@ -43,16 +43,8 @@ func hide_banner() -> void:
 		_banner = null
 
 
-func interstitial_ready() -> bool:
-	return true
-
-
 func rewarded_ready() -> bool:
 	return true
-
-
-func show_interstitial(on_closed: Callable) -> void:
-	_fullscreen("Interstitial ad (test)", func(_ok: bool) -> void: on_closed.call())
 
 
 func show_rewarded(on_done: Callable) -> void:

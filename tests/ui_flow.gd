@@ -40,6 +40,7 @@ func _run() -> void:
 	await _wait(0.8)
 	var board: Board = app.current.get("board")
 	_check(board != null and str(board.level.get("id", "")) == "ch1_01", "Play opens the first room")
+	_check(_find("Tutorial") != null, "first play shows the hands-on tutorial")
 
 	# A wrong shot uses a shot and leaves the target.
 	board.fire(deg_to_rad(10.0))
@@ -99,6 +100,14 @@ func _run() -> void:
 	(_find("Supporter") as Button).pressed.emit()
 	await _wait(0.8)
 	_check(_find("Buy") != null and _find("Restore") != null, "heart opens the Supporter Pack with buy and restore")
+	# Out of hints with no ad available: the hint is given free, never a dead end.
+	app.open_game("ch1", 1)
+	await _wait(0.8)
+	SaveSystem.data["hints"] = 0
+	(_find("Hint") as Button).pressed.emit()
+	await _wait(0.2)
+	_check(float((app.current.get("board") as Board).get("_hint_t")) > 0.0 and SaveSystem.hints_left() == 0, "no ad available -> free hint")
+	_check(Store.regional_price() != "" and Store.REGIONAL_PRICES["IN"] == "₹249", "regional price table includes rupees")
 	var before: int = SaveSystem.hints_left()
 	SaveSystem.data["hint_day"] = "2000-01-01"
 	_check(SaveSystem.hints_left() == SaveSystem.DAILY_HINTS, "hints refill to exactly 3 on a new day (was %d)" % before)

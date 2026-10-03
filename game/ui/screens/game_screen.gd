@@ -98,6 +98,13 @@ func _ready() -> void:
 	_hint_btn.add_child(_hint_badge)
 
 	_refresh()
+	if str(level.get("id", "")) == "ch1_01" and not SaveSystem.flag("tutorial_done"):
+		var tut: Tutorial = Tutorial.new()
+		tut.name = "Tutorial"
+		tut.board = board
+		tut.pal = pal
+		stage.add_child(tut)
+		return
 	var tip: String = str(TIPS.get(str(level.get("id", "")), ""))
 	if tip.is_empty() and not SaveSystem.flag("tip_armored"):
 		for t: Array in level.get("targets", []):
@@ -169,38 +176,47 @@ func _undo() -> void:
 func _hint() -> void:
 	if _done or board.playing:
 		return
-	if not SaveSystem.is_supporter() and SaveSystem.hints_left() <= 0:
-		_offer_hints()
+	if SaveSystem.is_supporter() or SaveSystem.hints_left() > 0:
+		if _show_hint_now():
+			SaveSystem.spend_hint()
+			_refresh()
 		return
-	if board.show_hint():
-		SaveSystem.spend_hint()
-		_refresh()
+	# Out of free hints: ask first. If no ad can be shown, the hint is free.
+	if AdManager.rewarded_ready():
+		_ask_for_ad()
 	else:
-		_show_toast("No single shot clears this now — try a restart", 3.0)
+		if _show_hint_now():
+			_show_toast("Here's a free hint", 2.5)
 
 
-func _offer_hints() -> void:
+## Shows the solving path. Returns false (with a tip) if no single shot can clear it.
+func _show_hint_now() -> bool:
+	if board.show_hint():
+		return true
+	_show_toast("No single shot clears this now — try a restart", 3.0)
+	return false
+
+
+func _ask_for_ad() -> void:
 	var sheet: VBoxContainer = _open_sheet()
-	sheet.add_child(UIKit.label("Out of hints", 40, pal["ink"], 600))
-	var note: Label = UIKit.label("3 free hints refill every day at midnight.\nSupporters get every hint free.", 24, pal["muted"], 400)
+	sheet.add_child(UIKit.label("Out of hints", 44, pal["ink"], 600))
+	var note: Label = UIKit.label("Watch a short ad to get 1 hint?\nFree hints refill to 3 at midnight.", 24, pal["muted"], 400)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	sheet.add_child(note)
-	var watch: Button = UIKit.pill("Watch a short ad  ·  +1 hint", pal, "primary", Vector2(440, 88), 28)
+	var watch: Button = UIKit.pill("Watch ad", pal, "primary", Vector2(0, 88), 30)
 	watch.name = "WatchAd"
-	watch.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	watch.disabled = not AdManager.rewarded_ready()
 	watch.pressed.connect(func() -> void:
+		_close_sheet()
 		AdManager.show_rewarded(func(ok: bool) -> void:
 			if ok:
-				SaveSystem.add_hints(1)
 				AudioManager.play("unlock", 1.0)
-			_close_sheet()
+				_show_hint_now()
 			_refresh()
 		)
 	)
 	sheet.add_child(watch)
-	var close: Button = UIKit.pill("Not now", pal, "ghost", Vector2(260, 72), 24)
-	close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var close: Button = UIKit.pill("Not now", pal, "ghost", Vector2(0, 80), 26)
+	close.name = "NotNow"
 	close.pressed.connect(_close_sheet)
 	sheet.add_child(close)
 	_sheet_focus = watch
@@ -210,7 +226,8 @@ func _show_result(won: bool, stars: int, shots_used: int, _first: bool) -> void:
 	var sheet: VBoxContainer = _open_sheet()
 	if won:
 		var title: String = ["Cleared", "Cleared", "Nice", "Perfect"][stars]
-		sheet.add_child(UIKit.label(title, 52, pal["ink"], 500))
+		sheet.add_child(UIKit.label("%s  ·  Level %d complete" % [pal["name"], index + 1], 24, pal["muted"], 600))
+		sheet.add_child(UIKit.label(title, 56, pal["ink"], 500))
 		var row: _Stars = _Stars.new()
 		row.pal = pal
 		row.custom_minimum_size = Vector2(0, 96)
@@ -231,18 +248,19 @@ func _show_result(won: bool, stars: int, shots_used: int, _first: bool) -> void:
 		next_btn.name = "Next"
 		next_btn.pressed.connect(func() -> void:
 			if nxt.is_empty():
-				AdManager.between_levels(func() -> void: app.open_chapters())
+				app.open_chapters()
 			else:
-				AdManager.between_levels(func() -> void: app.open_game(str(nxt["chapter"]), int(nxt["index"])))
+				app.open_game(str(nxt["chapter"]), int(nxt["index"]))
 		)
 		buttons.add_child(next_btn)
 		var grid: Button = UIKit.icon_button("layout-grid", pal, 88.0)
 		grid.name = "Levels"
-		grid.pressed.connect(func() -> void: AdManager.between_levels(func() -> void: app.open_levels(chapter_id)))
+		grid.pressed.connect(func() -> void: app.open_levels(chapter_id))
 		buttons.add_child(grid)
 		_sheet_focus = next_btn
 	else:
-		sheet.add_child(UIKit.label("Out of shots", 48, pal["ink"], 500))
+		sheet.add_child(UIKit.label("%s  ·  Level %d" % [pal["name"], index + 1], 24, pal["muted"], 600))
+		sheet.add_child(UIKit.label("Out of shots", 52, pal["ink"], 500))
 		sheet.add_child(UIKit.label("Every room can be cleared in one shot.", 24, pal["muted"], 400))
 		var buttons2: HBoxContainer = HBoxContainer.new()
 		buttons2.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -262,7 +280,7 @@ func _show_result(won: bool, stars: int, shots_used: int, _first: bool) -> void:
 		_sheet_focus = retry
 
 
-## Opens a bottom sheet and returns its content column.
+## Opens a centred card and returns its content column.
 func _open_sheet() -> VBoxContainer:
 	_close_sheet()
 	var root: Control = Control.new()
@@ -284,15 +302,16 @@ func _open_sheet() -> VBoxContainer:
 	sb.content_margin_left = 36
 	sb.content_margin_right = 36
 	sb.content_margin_top = 44
-	sb.content_margin_bottom = 52
-	sb.shadow_color = Color(0, 0, 0, 0.12)
-	sb.shadow_size = 24
+	sb.content_margin_bottom = 44
+	sb.shadow_color = Color(0, 0, 0, 0.14)
+	sb.shadow_size = 30
 	panel.add_theme_stylebox_override("panel", sb)
-	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	panel.anchor_left = 0.0
-	panel.anchor_right = 1.0
-	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	root.add_child(panel)
+	panel.custom_minimum_size = Vector2(580, 0)
+	var center: CenterContainer = CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(center)
+	center.add_child(panel)
 	var col: VBoxContainer = VBoxContainer.new()
 	col.add_theme_constant_override("separation", 22)
 	panel.add_child(col)
@@ -302,14 +321,12 @@ func _open_sheet() -> VBoxContainer:
 	tw.tween_property(shade, "modulate:a", 1.0, 0.25)
 	panel.modulate.a = 0.0
 	tw.tween_property(panel, "modulate:a", 1.0, 0.2)
-	# Slide up once the container has measured itself.
+	# Pop in from slightly smaller once the card has measured itself.
 	(func() -> void:
-		var h: float = panel.get_combined_minimum_size().y
-		panel.offset_top = -h + 140.0
-		panel.offset_bottom = 140.0
-		var slide: Tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		slide.tween_property(panel, "offset_top", -h + 24.0, 0.42)
-		slide.tween_property(panel, "offset_bottom", 24.0, 0.42)
+		panel.pivot_offset = panel.size * 0.5
+		panel.scale = Vector2(0.85, 0.85)
+		var pop: Tween = create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		pop.tween_property(panel, "scale", Vector2.ONE, 0.42)
 	).call_deferred()
 	return col
 

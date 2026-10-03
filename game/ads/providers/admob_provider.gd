@@ -1,24 +1,20 @@
 extends Node
 ## Google AdMob through the Poing AdMob plugin (Android only).
-## Flow: consent (UMP, needed for EU/UK) -> initialise -> preload interstitial and
-## rewarded; the bottom banner is an anchored adaptive banner.
+## Flow: consent (UMP, needed for EU/UK) -> initialise -> preload a rewarded ad;
+## the bottom banner is an anchored adaptive banner. No interstitials.
 
 signal banner_resized(height_px: float)
 
 ## Ad unit IDs. These are Google's public TEST units — replace them with your own
 ## from the AdMob console before publishing (and the App ID in Project Settings > admob).
 const BANNER_ID: String = "ca-app-pub-3940256099942544/9214589741"
-const INTERSTITIAL_ID: String = "ca-app-pub-3940256099942544/1033173712"
 const REWARDED_ID: String = "ca-app-pub-3940256099942544/5224354917"
 
 var _ready_to_load: bool = false
 var _banner_wanted: bool = false
 var _ad_view: AdView
-var _interstitial: InterstitialAd
 var _rewarded: RewardedAd
-var _interstitial_loader: InterstitialAdLoader
 var _rewarded_loader: RewardedAdLoader
-var _on_interstitial_closed: Callable
 var _on_rewarded: Callable
 var _earned: bool = false
 
@@ -28,7 +24,6 @@ static func is_supported() -> bool:
 
 
 func _ready() -> void:
-	_interstitial_loader = InterstitialAdLoader.new()
 	_rewarded_loader = RewardedAdLoader.new()
 	var params: ConsentRequestParameters = ConsentRequestParameters.new()
 	UserMessagingPlatform.consent_information.update(params, _on_consent_updated, func(_e: FormError) -> void: _init_ads())
@@ -63,7 +58,6 @@ func _init_ads() -> void:
 	var listener: OnInitializationCompleteListener = OnInitializationCompleteListener.new()
 	listener.on_initialization_complete = func(_s: InitializationStatus) -> void:
 		_ready_to_load = true
-		_load_interstitial()
 		_load_rewarded()
 		if _banner_wanted:
 			show_banner()
@@ -99,42 +93,6 @@ func hide_banner() -> void:
 	banner_resized.emit(0.0)
 
 
-# --- Interstitial ------------------------------------------------------------------
-
-func interstitial_ready() -> bool:
-	return _interstitial != null
-
-
-func show_interstitial(on_closed: Callable) -> void:
-	if _interstitial == null:
-		on_closed.call()
-		return
-	_on_interstitial_closed = on_closed
-	_interstitial.show()
-
-
-func _load_interstitial() -> void:
-	var cb: InterstitialAdLoadCallback = InterstitialAdLoadCallback.new()
-	cb.on_ad_loaded = func(ad: InterstitialAd) -> void:
-		_interstitial = ad
-		var fs: FullScreenContentCallback = FullScreenContentCallback.new()
-		fs.on_ad_dismissed_full_screen_content = func() -> void: _interstitial_done()
-		fs.on_ad_failed_to_show_full_screen_content = func(_e: AdError) -> void: _interstitial_done()
-		_interstitial.full_screen_content_callback = fs
-	cb.on_ad_failed_to_load = func(e: LoadAdError) -> void: push_warning("Interstitial failed: " + e.message)
-	_interstitial_loader.load(INTERSTITIAL_ID, AdRequest.new(), cb)
-
-
-func _interstitial_done() -> void:
-	if _interstitial != null:
-		_interstitial.destroy()
-	_interstitial = null
-	_load_interstitial()
-	if _on_interstitial_closed.is_valid():
-		_on_interstitial_closed.call()
-	_on_interstitial_closed = Callable()
-
-
 # --- Rewarded ------------------------------------------------------------------------
 
 func rewarded_ready() -> bool:
@@ -157,19 +115,20 @@ func _load_rewarded() -> void:
 	cb.on_ad_loaded = func(ad: RewardedAd) -> void:
 		_rewarded = ad
 		var fs: FullScreenContentCallback = FullScreenContentCallback.new()
-		fs.on_ad_dismissed_full_screen_content = func() -> void: _rewarded_done()
-		fs.on_ad_failed_to_show_full_screen_content = func(_e: AdError) -> void: _rewarded_done()
+		fs.on_ad_dismissed_full_screen_content = func() -> void: _rewarded_done(false)
+		fs.on_ad_failed_to_show_full_screen_content = func(_e: AdError) -> void: _rewarded_done(true)
 		_rewarded.full_screen_content_callback = fs
 	cb.on_ad_failed_to_load = func(e: LoadAdError) -> void: push_warning("Rewarded failed: " + e.message)
 	_rewarded_loader.load(REWARDED_ID, AdRequest.new(), cb)
 
 
-## The reward is granted only after the ad closes, and only if it was earned.
-func _rewarded_done() -> void:
+## The reward is granted after the ad closes if it was earned — or if the ad
+## failed to show, so a broken ad never leaves the player empty-handed.
+func _rewarded_done(failed: bool) -> void:
 	if _rewarded != null:
 		_rewarded.destroy()
 	_rewarded = null
 	_load_rewarded()
 	if _on_rewarded.is_valid():
-		_on_rewarded.call(_earned)
+		_on_rewarded.call(_earned or failed)
 	_on_rewarded = Callable()

@@ -1,10 +1,10 @@
-# Carom
+# One Clean Shot
 
 *A quiet ricochet puzzle.* Drag to aim, release, and bank one orb off the walls to pop every target in the room.
 
 Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the web). It is portrait-first and works with touch, mouse, keyboard and gamepad.
 
-**Play / download:** https://theramlakhan.com/carom/ — Android APK, or play in the browser on any phone.
+**Play / download:** https://theramlakhan.com/one-clean-shot/ — Android APK, or play in the browser on any phone.
 
 ## The game
 
@@ -24,13 +24,13 @@ Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the 
 - **Stars:** 1 shot gives ★★★, 2 shots ★★, 3 shots ★. Every room can be cleared in one shot.
 - **The dots over the launcher** show how many bounces each shot may make.
 - **Progress:** rooms unlock one at a time (clear room N to open room N + 1). A chapter unlocks after 15 clears in the one before it. Difficulty rises steadily from room to room, measured by the solver.
-- **Help:** Undo, Restart, and hints that show the exact solving path. You get 3 free hints, refilled to 3 at local midnight. Each optional rewarded ad gives +1 hint.
-- **Supporter Pack** (the heart on the home screen): a one-time purchase that removes banner and between-level ads and makes every hint free, with a Restore purchase button.
-- **Ads (Android only):**
+- **Help:** Undo, Restart, and hints that show the exact solving path. You get 3 free hints, refilled to 3 at local midnight. With none left, the game asks before playing a rewarded ad for +1 hint. If no ad is available, the hint is free.
+- **Supporter Pack** (the heart on the home screen): a one-time purchase that removes the banner ad and makes every hint free, with a Restore purchase button. The price is shown in the player's local currency (Google Play's localised price, or a regional fallback from the device locale; no permissions needed).
+- **Ads (Android only, no interstitials):**
   - a bottom banner on every screen, with layout space reserved so it never covers a button;
-  - an interstitial only when leaving a cleared level: never in the first 5 clears, then at most once every 3 clears and 3 minutes;
   - rewarded ads only when you ask for a hint.
-- **Settings:** music and sound volume sliders, vibration, screen shake, and a longer aim guide.
+- **Settings** (on every screen): music and sound volume sliders, vibration, screen shake, a longer aim guide (on by default), How to play, Support the game, About and Credits. Reset progress is hidden while you're playing a level.
+- **First play:** Dawn level 1 runs a hands-on tutorial with an animated hand. You can replay it from How to play.
 
 ### Controls
 
@@ -58,7 +58,7 @@ Every push to `main` runs `.github/workflows/build.yml`. The workflow:
 2. Exports a signed Android APK and a web build with Godot 4.7.2.
 3. Publishes them to the `gh-pages` branch:
    - `index.html` is the download page, built from `web/index.html`;
-   - `carom.apk` is the Android app;
+   - `one-clean-shot.apk` is the Android app;
    - `play/` is the browser version.
 
 APK signing uses three repository secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEYSTORE_ALIAS`. If they are missing, the workflow signs with a throwaway key. Phones then can't install updates over an older version.
@@ -67,7 +67,7 @@ APK signing uses three repository secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_K
 
 ```sh
 ./tests/run_all.sh        # simulation, level fairness, end-to-end UI flow, boot smoke
-godot --path . res://tests/capture.tscn -- /tmp/carom_shots   # screenshots of every screen (not committed)
+godot --path . res://tests/capture.tscn -- /tmp/ocs_shots   # screenshots of every screen (not committed)
 ```
 
 ## How it works
@@ -98,6 +98,6 @@ godot --headless --path . -s res://tools/level_lab.gd -- ch3     # one chapter
 |---|---|---|
 | Font: [Outfit](https://github.com/google/fonts/tree/main/ofl/outfit) | Google Fonts | SIL OFL 1.1, `assets/fonts/OFL.txt` |
 | Icons: [Lucide](https://lucide.dev) | lucide-static 0.460.0 | ISC, `assets/icons/LICENSE.txt` |
-| Music and sound effects | Made for Carom by `tools/synth_audio.py`, no samples | Released with the project |
+| Music and sound effects | Made for One Clean Shot by `tools/synth_audio.py`, no samples | Released with the project |
 
 The game-dev agent skills used while building this are in `.claude/skills/`. They come from [GodotPrompter](https://github.com/jame581/GodotPrompter) (MIT), [awesome-gamedev-agent-skills](https://github.com/gamedev-skills/awesome-gamedev-agent-skills) (Apache-2.0) and [godot-skills](https://github.com/vl4dt/godot-skills) (MIT).

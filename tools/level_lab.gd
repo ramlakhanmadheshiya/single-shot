@@ -11,17 +11,22 @@ extends SceneTree
 const OUT_DIR: String = "res://content/levels/"
 const GRID: float = 40.0
 const LEVELS_PER_CHAPTER: int = 40
+## The first few levels of every chapter stay easy so the new idea can sink in.
+const EASY_LEVELS: int = 3
+## Pool size per chapter; the chain of 40 is picked from it.
+const POOL_TARGET: int = 260
+const POOL_ATTEMPTS: int = 3200
 
 ## Per-chapter generation rules. Ranges are [easy, hard] across the chapter.
 const CHAPTERS: Array = [
-	{"id": "ch1", "name": "Dawn", "targets": [1, 4], "bounces": [1, 4], "walls": [1, 5], "glass": [0, 0], "void": [0, 0], "bumpers": [0, 0], "portals": 0, "prisms": 0, "armored": 0, "min_width": [1.4, 0.7], "seed": 101},
-	{"id": "ch2", "name": "Glass", "targets": [2, 4], "bounces": [2, 4], "walls": [1, 4], "glass": [1, 3], "void": [0, 0], "bumpers": [0, 0], "portals": 0, "prisms": 0, "armored": 0, "min_width": [1.2, 0.6], "seed": 202, "require": "glass"},
-	{"id": "ch3", "name": "Void", "targets": [2, 5], "bounces": [2, 5], "walls": [1, 4], "glass": [0, 1], "void": [1, 3], "bumpers": [1, 2], "portals": 0, "prisms": 0, "armored": 0, "min_width": [1.0, 0.55], "seed": 303, "require": "bumper"},
-	{"id": "ch4", "name": "Shift", "targets": [2, 5], "bounces": [2, 5], "walls": [1, 4], "glass": [0, 1], "void": [0, 2], "bumpers": [0, 1], "portals": 1, "prisms": 0, "armored": 0, "min_width": [1.0, 0.5], "seed": 404, "require": "portal"},
-	{"id": "ch5", "name": "Prism", "targets": [3, 6], "bounces": [2, 5], "walls": [1, 4], "glass": [0, 2], "void": [0, 2], "bumpers": [0, 1], "portals": 0, "prisms": 1, "armored": 1, "min_width": [0.9, 0.45], "seed": 505, "require": "split"},
-	{"id": "ch6", "name": "Gate", "targets": [2, 5], "bounces": [2, 5], "walls": [2, 5], "glass": [0, 1], "void": [0, 1], "bumpers": [0, 1], "portals": 0, "prisms": 0, "armored": 0, "gates": [1, 2], "switches": 1, "min_width": [1.0, 0.5], "seed": 606, "require": "switch"},
-	{"id": "ch7", "name": "Spark", "targets": [2, 5], "bounces": [0, 3], "walls": [1, 4], "glass": [0, 1], "void": [0, 1], "bumpers": [0, 1], "portals": 0, "prisms": 0, "armored": 0, "sparks": [1, 3], "min_width": [1.0, 0.5], "seed": 707, "require": "spark"},
-	{"id": "ch8", "name": "Turn", "targets": [2, 6], "bounces": [2, 5], "walls": [2, 5], "glass": [0, 1], "void": [0, 1], "bumpers": [0, 1], "portals": 0, "prisms": 0, "armored": 1, "pivots": [1, 2], "min_width": [0.9, 0.45], "seed": 808, "require": "pivot"},
+	{"id": "ch1", "name": "Dawn", "targets": [1, 5], "bounces": [1, 5], "walls": [1, 5], "glass": [0, 0], "void": [0, 0], "bumpers": [0, 0], "portals": 0, "prisms": 0, "armored": 0, "min_width": [1.4, 0.4], "seed": 101},
+	{"id": "ch2", "name": "Glass", "targets": [2, 5], "bounces": [2, 5], "walls": [1, 4], "glass": [1, 3], "void": [0, 0], "bumpers": [0, 0], "portals": 0, "prisms": 0, "armored": 0, "min_width": [1.2, 0.4], "seed": 202, "require": "glass"},
+	{"id": "ch3", "name": "Void", "targets": [2, 6], "bounces": [2, 6], "walls": [1, 4], "glass": [0, 1], "void": [1, 3], "bumpers": [1, 2], "portals": 0, "prisms": 0, "armored": 0, "min_width": [1.0, 0.4], "seed": 303, "require": "bumper", "attempts": 24000},
+	{"id": "ch4", "name": "Shift", "targets": [2, 6], "bounces": [2, 6], "walls": [1, 4], "glass": [0, 1], "void": [0, 2], "bumpers": [0, 1], "portals": 1, "prisms": 0, "armored": 0, "min_width": [1.0, 0.4], "seed": 404, "require": "portal"},
+	{"id": "ch5", "name": "Prism", "targets": [3, 7], "bounces": [2, 6], "walls": [1, 4], "glass": [0, 2], "void": [0, 2], "bumpers": [0, 1], "portals": 0, "prisms": 1, "armored": 1, "min_width": [0.9, 0.4], "seed": 505, "require": "split"},
+	{"id": "ch6", "name": "Gate", "targets": [2, 6], "bounces": [2, 6], "walls": [2, 5], "glass": [0, 1], "void": [0, 1], "bumpers": [0, 1], "portals": 0, "prisms": 0, "armored": 0, "gates": [1, 2], "switches": 1, "min_width": [1.0, 0.4], "seed": 606, "require": "switch"},
+	{"id": "ch7", "name": "Spark", "targets": [2, 6], "bounces": [0, 4], "walls": [1, 4], "glass": [0, 1], "void": [0, 1], "bumpers": [0, 1], "portals": 0, "prisms": 0, "armored": 0, "sparks": [1, 3], "min_width": [1.0, 0.4], "seed": 707, "require": "spark"},
+	{"id": "ch8", "name": "Turn", "targets": [2, 7], "bounces": [2, 6], "walls": [2, 5], "glass": [0, 1], "void": [0, 1], "bumpers": [0, 1], "portals": 0, "prisms": 0, "armored": 1, "pivots": [1, 2], "min_width": [0.9, 0.4], "seed": 808, "require": "pivot"},
 ]
 
 ## Hand-made opening rooms that teach aiming and the first bank shot.
@@ -59,33 +64,48 @@ func _build_chapter(chapter: Dictionary) -> Array:
 			push_error("Handmade level is not solvable: " + str(raw))
 			continue
 		result.append(graded)
+	# Build one big pool of verified rooms across every difficulty setting, then
+	# pick: the 3 easiest for levels 1-3, and a strictly rising chain for 4-40
+	# that ends with the hardest room found.
+	var pool: Array = []
+	var attempts: int = 0
+	var need: int = LEVELS_PER_CHAPTER - result.size()
+	var budget: int = int(chapter.get("attempts", POOL_ATTEMPTS))
+	while attempts < budget and (pool.size() < POOL_TARGET or attempts < budget / 3):
+		attempts += 1
+		# Lean towards hard settings: most of the chapter is the climb.
+		var k: float = rng.randf_range(0.0, 0.3) if rng.randf() < 0.2 else sqrt(rng.randf_range(0.09, 1.0))
+		var cand: Dictionary = _candidate(chapter, k)
+		if not cand.is_empty():
+			pool.append(cand)
+		if attempts % 200 == 0:
+			print("  %s: %d attempts, %d rooms" % [chapter["id"], attempts, pool.size()])
+	pool.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["difficulty"]) < float(b["difficulty"]))
+	var easy_needed: int = maxi(0, EASY_LEVELS - result.size())
+	for i: int in mini(easy_needed, pool.size()):
+		result.append(pool[i])
+	var rest: Array = []
+	var last: float = -1.0
+	for easy_level: Dictionary in result:
+		last = maxf(last, float(easy_level["difficulty"]))
+	for i: int in range(easy_needed, pool.size()):
+		var d: float = float(pool[i]["difficulty"])
+		if d > last + 0.05 and (rest.is_empty() or d > float(rest[-1]["difficulty"]) + 0.001):
+			rest.append(pool[i])
 	var slots: int = LEVELS_PER_CHAPTER - result.size()
-	for slot: int in slots:
-		var k: float = float(slot) / float(maxi(1, slots - 1))
-		var picked: Dictionary = {}
-		var pool: Array = []
-		var attempts: int = 0
-		while pool.size() < 4 and attempts < 2400:
-			attempts += 1
-			# If a slot is stubborn, ease its parameters a little rather than leave a gap.
-			var cand: Dictionary = _candidate(chapter, k if attempts < 1200 else k * 0.85)
-			if not cand.is_empty():
-				pool.append(cand)
-		if pool.is_empty():
-			push_error("No candidate for %s slot %d" % [chapter["id"], slot])
-			continue
-		# Pick the candidate whose difficulty best matches the slot's target.
-		# A steady ramp: each slot asks for a little more than the one before.
-		var want: float = lerpf(1.3, 3.7, k) + 0.12 * float(CHAPTERS.find(chapter))
-		pool.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return _fit(a, want) < _fit(b, want))
-		picked = pool[0]
-		result.append(picked)
-	# Keep handmade openers first, sort the rest gently by difficulty.
-	var head: Array = result.slice(0, handmade.size())
-	var tail: Array = result.slice(handmade.size())
-	tail.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["difficulty"]) < float(b["difficulty"]))
-	# The first generated room of a chapter should introduce its mechanic gently.
-	return head + tail
+	if rest.size() < slots:
+		push_error("%s: only %d rising rooms for %d slots" % [chapter["id"], rest.size(), slots])
+	# Evenly spaced through the sorted pool, always ending on the hardest room.
+	var used: int = -1
+	for j: int in slots:
+		var idx: int = int(round(float(j) * float(rest.size() - 1) / float(maxi(1, slots - 1))))
+		idx = maxi(idx, used + 1)
+		if idx >= rest.size():
+			break
+		used = idx
+		result.append(rest[idx])
+	print("%s: pool %d from %d attempts" % [chapter["id"], pool.size(), attempts])
+	return result
 
 
 ## How well a candidate matches the wanted difficulty; armored rooms get a nudge

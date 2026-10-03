@@ -9,6 +9,8 @@ const GameScreen: GDScript = preload("res://game/ui/screens/game_screen.gd")
 const SupporterScreen: GDScript = preload("res://game/ui/screens/supporter_screen.gd")
 const SettingsSheet: GDScript = preload("res://game/ui/settings_sheet.gd")
 const CreditsSheet: GDScript = preload("res://game/ui/credits_sheet.gd")
+const HowToPlaySheet: GDScript = preload("res://game/ui/how_to_play_sheet.gd")
+const AboutSheet: GDScript = preload("res://game/ui/about_sheet.gd")
 const ConfirmSheet: GDScript = preload("res://game/ui/confirm_sheet.gd")
 
 var backdrop: Backdrop
@@ -130,6 +132,21 @@ func open_credits() -> void:
 	_open_overlay(CreditsSheet.new())
 
 
+func open_how_to_play() -> void:
+	_open_overlay(HowToPlaySheet.new())
+
+
+func open_about() -> void:
+	_open_overlay(AboutSheet.new())
+
+
+## Replays the first-room tutorial on Dawn level 1.
+func replay_tutorial() -> void:
+	SaveSystem.set_flag("tutorial_done", false)
+	close_settings()
+	open_game("ch1", 0)
+
+
 func _open_overlay(sheet: Control) -> void:
 	close_settings()
 	settings = sheet
@@ -140,7 +157,7 @@ func _open_overlay(sheet: Control) -> void:
 
 func _confirm_quit() -> void:
 	var sheet: Control = ConfirmSheet.new()
-	sheet.set("message", "Leave Carom?")
+	sheet.set("message", "Leave One Clean Shot?")
 	sheet.set("yes_text", "Quit")
 	sheet.set("no_text", "Keep playing")
 	sheet.set("on_yes", func() -> void: get_tree().quit())

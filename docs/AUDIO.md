@@ -1,4 +1,4 @@
-# Carom — Audio
+# One Clean Shot — Audio
 
 All music and sound effects in `assets/audio/music/` and `assets/audio/sfx/` are
 **original and fully synthesized** by `tools/synth_audio.py`. There are no

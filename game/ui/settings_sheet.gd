@@ -20,18 +20,23 @@ func build() -> void:
 			_first_focus = row.get_child(1)
 	for item: Array in [["Vibration", "haptics"], ["Screen shake", "shake"], ["Longer aim guide", "long_guide"]]:
 		var tkey: String = item[1]
-		var trow: HBoxContainer = UIKit.toggle_row(item[0], bool(SaveSystem.get_setting(tkey, tkey != "long_guide")), pal, func(on: bool) -> void: SaveSystem.set_setting(tkey, on))
+		var trow: HBoxContainer = UIKit.toggle_row(item[0], bool(SaveSystem.get_setting(tkey, true)), pal, func(on: bool) -> void: SaveSystem.set_setting(tkey, on))
 		trow.name = "Row_" + tkey
 		body.add_child(trow)
 	add_gap(16)
-	var buttons: HBoxContainer = HBoxContainer.new()
-	buttons.add_theme_constant_override("separation", 14)
+	var buttons: GridContainer = GridContainer.new()
+	buttons.columns = 2
+	buttons.add_theme_constant_override("h_separation", 14)
+	buttons.add_theme_constant_override("v_separation", 14)
 	body.add_child(buttons)
-	var credits: Button = UIKit.pill("Credits", pal, "soft", Vector2(0, 72), 24)
-	credits.name = "Credits"
-	credits.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	credits.pressed.connect(func() -> void: app.open_credits())
-	buttons.add_child(credits)
+	for item: Array in [["How to play", "HowToPlay", func() -> void: app.open_how_to_play()], ["Support the game", "SupportGame", func() -> void:
+			app.close_settings()
+			app.open_supporter()], ["About", "About", func() -> void: app.open_about()], ["Credits", "Credits", func() -> void: app.open_credits()]]:
+		var b: Button = UIKit.pill(item[0], pal, "soft", Vector2(0, 72), 22)
+		b.name = item[1]
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.pressed.connect(item[2])
+		buttons.add_child(b)
 	var provider: Node = AdManager.provider
 	if provider != null and provider.has_method("privacy_options_required") and provider.privacy_options_required():
 		var privacy: Button = UIKit.pill("Privacy", pal, "soft", Vector2(0, 72), 24)

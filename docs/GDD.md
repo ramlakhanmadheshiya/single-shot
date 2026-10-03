@@ -1,7 +1,7 @@
-# Carom: game design
+# One Clean Shot: game design
 
 ## High concept
-Carom is a minimalist portrait ricochet puzzle. You fire one orb that travels at a constant speed and banks off walls. The aim is to clear every target in the room, ideally in a single shot.
+One Clean Shot is a minimalist portrait ricochet puzzle. You fire one orb that travels at a constant speed and banks off walls. The aim is to clear every target in the room, ideally in a single shot.
 
 ## Market references
 - **Ricochet One, Ricochet Kills, Bouncy Bullet:** the proven "bounce to clear all targets" loop, a visible trajectory preview, and limited shots.
@@ -35,6 +35,7 @@ You read the room, find the angle, and watch one perfect shot chain through ever
 ## Progression
 - 8 chapters × 40 rooms. Each chapter introduces one mechanic (walls, glass, voids and bumpers, portals, prisms and ringed targets, switches and gates, sparks, pivot walls), then combines it with earlier ones.
 - **Rooms:** unlock one at a time. Clearing room N opens room N + 1.
+- **Ramp:** levels 1–3 of every chapter are easy. From level 4 on, each level measures strictly harder than the one before, and level 40 is the hardest.
 - **Chapters:** a chapter opens after 15 clears in the previous one.
 - **Difficulty:** every room asks a little more than the one before. The level generator targets a rising difficulty for each slot, and the solver measures it.
 
@@ -56,7 +57,7 @@ Screen shake, vibration and the longer aim guide can all be toggled in Settings.
 ## Monetisation
 Ads come from AdMob through the Poing plugin, and the one purchase uses Google Play Billing. All rules live in `game/ads/ad_manager.gd`:
 - **Banner:** at the bottom of every screen, with layout space reserved so it never covers a button.
-- **Interstitial:** only when leaving a cleared level. Never in the first 5 clears, then at most once every 3 clears and 3 minutes, and never after a failure.
-- **Rewarded:** +1 hint, only when the player asks.
+- **No interstitials**, by design.
+- **Rewarded:** +1 hint. The game asks before playing one, and if no ad can be shown the hint is free.
 - **Hints:** 3 free hints, refilled to 3 at local midnight.
-- **Supporter Pack** (`supporter_pack`, one-time, suggested $2.99): no banners, no interstitials, every hint free, and a Restore purchase button.
+- **Supporter Pack** (`supporter_pack`, one-time, suggested $2.99 / ₹249): no banner, every hint free, and a Restore purchase button. The price shows in local currency.

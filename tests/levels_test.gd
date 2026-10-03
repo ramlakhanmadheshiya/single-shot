@@ -16,6 +16,15 @@ func _init() -> void:
 		if not data is Dictionary:
 			_fail("%s: missing or invalid" % path)
 			continue
+		# Levels 1-3 are easy; from level 4 on each one must be strictly harder,
+		# so level 40 is the hardest in the chapter.
+		var list: Array = data["levels"]
+		for i: int in range(3, list.size()):
+			if float(list[i]["difficulty"]) <= float(list[i - 1]["difficulty"]):
+				_fail("%s: level %d is not harder than level %d" % [cid, i + 1, i])
+		for i: int in mini(3, list.size()):
+			if float(list[i]["difficulty"]) >= float(list[3]["difficulty"]):
+				_fail("%s: easy level %d is not easier than level 4" % [cid, i + 1])
 		for lv: Dictionary in data["levels"]:
 			count += 1
 			var id: String = str(lv["id"])

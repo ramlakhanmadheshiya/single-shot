@@ -13,14 +13,13 @@ func _ready() -> void:
 	var total_stars: Label = UIKit.label("★ %d / %d" % [SaveSystem.total_stars(), Levels.total_levels() * 3], 24, pal["muted"], 600)
 	total_stars.name = "TotalStars"
 	col.add_child(total_stars)
-	var scroll: ScrollContainer = ScrollContainer.new()
+	var scroll: TouchScroll = TouchScroll.new()
+	scroll.name = "Scroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	col.add_child(scroll)
 	var list: VBoxContainer = VBoxContainer.new()
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 18)
-	scroll.add_child(list)
+	scroll.set_content(list)
 	var prev: Control = null
 	for i: int in Levels.chapters.size():
 		var c: Dictionary = Levels.chapters[i]

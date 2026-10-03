@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Carom -- procedural audio synthesizer.
+One Clean Shot -- procedural audio synthesizer.
 
-Generates ALL of Carom's music and sound effects from scratch (pure synthesis,
+Generates ALL of One Clean Shot's music and sound effects from scratch (pure synthesis,
 no samples, no third-party material). Output is 16-bit PCM WAV:
 
     assets/audio/music/{menu,ch1..ch8}.wav              (mono, 44100 Hz, seamless loops)

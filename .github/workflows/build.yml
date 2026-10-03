@@ -76,7 +76,7 @@ jobs:
             echo "::warning::No release keystore secret; signing with a throwaway key."
             KEYSTORE_PASSWORD=android; KEYSTORE_ALIAS=carom
             keytool -genkeypair -keystore "$ks" -storepass android -keypass android -alias carom \
-              -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Carom"
+              -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=One Clean Shot"
           fi
           {
             echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$ks"
@@ -115,13 +115,14 @@ jobs:
         run: |
           sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/" export_presets.cfg
           sed -i "s/^version\/name=.*/version\/name=\"1.0.${{ github.run_number }}\"/" export_presets.cfg
+          sed -i "s/^config\/version=.*/config\/version=\"1.0.${{ github.run_number }}\"/" project.godot
 
       - name: Export Android APK
         run: |
           mkdir -p build/android
           # Installs Godot's Gradle template, then the AdMob/Billing plugins patch it.
-          godot --headless --path . --install-android-build-template --export-release "Android" build/android/carom.apk
-          test -s build/android/carom.apk
+          godot --headless --path . --install-android-build-template --export-release "Android" build/android/one-clean-shot.apk
+          test -s build/android/one-clean-shot.apk
           ls -lh build/android
 
       - name: Export web build
@@ -134,10 +135,10 @@ jobs:
         run: |
           mkdir -p site/play
           cp -r build/web/* site/play/
-          cp build/android/carom.apk site/carom.apk
+          cp build/android/one-clean-shot.apk site/one-clean-shot.apk
           cp web/index.html site/index.html
           cp assets/icon.svg site/icon.svg
-          size=$(du -h build/android/carom.apk | cut -f1)
+          size=$(du -h build/android/one-clean-shot.apk | cut -f1)
           sed -i "s/{{APK_SIZE}}/${size}/; s/{{VERSION}}/1.0.${{ github.run_number }}/; s/{{BUILD_DATE}}/$(date -u +%Y-%m-%d)/" site/index.html
           touch site/.nojekyll
 
@@ -146,16 +147,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tag="v1.0.${{ github.run_number }}"
-          gh release create "$tag" build/android/carom.apk \
-            --title "Carom $tag" \
-            --notes "Android build of ${GITHUB_SHA::7}. Install: download carom.apk on your phone and open it." \
+          gh release create "$tag" build/android/one-clean-shot.apk \
+            --title "One Clean Shot $tag" \
+            --notes "Android build of ${GITHUB_SHA::7}. Install: download one-clean-shot.apk on your phone and open it." \
             --latest
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: carom-apk
-          path: build/android/carom.apk
+          name: one-clean-shot-apk
+          path: build/android/one-clean-shot.apk
 
       - name: Publish to gh-pages
         uses: peaceiris/actions-gh-pages@v4

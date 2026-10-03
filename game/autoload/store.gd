@@ -9,8 +9,21 @@ signal price_updated(price: String)
 
 const PRODUCT_ID: String = "supporter_pack"
 const FALLBACK_PRICE: String = "$2.99"
+## Shown until Google Play reports the real, localised price (or where Play isn't
+## available). Picked from the device's region setting — no permissions needed.
+## Keep these in line with the prices set in the Play Console.
+const REGIONAL_PRICES: Dictionary = {
+	"IN": "₹249", "US": "$2.99", "GB": "£2.49", "CA": "CA$3.99", "AU": "A$4.49", "NZ": "NZ$4.99",
+	"DE": "€2.99", "FR": "€2.99", "IT": "€2.99", "ES": "€2.99", "NL": "€2.99", "BE": "€2.99",
+	"AT": "€2.99", "IE": "€2.99", "PT": "€2.99", "FI": "€2.99", "GR": "€2.99", "SK": "€2.99",
+	"JP": "¥450", "KR": "₩3,900", "CN": "¥19", "BR": "R$14,90", "MX": "MX$59", "AR": "ARS 2.999",
+	"ID": "Rp 45.000", "PK": "Rs 799", "BD": "৳299", "NP": "Rs 399", "LK": "Rs 899", "NG": "₦2,500",
+	"PH": "₱149", "TR": "₺99,99", "RU": "249 ₽", "ZA": "R54,99", "AE": "AED 10.99", "SA": "SAR 10.99",
+	"VN": "69.000 ₫", "TH": "฿99", "MY": "RM12.90", "SG": "S$3.98", "EG": "EGP 149", "KE": "KSh 399",
+	"PL": "13,99 zł", "SE": "35 kr", "NO": "35 kr", "DK": "22 kr", "CH": "CHF 3.00", "IL": "₪11.90",
+}
 
-var price: String = FALLBACK_PRICE
+var price: String = regional_price()
 var _billing: BillingClient = null
 var _restoring: bool = false
 
@@ -21,6 +34,16 @@ func _ready() -> void:
 		_billing = BillingClient.new()
 		add_child(_billing)
 		_connect_billing()
+
+
+## Best-guess local price from the device locale, e.g. "en_IN" -> "₹249".
+static func regional_price() -> String:
+	var parts: PackedStringArray = OS.get_locale().replace("-", "_").split("_")
+	for i: int in range(parts.size() - 1, 0, -1):
+		var region: String = parts[i].to_upper()
+		if REGIONAL_PRICES.has(region):
+			return REGIONAL_PRICES[region]
+	return FALLBACK_PRICE
 
 
 func available() -> bool:
@@ -114,7 +137,7 @@ func _on_purchases(res: Dictionary) -> void:
 				_billing.acknowledge_purchase(str(p["purchase_token"]))
 	if owned and not SaveSystem.is_supporter():
 		SaveSystem.set_supporter(true)
-		purchase_finished.emit(true, "Thank you for supporting Carom!")
+		purchase_finished.emit(true, "Thank you for supporting One Clean Shot!")
 	if _restoring:
 		_restoring = false
 		restore_finished.emit(owned, "Supporter Pack restored." if owned else "No previous purchase found on this Google account.")

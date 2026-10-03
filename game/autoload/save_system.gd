@@ -2,7 +2,7 @@ extends Node
 ## Versioned local progress and settings, stored as JSON in user://.
 
 const SAVE_PATH: String = "user://carom_save.json"
-const SAVE_VERSION: int = 1
+const SAVE_VERSION: int = 2
 const DAILY_HINTS: int = 3
 
 var data: Dictionary = {}
@@ -23,6 +23,10 @@ func load_save() -> void:
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	if parsed is Dictionary:
 		_merge(data, parsed)
+		if int((parsed as Dictionary).get("version", 1)) < 2:
+			# v2: the longer aim guide became the default for everyone.
+			data["settings"]["long_guide"] = true
+			save()
 
 
 func save() -> void:
@@ -157,7 +161,7 @@ func _defaults() -> Dictionary:
 			"sound_volume": 0.75,
 			"haptics": true,
 			"shake": true,
-			"long_guide": false,
+			"long_guide": true,
 		},
 	}
 

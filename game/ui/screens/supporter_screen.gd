@@ -17,7 +17,7 @@ func _ready() -> void:
 	heart.custom_minimum_size = Vector2(0, 170)
 	col.add_child(heart)
 	col.add_child(UIKit.label("Supporter Pack", 52, pal["ink"], 500))
-	var sub: Label = UIKit.label("Carom is made by one person. Support it once,\nand play it the calm way, forever.", 24, pal["muted"], 400)
+	var sub: Label = UIKit.label("One Clean Shot is made by one person. Support it once,\nand play it the calm way, forever.", 24, pal["muted"], 400)
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(sub)
 
@@ -25,7 +25,7 @@ func _ready() -> void:
 	list.add_theme_constant_override("separation", 10)
 	list.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	col.add_child(list)
-	for perk: Array in [["ban", "No banner ads"], ["ban", "No ads between levels"], ["infinity", "Every hint free, always"], ["heart", "Keeps new chapters coming"]]:
+	for perk: Array in [["ban", "No banner ads"], ["infinity", "Every hint free, always"], ["heart", "Keeps new chapters coming"]]:
 		var row: HBoxContainer = HBoxContainer.new()
 		row.add_theme_constant_override("separation", 18)
 		var ic: TextureRect = TextureRect.new()

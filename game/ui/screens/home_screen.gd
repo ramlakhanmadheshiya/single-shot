@@ -32,11 +32,13 @@ func _ready() -> void:
 
 	var title_box: VBoxContainer = VBoxContainer.new()
 	title_box.add_theme_constant_override("separation", -6)
-	var title: Label = UIKit.label("carom", 132, pal["ink"], 250)
 	var fv: FontVariation = (UIKit.font(250) as FontVariation).duplicate()
-	fv.spacing_glyph = 10
-	title.add_theme_font_override("font", fv)
-	title_box.add_child(title)
+	fv.spacing_glyph = 6
+	for word: String in ["one clean", "shot"]:
+		var title: Label = UIKit.label(word, 96, pal["ink"], 250)
+		title.add_theme_font_override("font", fv)
+		title.add_theme_constant_override("line_spacing", -10)
+		title_box.add_child(title)
 	title_box.add_child(UIKit.label("a quiet ricochet puzzle", 26, pal["muted"], 400))
 	col.add_child(title_box)
 

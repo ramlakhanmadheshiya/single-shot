@@ -196,6 +196,15 @@ func nudge_aim(degrees: float) -> void:
 	queue_redraw()
 
 
+## True when the current aim line passes through at least one target.
+func aim_hits_target() -> bool:
+	if not has_aim or playing:
+		return false
+	if _preview.is_empty():
+		_preview = RicochetSim.preview(level, state, aim_angle, 150.0, 2 if bool(SaveSystem.get_setting("long_guide", true)) else 1)
+	return not (_preview.get("pops", []) as Array).is_empty()
+
+
 func fire_current() -> void:
 	if has_aim and not playing:
 		fire(aim_angle)
@@ -586,7 +595,7 @@ func _draw_round_rect(rect: Rect2, radius: float, color: Color) -> void:
 
 func _draw_aim() -> void:
 	if _preview.is_empty():
-		_preview = RicochetSim.preview(level, state, aim_angle, 150.0, 2 if bool(SaveSystem.get_setting("long_guide", false)) else 1)
+		_preview = RicochetSim.preview(level, state, aim_angle, 150.0, 2 if bool(SaveSystem.get_setting("long_guide", true)) else 1)
 	var pts: PackedVector2Array = _preview["points"]
 	var col: Color = Color(pal["ink"], 0.75)
 	var phase: float = fmod(_clock * 60.0, 22.0)
