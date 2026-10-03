@@ -601,10 +601,20 @@ func _show_settings() -> void:
 	settings_panel.offset_bottom = 0.0
 	settings_panel.custom_minimum_size.y = height
 	settings_layer.add_child(settings_panel)
+	var sheet: VBoxContainer = VBoxContainer.new()
+	sheet.add_theme_constant_override("separation", 8)
+	settings_panel.add_child(sheet)
+	var header: HBoxContainer = HBoxContainer.new()
+	sheet.add_child(header)
+	var settings_title: Label = _make_label(header, "settings", 38, "text")
+	settings_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var close_button: Button = _make_button(header, _t("close"), _close_settings, Vector2(132.0, 72.0), "secondary")
+	close_button.set_meta("bb_action", "close_settings")
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "SettingsScroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	settings_panel.add_child(scroll)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sheet.add_child(scroll)
 	settings_scroll = scroll
 	settings_content = VBoxContainer.new()
 	settings_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -620,12 +630,6 @@ func _show_settings() -> void:
 func _build_settings_contents() -> void:
 	switch_controls.clear()
 	volume_controls.clear()
-	var header: HBoxContainer = HBoxContainer.new()
-	settings_content.add_child(header)
-	var settings_title: Label = _make_label(header, "settings", 38, "text")
-	settings_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var close_button: Button = _make_button(header, _t("close"), _close_settings, Vector2(132.0, 72.0), "secondary")
-	close_button.set_meta("bb_action", "close_settings")
 	_add_switch_row("sound", "sound_enabled", true)
 	_add_switch_row("music", "music_enabled", true)
 	if _is_mobile():
@@ -812,11 +816,11 @@ func _open_info_sheet(kind: String) -> void:
 	panel.custom_minimum_size = Vector2(minf(560.0, get_viewport_rect().size.x * 0.82), 260.0) if kind != "reset_confirm" else Vector2(minf(780.0, get_viewport_rect().size.x * 0.88), 360.0)
 	center.add_child(panel)
 	info_panel = panel
-	var box: VBoxContainer = VBoxContainer.new()
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 20)
-	panel.add_child(box)
 	if kind == "reset_confirm":
+		var box: VBoxContainer = VBoxContainer.new()
+		box.alignment = BoxContainer.ALIGNMENT_CENTER
+		box.add_theme_constant_override("separation", 20)
+		panel.add_child(box)
 		_make_label(box, "reset_question", 31, "text")
 		var buttons: HBoxContainer = HBoxContainer.new()
 		buttons.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -827,9 +831,25 @@ func _open_info_sheet(kind: String) -> void:
 		var delete: Button = _make_button(buttons, _t("delete"), _delete_progress, Vector2(190.0, 74.0), "danger")
 		delete.set_meta("bb_action", "reset_delete")
 	else:
-		var title_key: String = kind
-		_make_label(box, title_key, 42, "accent")
-		_make_label(box, "pending", 28, "text")
+		var sheet: VBoxContainer = VBoxContainer.new()
+		sheet.add_theme_constant_override("separation", 8)
+		panel.add_child(sheet)
+		var header: HBoxContainer = HBoxContainer.new()
+		sheet.add_child(header)
+		var title: Label = _make_label(header, kind, 34, "accent")
+		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var close_button: Button = _make_button(header, _t("close"), _close_info_sheet, Vector2(112.0, 64.0), "secondary")
+		close_button.set_meta("bb_action", "close_info")
+		var scroll: ScrollContainer = ScrollContainer.new()
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		sheet.add_child(scroll)
+		var content: VBoxContainer = VBoxContainer.new()
+		content.alignment = BoxContainer.ALIGNMENT_CENTER
+		content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		content.add_theme_constant_override("separation", 20)
+		scroll.add_child(content)
+		_make_label(content, "pending", 28, "text")
 
 func _delete_progress() -> void:
 	SaveSystem.reset_progress()
