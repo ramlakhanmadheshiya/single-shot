@@ -669,8 +669,9 @@ func _build_settings_contents() -> void:
 	credits_button.set_meta("bb_action", "credits")
 	var about_button: Button = _make_button(actions, _t("about"), _open_about, Vector2(minf(300.0, get_viewport_rect().size.x * 0.62), 72.0), "secondary")
 	about_button.set_meta("bb_action", "about")
-	var reset_button: Button = _make_button(actions, _t("reset_progress"), _open_reset_confirm, Vector2(minf(300.0, get_viewport_rect().size.x * 0.62), 72.0), "danger")
-	reset_button.set_meta("bb_action", "reset_progress")
+	if screen != "game":
+		var reset_button: Button = _make_button(actions, _t("reset_progress"), _open_reset_confirm, Vector2(minf(300.0, get_viewport_rect().size.x * 0.62), 72.0), "danger")
+		reset_button.set_meta("bb_action", "reset_progress")
 	if OS.is_debug_build():
 		var ads_row: HBoxContainer = HBoxContainer.new()
 		settings_content.add_child(ads_row)
@@ -832,6 +833,8 @@ func _open_info_sheet(kind: String) -> void:
 
 func _delete_progress() -> void:
 	SaveSystem.reset_progress()
+	chapter_index = 0
+	_return_to_menu_after_level = false
 	_close_info_sheet()
 	if settings_status != null and is_instance_valid(settings_status):
 		settings_status.text = _t("reset_done")
