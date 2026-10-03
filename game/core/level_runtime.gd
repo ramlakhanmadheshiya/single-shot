@@ -28,6 +28,7 @@ var aim_vector: Vector2 = Vector2.ZERO
 var drag_origin: Vector2 = Vector2.ZERO
 var pointer_active: bool = false
 var shot_age: float = 0.0
+var win_delay_age: float = -1.0
 var settle_age: float = 0.0
 var hint_visible: bool = false
 var _world_size: Vector2 = Vector2.ZERO
@@ -353,6 +354,7 @@ func fire(direction: Vector2, power: float = -1.0) -> void:
 	body.body_entered.connect(_on_shot_body_entered.bind(body))
 	projectiles.append(body)
 	shot_age = 0.0
+	win_delay_age = -1.0
 	settle_age = 0.0
 	AudioManager.play_game("shot")
 	queue_redraw()
@@ -385,6 +387,8 @@ func _kill_ghoul(target: Area2D) -> void:
 	if not is_instance_valid(target) or not ghouls.has(target):
 		return
 	ghouls.erase(target)
+	if ghouls.is_empty():
+		win_delay_age = 0.0
 	_create_hit_pop(target.global_position, true)
 	var ghoul_sprite: Node2D = target.get_child(1) as Node2D if target.get_child_count() > 1 else null
 	if ghoul_sprite != null:
@@ -402,6 +406,20 @@ func _physics_process(delta: float) -> void:
 	if state != "shot_flying" and state != "settling":
 		return
 	shot_age += delta
+	if win_delay_age >= 0.0:
+		win_delay_age += delta
+		if win_delay_age >= 0.6:
+			for projectile in projectiles:
+				if is_instance_valid(projectile): projectile.queue_free()
+			projectiles.clear()
+			_finish_shot()
+			return
+	if shots_used >= shot_limit and not ghouls.is_empty() and shot_age >= tuning.last_shot_wait:
+		for projectile in projectiles:
+			if is_instance_valid(projectile): projectile.queue_free()
+		projectiles.clear()
+		_finish_shot()
+		return
 	if shot_age >= tuning.shot_lifetime:
 		for projectile in projectiles:
 			if is_instance_valid(projectile): projectile.queue_free()

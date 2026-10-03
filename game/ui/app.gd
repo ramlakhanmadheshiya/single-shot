@@ -904,6 +904,12 @@ func _show_game(level_number: int) -> void:
 	hints_left = int(SaveSystem.data.get("hints_left", 3))
 	SaveSystem.set_setting("last_played_chapter", chapter_index)
 	var data: Dictionary = _level_metadata(level_number)
+	game_tuning = TuningScript.duplicate(true) as PhysicsTuning
+	var level_physics: Dictionary = data.get("physics", {})
+	for property: Dictionary in game_tuning.get_property_list():
+		var property_name: String = str(property.get("name", ""))
+		if level_physics.has(property_name) and (int(property.get("usage", 0)) & PROPERTY_USAGE_STORAGE) != 0:
+			game_tuning.set(property_name, level_physics[property_name])
 	var par_three: int = int(data.get("par_3", 2))
 	GameState.begin_level(str(data.get("id", "ch01_l%03d" % level_number)), str(chapter_data.get("id", "ch01")))
 	game_state = "intro"
