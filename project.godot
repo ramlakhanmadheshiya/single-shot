@@ -28,6 +28,7 @@ AudioManager="*res://game/autoload/audio_manager.gd"
 SceneRouter="*res://game/autoload/scene_router.gd"
 ThemeManager="*res://game/autoload/theme_manager.gd"
 LevelRegistry="*res://game/autoload/level_registry.gd"
+AdManager="*res://game/ads/ad_manager.gd"
 
 [display]
 

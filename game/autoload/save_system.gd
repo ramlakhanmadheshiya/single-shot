@@ -1,11 +1,12 @@
 extends Node
 ## Versioned local progress and settings. Each level uses a stable string key.
 const SAVE_PATH: String = "user://save.json"
-const SAVE_VERSION: int = 3
+const SAVE_VERSION: int = 4
 var data: Dictionary = {}
 
 func _ready() -> void:
 	load_save()
+	update_daily_hints()
 
 func load_save() -> void:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -40,6 +41,59 @@ func get_level(level_id: String) -> Dictionary:
 	var levels: Dictionary = data.get("levels", {})
 	var record: Variant = levels.get(level_id, {})
 	return record if record is Dictionary else {}
+
+func update_daily_hints(today: String = "") -> void:
+	if today.is_empty():
+		today = local_date_string()
+	var changed: bool = false
+	if not data.has("hints_left"):
+		data["hints_left"] = 3
+		changed = true
+	if not data.has("bonus_hints"):
+		data["bonus_hints"] = 0
+		changed = true
+	var last_reset: String = str(data.get("last_reset_date", ""))
+	var last_seen: String = str(data.get("last_seen_date", ""))
+	if last_reset.is_empty():
+		last_reset = today
+		data["last_reset_date"] = today
+		changed = true
+	var effective_day: String = today
+	if last_seen > effective_day:
+		effective_day = last_seen
+	if last_reset > effective_day:
+		effective_day = last_reset
+	if effective_day > last_reset:
+		data["hints_left"] = 3
+		data["last_reset_date"] = effective_day
+		changed = true
+	if effective_day > last_seen:
+		data["last_seen_date"] = effective_day
+		changed = true
+	if changed:
+		save()
+
+func local_date_string() -> String:
+	var date: Dictionary = Time.get_datetime_dict_from_system()
+	return "%04d-%02d-%02d" % [int(date.get("year", 2000)), int(date.get("month", 1)), int(date.get("day", 1))]
+
+func spend_hint() -> bool:
+	update_daily_hints()
+	var free_count: int = int(data.get("hints_left", 0))
+	if free_count > 0:
+		data["hints_left"] = free_count - 1
+		save()
+		return true
+	var bonus_count: int = int(data.get("bonus_hints", 0))
+	if bonus_count > 0:
+		data["bonus_hints"] = bonus_count - 1
+		save()
+		return true
+	return false
+
+func add_bonus_hint(count: int = 1) -> void:
+	data["bonus_hints"] = int(data.get("bonus_hints", 0)) + maxi(0, count)
+	save()
 
 func record_level(level_id: String, stars: int, badge: bool = false) -> void:
 	var levels: Dictionary = data.get("levels", {})
@@ -84,6 +138,10 @@ func _default_data() -> Dictionary:
 		"unlocks": ["ch01"],
 		"tutorial_seen": false,
 		"current_level": 1,
+		"hints_left": 3,
+		"bonus_hints": 0,
+		"last_reset_date": "",
+		"last_seen_date": "",
 		"settings": {
 			"music_volume": 0.65,
 			"sound_volume": 0.8,
@@ -94,7 +152,8 @@ func _default_data() -> Dictionary:
 			"show_aim_guide": true,
 			"screen_shake": true,
 			"theme": "dark",
-			"last_played_chapter": 0
+			"last_played_chapter": 0,
+			"ads_enabled": true
 		}
 	}
 

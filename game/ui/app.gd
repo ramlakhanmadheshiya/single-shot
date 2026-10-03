@@ -49,14 +49,25 @@ var tutorial_drag_active: bool = false
 var tutorial_target: Control
 var _tutorial_hand_base_y: float = 0.0
 var active_tutorial_steps: Array[Dictionary] = []
+var banner_strip: PanelContainer
+var banner_label: Label
+var hint_sheet: Control
+var ad_sheet: Control
+var hint_bonus_mark: Label
+var web_start_layer: Control
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ThemeManager.apply_theme(false)
 	Events.theme_changed.connect(_on_theme_changed)
+	AdManager.rewarded_completed.connect(_on_rewarded_completed)
+	AdManager.rewarded_failed.connect(_on_rewarded_failed)
 	_build_world()
+	_build_banner_strip()
 	get_viewport().size_changed.connect(_on_viewport_resized)
 	_show_menu()
+	if OS.has_feature("web"):
+		_show_web_start()
 
 func _process(_delta: float) -> void:
 	if tutorial_overlay == null or not is_instance_valid(tutorial_overlay):
@@ -86,6 +97,17 @@ func _build_world() -> void:
 	add_child(content_layer)
 	_refresh_palette()
 
+func _build_banner_strip() -> void:
+	banner_strip = AdManager.create_banner(self, _t("ad_space"), Color(palette["surface_alt"]), Color(palette["outline"]), Color(palette["text_muted"]))
+	banner_strip.name = "BannerStrip"
+	_update_banner()
+
+func _update_banner() -> void:
+	if banner_strip == null:
+		return
+	var allowed: bool = screen == "menu" or screen == "levels"
+	banner_strip.visible = allowed and settings_layer == null and info_layer == null and hint_sheet == null and AdManager.banner_visible
+
 func _tile_dimensions(width: float, height: float) -> Vector2:
 	return Vector2(clampf((width - 150.0) / 4.0, 112.0, 260.0), clampf((height - 370.0) / 5.0, 72.0, 122.0))
 
@@ -106,6 +128,7 @@ func _on_viewport_resized() -> void:
 			var slider: VolumeSlider = slider_value as VolumeSlider
 			if is_instance_valid(slider):
 				slider.custom_minimum_size.x = minf(320.0, get_viewport_rect().size.x * 0.46)
+	_update_banner()
 
 func _draw_graveyard(canvas: Control) -> void:
 	var size: Vector2 = canvas.size
@@ -131,6 +154,11 @@ func _refresh_palette() -> void:
 	var backdrop: ColorRect = get_node_or_null("Backdrop") as ColorRect
 	if backdrop != null:
 		backdrop.color = Color(palette["bg"])
+	if banner_strip != null:
+		banner_strip.add_theme_stylebox_override("panel", _button_style(str(palette["surface_alt"]), str(palette["outline"]), false))
+		var banner_text: Label = banner_strip.find_child("BannerLabel", true, false) as Label
+		if banner_text != null:
+			banner_text.add_theme_color_override("font_color", Color(palette["text_muted"]))
 	var art: Control = get_node_or_null("GraveyardArt") as Control
 	if art != null:
 		art.queue_redraw()
@@ -181,17 +209,12 @@ func _show_menu() -> void:
 	_close_settings(false)
 	_clear_screen()
 	screen = "menu"
-	var gear: Button = _make_button(content_layer, _t("settings_icon"), _show_settings, Vector2(76.0, 76.0), "secondary")
-	gear.name = "SettingsIcon"
-	gear.set_meta("bb_action", "settings")
-	gear.anchor_left = 1.0
-	gear.anchor_right = 1.0
-	gear.offset_left = -106.0
-	gear.offset_right = -30.0
-	gear.offset_top = 26.0
-	gear.offset_bottom = 102.0
+	AdManager.show_banner("main_menu")
+	_update_banner()
 	var center: CenterContainer = CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.offset_bottom = -94.0
 	content_layer.add_child(center)
 	var panel: PanelContainer = _make_panel()
 	panel.custom_minimum_size = Vector2(minf(940.0, get_viewport_rect().size.x * 0.88), minf(820.0, get_viewport_rect().size.y * 0.9))
@@ -224,11 +247,49 @@ func _show_menu() -> void:
 	var levels_button: Button = _make_button(menu, _t("levels"), _show_level_select, Vector2(minf(420.0, get_viewport_rect().size.x * 0.58), 84.0), "secondary")
 	levels_button.name = "LevelsButton"
 	levels_button.set_meta("bb_action", "levels_menu")
+	# Keep this control above the full-screen menu container in draw and input order.
+	var gear: Button = _make_button(content_layer, _t("settings_icon"), _show_settings, Vector2(76.0, 76.0), "secondary")
+	gear.name = "SettingsIcon"
+	gear.set_meta("bb_action", "settings")
+	gear.anchor_left = 1.0
+	gear.anchor_right = 1.0
+	gear.offset_left = -106.0
+	gear.offset_right = -30.0
+	gear.offset_top = 26.0
+	gear.offset_bottom = 102.0
+
+func _show_web_start() -> void:
+	if web_start_layer != null:
+		return
+	web_start_layer = Control.new()
+	web_start_layer.name = "WebStartScreen"
+	web_start_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	web_start_layer.z_index = 120
+	add_child(web_start_layer)
+	var shade: ColorRect = ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(palette["bg"])
+	web_start_layer.add_child(shade)
+	var center: CenterContainer = CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	web_start_layer.add_child(center)
+	var panel: PanelContainer = _make_panel()
+	center.add_child(panel)
+	var start: Button = _make_button(panel, _t("tap_to_start"), _start_web_game, Vector2(420.0, 96.0), "primary")
+	start.set_meta("bb_action", "web_start")
+
+func _start_web_game() -> void:
+	AudioManager.start_after_user_gesture()
+	if web_start_layer != null:
+		web_start_layer.queue_free()
+	web_start_layer = null
 
 func _show_level_select() -> void:
 	_close_jump_overlay()
 	_clear_screen()
 	screen = "levels"
+	AdManager.show_banner("level_select")
+	_update_banner()
 	_return_to_menu_after_level = false
 	chapter_index = _current_level_chapter()
 	_build_level_page()
@@ -285,6 +346,7 @@ func _build_level_page() -> void:
 	_next_playable_level = _find_next_playable(chapter_data)
 	var root: VBoxContainer = VBoxContainer.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.offset_bottom = -94.0
 	root.add_theme_constant_override("separation", 18)
 	content_layer.add_child(root)
 	var margin: MarginContainer = MarginContainer.new()
@@ -309,6 +371,7 @@ func _build_level_page() -> void:
 	star_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	star_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var gear: Button = _make_button(top, _t("settings_icon"), _show_settings, Vector2(72.0, 72.0), "secondary")
+	gear.name = "SettingsIcon"
 	if get_viewport_rect().size.x < 900.0:
 		star_label.visible = false
 	gear.set_meta("bb_action", "settings")
@@ -507,6 +570,8 @@ func _close_jump_overlay() -> void:
 func _show_settings() -> void:
 	if settings_layer != null:
 		return
+	AdManager.hide_banner()
+	_update_banner()
 	settings_layer = Control.new()
 	settings_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	settings_layer.z_index = 40
@@ -600,6 +665,25 @@ func _build_settings_contents() -> void:
 	about_button.set_meta("bb_action", "about")
 	var reset_button: Button = _make_button(actions, _t("reset_progress"), _open_reset_confirm, Vector2(minf(300.0, get_viewport_rect().size.x * 0.62), 72.0), "danger")
 	reset_button.set_meta("bb_action", "reset_progress")
+	if OS.is_debug_build():
+		var ads_row: HBoxContainer = HBoxContainer.new()
+		settings_content.add_child(ads_row)
+		var ads_text: Label = _make_label(ads_row, "ads_enabled", 24, "text")
+		ads_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var ads_enabled: bool = bool(SaveSystem.get_setting("ads_enabled", true))
+		var ads_switch: Button = _make_button(ads_row, _t("on") if ads_enabled else _t("off"), _toggle_ads_enabled, Vector2(112.0, 72.0), "switch_on" if ads_enabled else "switch_off")
+		ads_switch.name = "AdsEnabledSwitch"
+		ads_switch.set_meta("bb_action", "ads_enabled")
+	if AppLinks.WEBSITE_URL != "" or AppLinks.PRIVACY_URL != "":
+		var links: HBoxContainer = HBoxContainer.new()
+		links.alignment = BoxContainer.ALIGNMENT_CENTER
+		settings_content.add_child(links)
+		if AppLinks.WEBSITE_URL != "":
+			var website: Button = _make_button(links, _t("website"), func(): OS.shell_open(AppLinks.WEBSITE_URL), Vector2(180.0, 64.0), "secondary")
+			website.set_meta("bb_action", "website")
+		if AppLinks.PRIVACY_URL != "":
+			var privacy: Button = _make_button(links, _t("privacy"), func(): OS.shell_open(AppLinks.PRIVACY_URL), Vector2(180.0, 64.0), "secondary")
+			privacy.set_meta("bb_action", "privacy")
 	settings_status = _make_label(settings_content, "reset_done", 20, "success")
 	settings_status.name = "SettingsStatus"
 	settings_status.visible = false
@@ -663,6 +747,16 @@ func _toggle_setting(key: String) -> void:
 	elif key == "music_enabled":
 		AudioServer.set_bus_mute(AudioServer.get_bus_index("Music"), not value)
 
+func _toggle_ads_enabled() -> void:
+	var enabled: bool = not bool(SaveSystem.get_setting("ads_enabled", true))
+	SaveSystem.set_setting("ads_enabled", enabled)
+	AdManager.set_ads_enabled(enabled)
+	var control: Button = settings_content.find_child("AdsEnabledSwitch", true, false) as Button
+	if control != null:
+		control.text = _t("on") if enabled else _t("off")
+		_style_button(control, "switch_on" if enabled else "switch_off")
+	_update_banner()
+
 func _set_theme_mode(mode: int) -> void:
 	ThemeManager.set_mode(mode as ThemeManager.Mode)
 
@@ -675,7 +769,7 @@ func _is_mobile() -> bool:
 	return force_mobile_controls or OS.has_feature("mobile")
 
 func _open_how_to() -> void:
-	_show_tutorial(true)
+	_open_info_sheet("how_to_play")
 
 func _open_credits() -> void:
 	_open_info_sheet("credits")
@@ -708,7 +802,7 @@ func _open_info_sheet(kind: String) -> void:
 	info_layer.add_child(center)
 	var panel: PanelContainer = _make_panel()
 	panel.name = "InfoPanel"
-	panel.custom_minimum_size = Vector2(minf(780.0, get_viewport_rect().size.x * 0.88), 460.0)
+	panel.custom_minimum_size = Vector2(minf(560.0, get_viewport_rect().size.x * 0.82), 260.0) if kind != "reset_confirm" else Vector2(minf(780.0, get_viewport_rect().size.x * 0.88), 360.0)
 	center.add_child(panel)
 	info_panel = panel
 	var box: VBoxContainer = VBoxContainer.new()
@@ -726,15 +820,9 @@ func _open_info_sheet(kind: String) -> void:
 		var delete: Button = _make_button(buttons, _t("delete"), _delete_progress, Vector2(190.0, 74.0), "danger")
 		delete.set_meta("bb_action", "reset_delete")
 	else:
-		var title_key: String = "credits" if kind == "credits" else "about"
+		var title_key: String = kind
 		_make_label(box, title_key, 42, "accent")
-		var body_key: String = "credits_text" if kind == "credits" else "about_text"
-		var body: Label = _make_label(box, body_key, 27, "text")
-		body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		var close: Button = _make_button(box, _t("close"), _close_info_sheet, Vector2(220.0, 74.0), "primary")
-		close.set_meta("bb_action", "info_close")
-	_make_label(box, "version", 18, "text_muted").horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_make_label(box, "pending", 28, "text")
 
 func _delete_progress() -> void:
 	SaveSystem.reset_progress()
@@ -751,6 +839,7 @@ func _close_info_sheet() -> void:
 	info_layer = null
 	info_panel = null
 	info_id = ""
+	_update_banner()
 
 func _on_settings_outside(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
@@ -773,21 +862,35 @@ func _close_settings(animate: bool = true) -> void:
 			settings_layer = null
 			settings_panel = null
 			settings_content = null
+			_sync_banner_for_screen()
 		)
 	else:
 		settings_layer.queue_free()
 		settings_layer = null
 		settings_panel = null
 		settings_content = null
+		_sync_banner_for_screen()
 	_close_info_sheet()
 
+func _sync_banner_for_screen() -> void:
+	if screen == "menu":
+		AdManager.show_banner("main_menu")
+	elif screen == "levels":
+		AdManager.show_banner("level_select")
+	else:
+		AdManager.hide_banner()
+	_update_banner()
+
 func _show_game(level_number: int) -> void:
+	AdManager.hide_banner()
+	_update_banner()
 	_close_settings(false)
 	_clear_screen()
 	screen = "game"
 	current_level_number = level_number
 	shots_used = 0
-	hints_left = HINTS_PER_LEVEL
+	SaveSystem.update_daily_hints()
+	hints_left = int(SaveSystem.data.get("hints_left", 3))
 	SaveSystem.set_setting("last_played_chapter", chapter_index)
 	var data: Dictionary = _level_metadata(level_number)
 	var par_three: int = int(data.get("par_3", 2))
@@ -828,7 +931,7 @@ func _show_game(level_number: int) -> void:
 	var hint_row: HBoxContainer = HBoxContainer.new()
 	hint_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	game_box.add_child(hint_row)
-	var hint_button: Button = _make_button(hint_row, _t("hint", {"number": hints_left}), _use_hint, Vector2(240.0, 72.0), "secondary")
+	var hint_button: Button = _make_button(hint_row, _t("hint_count", {"number": hints_left + int(SaveSystem.data.get("bonus_hints", 0))}), _use_hint, Vector2(200.0, 72.0), "secondary")
 	hint_button.name = "HintButton"
 	var bulb: LightBulbIcon = LightBulbIcon.new()
 	bulb.custom_minimum_size = Vector2(38.0, 42.0)
@@ -843,6 +946,20 @@ func _show_game(level_number: int) -> void:
 	bulb.set_tint(Color(palette["moon"]), Color(palette["outline"]))
 	bulb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hint_button.add_child(bulb)
+	hint_bonus_mark = Label.new()
+	hint_bonus_mark.name = "HintBonusMark"
+	hint_bonus_mark.text = "+"
+	hint_bonus_mark.add_theme_font_size_override("font_size", 20)
+	hint_bonus_mark.add_theme_color_override("font_color", Color(palette["accent"]))
+	hint_bonus_mark.anchor_left = 1.0
+	hint_bonus_mark.anchor_right = 1.0
+	hint_bonus_mark.offset_left = -40.0
+	hint_bonus_mark.offset_right = -12.0
+	hint_bonus_mark.offset_top = 4.0
+	hint_bonus_mark.offset_bottom = 30.0
+	hint_bonus_mark.visible = hints_left <= 0
+	hint_bonus_mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hint_button.add_child(hint_bonus_mark)
 	hint_button.set_meta("bb_action", "hint")
 	var footer: HBoxContainer = HBoxContainer.new()
 	footer.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -858,6 +975,8 @@ func _show_game(level_number: int) -> void:
 		_show_tutorial(false)
 
 func _show_tutorial(replay: bool, steps: Array[Dictionary] = []) -> void:
+	if screen != "game" or settings_layer != null or info_layer != null or hint_sheet != null:
+		return
 	if tutorial_overlay != null:
 		tutorial_overlay.queue_free()
 	tutorial_replay = replay
@@ -995,12 +1114,11 @@ func _finish_tutorial() -> void:
 	active_tutorial_steps.clear()
 
 func _use_hint() -> void:
-	if hints_left <= 0:
+	if not SaveSystem.spend_hint():
+		_open_hint_sheet()
 		return
-	hints_left -= 1
-	var button: Button = find_child("HintButton", true, false) as Button
-	if button != null:
-		button.text = _t("hint", {"number": hints_left})
+	hints_left = int(SaveSystem.data.get("hints_left", 0))
+	_update_hint_button()
 	if hint_line != null:
 		hint_line.queue_free()
 	hint_line = AimHint.new()
@@ -1010,6 +1128,72 @@ func _use_hint() -> void:
 	hint_line.set_tint(Color(palette["accent"]))
 	content_layer.add_child(hint_line)
 	content_layer.move_child(hint_line, 1)
+
+func _update_hint_button() -> void:
+	var button: Button = find_child("HintButton", true, false) as Button
+	if button == null:
+		return
+	button.text = _t("hint_count", {"number": int(SaveSystem.data.get("hints_left", 0)) + int(SaveSystem.data.get("bonus_hints", 0))})
+	var plus: Label = button.get_node_or_null("HintBonusMark") as Label
+	if plus != null:
+		plus.visible = int(SaveSystem.data.get("hints_left", 0)) == 0
+
+func _open_hint_sheet() -> void:
+	if hint_sheet != null:
+		return
+	hint_sheet = Control.new()
+	hint_sheet.name = "NoHintsSheet"
+	hint_sheet.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hint_sheet.z_index = 80
+	add_child(hint_sheet)
+	var dim: ColorRect = ColorRect.new()
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(palette["overlay"], 0.7)
+	dim.gui_input.connect(func(event: InputEvent):
+		if event is InputEventMouseButton and event.pressed:
+			_close_hint_sheet()
+	)
+	hint_sheet.add_child(dim)
+	var center: CenterContainer = CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hint_sheet.add_child(center)
+	var panel: PanelContainer = _make_panel()
+	panel.custom_minimum_size = Vector2(minf(600.0, get_viewport_rect().size.x * 0.9), 340.0)
+	center.add_child(panel)
+	var box: VBoxContainer = VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 18)
+	panel.add_child(box)
+	_make_label(box, "no_hints_left", 34, "text")
+	var status: Label = _make_label(box, "", 20, "danger")
+	status.name = "HintAdStatus"
+	status.visible = false
+	var watch: Button = _make_button(box, _t("watch_hint_ad"), func(): AdManager.show_rewarded(), Vector2(minf(470.0, get_viewport_rect().size.x * 0.78), 76.0), "primary")
+	watch.name = "WatchHintAd"
+	watch.set_meta("bb_action", "watch_hint_ad")
+	watch.disabled = not AdManager.is_rewarded_ready()
+	var later: Button = _make_button(box, _t("not_now"), _close_hint_sheet, Vector2(200.0, 68.0), "secondary")
+	later.set_meta("bb_action", "hint_not_now")
+	_update_banner()
+
+func _close_hint_sheet() -> void:
+	if hint_sheet != null:
+		hint_sheet.queue_free()
+	hint_sheet = null
+	_update_banner()
+
+func _on_rewarded_completed() -> void:
+	SaveSystem.add_bonus_hint(1)
+	_close_hint_sheet()
+	_update_hint_button()
+
+func _on_rewarded_failed() -> void:
+	if hint_sheet == null:
+		return
+	var status: Label = hint_sheet.find_child("HintAdStatus", true, false) as Label
+	if status != null:
+		status.text = _t("no_ad_available")
+		status.visible = true
 
 func _undo_shot() -> void:
 	shots_used = maxi(0, shots_used - 1)

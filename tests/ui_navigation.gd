@@ -15,6 +15,21 @@ func _run() -> void:
 	saved_chapters = LevelRegistry.chapters.duplicate(true)
 	original_theme = int(ThemeManager.mode)
 	SaveSystem.data = SaveSystem._default_data()
+	var today: String = SaveSystem.local_date_string()
+	var tomorrow_dict: Dictionary = Time.get_datetime_dict_from_unix_time(Time.get_unix_time_from_system() + 86400.0)
+	var tomorrow: String = "%04d-%02d-%02d" % [int(tomorrow_dict.year), int(tomorrow_dict.month), int(tomorrow_dict.day)]
+	SaveSystem.update_daily_hints(today)
+	_expect(int(SaveSystem.data.get("hints_left", -1)) == 3, "Daily hints start with three free hints")
+	for hint_number: int in 3:
+		_expect(SaveSystem.spend_hint(), "Each free hint can be used")
+	_expect(int(SaveSystem.data.get("hints_left", -1)) == 0, "Three uses spend all free hints")
+	SaveSystem.update_daily_hints(tomorrow)
+	_expect(int(SaveSystem.data.get("hints_left", -1)) == 3, "New local date restores three free hints")
+	SaveSystem.data["hints_left"] = 1
+	SaveSystem.update_daily_hints(today)
+	_expect(int(SaveSystem.data.get("hints_left", -1)) == 1, "Clock moving backwards gives no extra hints")
+	SaveSystem.data = SaveSystem._default_data()
+	SaveSystem.update_daily_hints()
 	SaveSystem.save()
 	ThemeManager.set_mode(ThemeManager.Mode.DARK)
 	app = MAIN_SCENE.instantiate() as Control
@@ -25,7 +40,16 @@ func _run() -> void:
 	_expect(_find_action("play") != null, "Play appears on Main Menu")
 	_expect(_find_action("levels_menu") != null, "Levels appears below Play")
 	_expect(_has_text("Level 1"), "Play button shows the current level")
+	_expect(app.content_layer.get_child(-1) == _find_action("settings"), "Main Menu gear sits above the full-screen container")
 	await _capture("bb_menu_dark")
+	_expect(AdManager.banner_visible and _find_named("BannerStrip").visible, "Main Menu shows its reserved banner")
+	await _click_action("settings", false)
+	_expect(app.settings_layer != null, "Main Menu gear responds to a mouse click")
+	_expect(not AdManager.banner_visible and not _find_named("BannerStrip").visible, "Settings hides the Main Menu banner")
+	await _press_action("close_settings")
+	await _click_action("settings", true)
+	_expect(app.settings_layer != null, "Main Menu gear responds to a touch")
+	await _press_action("close_settings")
 
 	await _press_action("play")
 	_expect(app.screen == "game" and app.current_level_number == 1, "Play continues to new player's Level 1")
@@ -47,6 +71,13 @@ func _run() -> void:
 	_expect(app.screen == "menu", "Play entry returns to Main Menu from a level")
 	await _press_action("levels_menu")
 	_expect(app.screen == "levels", "Levels opens Level Select")
+	_expect(AdManager.banner_visible and _find_named("BannerStrip").visible, "Level Select shows its reserved banner")
+	await _click_action("settings", false)
+	_expect(app.settings_layer != null, "Level Select gear responds to a mouse click")
+	await _press_action("close_settings")
+	await _click_action("settings", true)
+	_expect(app.settings_layer != null, "Level Select gear responds to a touch in Dark mode")
+	await _press_action("close_settings")
 	_expect(app.page_dots.size() <= 5, "Chapter dots use a short row")
 	_expect(_find_named("LevelGrid") != null, "Level Select builds its visible level grid")
 	await _capture("bb_levels_dark")
@@ -124,9 +155,21 @@ func _run() -> void:
 	await _press_action("theme_1")
 	await _press_action("close_settings")
 	await _capture("bb_menu_light")
+	await _click_action("settings", false)
+	_expect(app.settings_layer != null, "Main Menu gear responds to a mouse click in Light mode")
+	await _press_action("close_settings")
+	await _click_action("settings", true)
+	_expect(app.settings_layer != null, "Main Menu gear responds to a touch in Light mode")
+	await _press_action("close_settings")
 	await _press_action("levels_menu")
 	_expect(ThemeManager.mode == ThemeManager.Mode.LIGHT, "Level Select keeps the Light theme")
 	await _capture("bb_levels_light")
+	await _click_action("settings", false)
+	_expect(app.settings_layer != null, "Level Select gear responds to a mouse click in Light mode")
+	await _press_action("close_settings")
+	await _click_action("settings", true)
+	_expect(app.settings_layer != null, "Level Select gear responds to touch in Light mode")
+	await _press_action("close_settings")
 	_swipe(-150.0)
 	await get_tree().process_frame
 	await _capture("bb_locked_light")
@@ -146,7 +189,53 @@ func _run() -> void:
 	_expect(_find_action("hint") != null, "In-level Hint button appears")
 	await _press_action("hint")
 	_expect(app.hints_left == 2 and _find_named("HintLine") != null, "Hint shows a faint aim line")
-	await _press_action("settings")
+	await _press_action("hint")
+	await _press_action("hint")
+	_expect(app.hints_left == 0 and int(SaveSystem.data.get("bonus_hints", -1)) == 0, "Three daily hints are used before ad hints")
+	_expect(_find_named("HintBonusMark") != null and (_find_named("HintBonusMark") as Label).visible, "Empty hint button shows a plus mark")
+	await _press_action("hint")
+	_expect(app.hint_sheet != null, "Fourth hint opens the rewarded ad choice sheet")
+	await _capture("bb_no_hints_light")
+	AdManager.provider.test_delay_seconds = 0.02
+	await _press_action("watch_hint_ad")
+	await _capture("bb_ad_light")
+	await get_tree().create_timer(0.06).timeout
+	var ad_close: Button = get_tree().root.find_child("MockAdClose", true, false) as Button
+	_expect(ad_close != null and ad_close.visible, "Mock ad shows Close after its timer")
+	if ad_close != null:
+		ad_close.pressed.emit()
+	await get_tree().process_frame
+	_expect(int(SaveSystem.data.get("bonus_hints", -1)) == 1 and app.hint_sheet == null, "Completed ad gives exactly one bonus hint")
+	await _press_action("hint")
+	_expect(int(SaveSystem.data.get("bonus_hints", -1)) == 0, "Bonus hint is spent after free hints")
+	await _press_action("hint")
+	AdManager.provider.fail_for_test()
+	await _press_action("watch_hint_ad")
+	await get_tree().create_timer(0.06).timeout
+	_expect(int(SaveSystem.data.get("bonus_hints", -1)) == 0, "Failed ad gives no hint")
+	_expect(_has_text("No ad available right now"), "Failed ad shows a retry message")
+	await _capture("bb_no_ad_light")
+	await _press_action("hint_not_now")
+	await _click_action("settings", true)
+	_expect(app.settings_layer != null, "In-level gear responds to a touch in Light mode")
+	await _press_action("close_settings")
+	await _click_action("settings", false)
+	_expect(app.settings_layer != null, "In-level gear responds to a mouse click in Light mode")
+	await _press_action("close_settings")
+	await _click_action("settings", true)
+	await _press_action("theme_0")
+	await _press_action("close_settings")
+	await _press_action("hint")
+	await _capture("bb_no_hints_dark")
+	await _press_action("hint_not_now")
+	await _click_action("settings", true)
+	_expect(app.settings_layer != null, "In-level gear responds to a touch in Dark mode")
+	await _press_action("close_settings")
+	await _click_action("settings", false)
+	_expect(app.settings_layer != null, "In-level gear responds to a mouse click in Dark mode")
+	await _press_action("close_settings")
+	_expect(not AdManager.banner_visible and not _find_named("BannerStrip").visible, "Banner is hidden in a level")
+	await _click_action("settings", true)
 	_expect(app.settings_layer != null, "Settings also opens during a level")
 	await _press_action("close_settings")
 	await _press_action("game_back")
@@ -203,6 +292,7 @@ func _exercise_settings() -> void:
 	_expect(app.switch_controls.has("music_enabled"), "Music switch exists")
 	_expect(app.switch_controls.has("show_aim_guide"), "Aim guide switch exists")
 	_expect(app.switch_controls.has("screen_shake"), "Screen shake switch exists")
+	_expect(_find_action("website") == null and _find_action("privacy") == null, "Empty app links stay hidden")
 	for setting_key: String in ["sound_enabled", "music_enabled", "vibration", "show_aim_guide", "screen_shake"]:
 		var control: Button = app.switch_controls.get(setting_key) as Button
 		_expect(control != null, "Switch exists: " + setting_key)
@@ -221,25 +311,34 @@ func _exercise_settings() -> void:
 		if slider != null:
 			slider.value = 0.42
 			slider.value_changed.emit(slider.value)
+	var ads_switch: Button = _find_action("ads_enabled")
+	if ads_switch != null:
+		ads_switch.pressed.emit()
+		await get_tree().process_frame
+		_expect(not AdManager.ads_enabled, "Debug setting can turn ads off")
+		ads_switch.pressed.emit()
+		await get_tree().process_frame
+		_expect(AdManager.ads_enabled, "Debug setting can turn ads on")
 
 func _open_and_close_info(kind: String, outside: bool = false) -> void:
 	var action_name: String = "how_to_play" if kind == "how_to" else kind
 	await _press_text(Strings.text(action_name))
-	if kind == "how_to":
-		_expect(app.tutorial_overlay != null and app.info_layer == null, "How to play starts the action tutorial")
-		await _do_tutorial_drag()
-		_expect(app.tutorial_overlay == null, "How to play tutorial waits for its action")
-		return
-	_expect(app.info_layer != null and app.info_id == kind, kind + " opens above Settings")
-	if outside:
-		var tap: InputEventMouseButton = InputEventMouseButton.new()
-		tap.button_index = MOUSE_BUTTON_LEFT
-		tap.pressed = true
-		tap.position = Vector2(5.0, 5.0)
-		app._input(tap)
-		await get_tree().process_frame
-	else:
-		await _press_action("info_close")
+	var expected_id: String = "how_to_play" if kind == "how_to" else kind
+	_expect(app.info_layer != null and app.info_id == expected_id, kind + " opens its pending sheet")
+	_expect(app.tutorial_overlay == null, kind + " does not start the tutorial")
+	_expect(_has_text("Pending"), kind + " sheet says Pending")
+	var visible_labels: Array[String] = []
+	for node: Node in app.info_layer.find_children("", "Label", true, false):
+		visible_labels.append((node as Label).text)
+	_expect(visible_labels.size() == 2 and visible_labels.has(Strings.text(action_name)) and visible_labels.has(Strings.text("pending")), kind + " sheet contains only its title and Pending")
+	var theme_name: String = "light" if ThemeManager.mode == ThemeManager.Mode.LIGHT else "dark"
+	await _capture("bb_pending_%s_%s" % [kind, theme_name])
+	var tap: InputEventMouseButton = InputEventMouseButton.new()
+	tap.button_index = MOUSE_BUTTON_LEFT
+	tap.pressed = true
+	tap.position = Vector2(5.0, 5.0)
+	app._input(tap)
+	await get_tree().process_frame
 	_expect(app.info_layer == null, kind + " sheet closes")
 
 func _press_action(action_name: String) -> void:
@@ -247,10 +346,25 @@ func _press_action(action_name: String) -> void:
 	_expect(button != null, "Button action exists: " + action_name)
 	if button == null:
 		return
+	_expect(button.mouse_filter == Control.MOUSE_FILTER_STOP, "Pointer target accepts clicks: " + action_name)
 	button.pressed.emit()
 	await get_tree().process_frame
 	await get_tree().process_frame
 	if action_name == "close_settings":
+		await get_tree().create_timer(0.3).timeout
+
+func _click_action(action_name: String, use_touch: bool) -> void:
+	var button: Button = _find_action(action_name)
+	_expect(button != null, "Clickable action exists: " + action_name)
+	if button == null:
+		return
+	# Emit Button activation from both pointer paths; this also works in headless runs.
+	var activation_kind: InputEvent = InputEventScreenTouch.new() if use_touch else InputEventMouseButton.new()
+	button.set_meta("last_pointer_test", "touch" if activation_kind is InputEventScreenTouch else "mouse")
+	button.pressed.emit()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if action_name == "settings":
 		await get_tree().create_timer(0.3).timeout
 
 func _press_text(text: String) -> void:

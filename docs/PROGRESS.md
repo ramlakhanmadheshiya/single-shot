@@ -30,3 +30,16 @@ No errors or warnings appeared in the checked Godot output. The 20 level scenes 
 - Dark and Light menu, level, locked chapter, and settings screenshots are in `docs/screenshots/`.
 - Headless and GUI click-through suites cover new and continuing players.
 - Milestone 2 has not started.
+
+### Input, hints, ads, and web groundwork
+
+- Fixed Main Menu Settings input ordering above its full-screen layout container.
+- How to play, Credits, and About now open small Pending sheets.
+- Added three local-day free hints, saved bonus hints, and a clock-backward guard.
+- Added a mock rewarded ad flow and the optional AdManager interface.
+- Banner placeholders appear only on Main Menu and Level Select.
+- Added a Web export preset, first-tap audio screen, and empty link settings.
+- Added a plain release checklist in `docs/PUBLISHING.md`.
+- Automated tests cover pointer activations, daily hints, rewards, banners, and window sizes.
+- Screenshots cover the new sheets and hint states in both themes.
+- No real ad SDK, store key, or Milestone 2 gameplay code was added.

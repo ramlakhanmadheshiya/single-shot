@@ -81,6 +81,14 @@ func _run() -> void:
 			await get_tree().process_frame
 			var grid: Control = app.find_child("LevelGrid", true, false) as Control
 			_expect(grid != null, "Level grid remains after window resize")
+			var gear: Button = app.find_child("SettingsIcon", true, false) as Button
+			_expect(gear != null, "Level Select gear remains after window resize")
+			if gear != null:
+				var gear_rect: Rect2 = gear.get_global_rect()
+				_expect(gear_rect.position.x >= 0.0 and gear_rect.end.x <= app.get_viewport_rect().size.x, "Gear stays inside the resized view")
+				for sibling: Node in gear.get_parent().get_children():
+					if sibling is Label and (sibling as Label).visible and (sibling as Label).text.contains("stars"):
+						_expect((sibling as Label).get_global_rect().end.x <= gear_rect.position.x, "Star count stays left of the Settings gear")
 			if grid != null:
 				var rect: Rect2 = grid.get_global_rect()
 				var view: Vector2 = app.get_viewport_rect().size

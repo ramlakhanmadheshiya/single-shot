@@ -12,6 +12,8 @@ A spooky graveyard puzzle game made with Godot 4.7.2 and GDScript.
 - How to play, Credits, About, and Reset progress sheets.
 - A pre-game screen with shots, Hint, Undo, Restart, and Settings.
 - An action tutorial for the first room.
+- Daily free hints with optional mock rewarded ads.
+- A Web export preset and a first-tap audio screen.
 
 The level screen is ready for gameplay work. Physics and level scenes are not included yet.
 
@@ -37,6 +39,8 @@ Check the chapter data rule:
 ```sh
 godot --headless --path . --script tools/validate_levels.gd
 ```
+
+See [docs/PUBLISHING.md](docs/PUBLISHING.md) for web hosting, store release, and ad preparation.
 
 ## Build generated sounds and themes
 
