@@ -25,8 +25,7 @@ func _run() -> void:
 		var data: Dictionary = level_value
 		runtime.configure(data, colors, tuning)
 		await get_tree().physics_frame
-		var solution: Array = data.get("solution", [1, 0, 0.72])
-		runtime.fire(runtime._solution_vector(), tuning.max_drag_power * float(solution[2]))
+		runtime.fire(runtime._solution_vector())
 		var elapsed: float = 0.0
 		while runtime.state != "win" and elapsed < 5.5:
 			await get_tree().physics_frame

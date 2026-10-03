@@ -1529,8 +1529,6 @@ func _set_physics_gravity() -> void:
 		gameplay.tuning.gravity = game_tuning.gravity
 		for body in gameplay.crates:
 			if is_instance_valid(body): body.gravity_scale = game_tuning.gravity / game_tuning.default_gravity
-		for shot in gameplay.projectiles:
-			if is_instance_valid(shot): shot.gravity_scale = game_tuning.shot_gravity_scale * game_tuning.gravity / game_tuning.default_gravity
 
 func _toggle_physics_panel() -> void:
 	if physics_panel != null:
@@ -1552,11 +1550,6 @@ func _toggle_physics_panel() -> void:
 	physics_panel.add_child(list)
 	_make_label(list, "physics_tuning", 24, "text")
 	_add_tuning_slider(list, "tune_gravity", "gravity", 0, 1600, 25)
-	_add_tuning_slider(list, "tune_shot_speed", "shot_speed", 150, 1400, 20)
-	_add_tuning_slider(list, "tune_bounce", "bounce", 0, 1, 0.02)
-	_add_tuning_slider(list, "tune_gravity_scale", "shot_gravity_scale", 0, 1, 0.02)
-	_add_tuning_slider(list, "tune_lifetime", "shot_lifetime", 1, 10, 0.25)
-	_add_tuning_slider(list, "tune_max_drag", "max_drag_power", 100, 800, 10)
 	var print_button: Button = _make_button(list, _t("print_values"), _print_physics_values, Vector2(240, 48), "secondary")
 	print_button.name = "PrintPhysicsValues"
 
@@ -1578,12 +1571,12 @@ func _add_tuning_slider(parent: Control, title: String, property: String, low: f
 		game_tuning.set(property, next_value)
 		label.text = _t(title) + ": " + str(snappedf(next_value, step))
 		if gameplay != null: gameplay.tuning.set(property, next_value)
-		if property == "gravity" or property == "shot_gravity_scale": _set_physics_gravity()
+		if property == "gravity": _set_physics_gravity()
 	)
 	row.add_child(slider)
 
 func _print_physics_values() -> void:
-	print("Physics tuning: gravity=%.2f shot_speed=%.2f bounce=%.3f shot_gravity_scale=%.3f shot_lifetime=%.2f max_drag_power=%.2f" % [game_tuning.gravity, game_tuning.shot_speed, game_tuning.bounce, game_tuning.shot_gravity_scale, game_tuning.shot_lifetime, game_tuning.max_drag_power])
+	print("Physics tuning: gravity=%.2f" % game_tuning.gravity)
 
 func _on_theme_changed(_mode: int) -> void:
 	_refresh_palette()

@@ -8,7 +8,9 @@ signal action_made(value: String)
 
 const SpriteScript = preload("res://game/core/generated_sprite.gd")
 const TUNING: PhysicsTuning = preload("res://game/core/physics_tuning.tres")
+const SHOT_SETTINGS_PATH: String = "res://game/config/shot_settings.cfg"
 var tuning: PhysicsTuning = TUNING.duplicate(true)
+var shot_settings: ConfigFile = ConfigFile.new()
 var level: Dictionary = {}
 var palette: Dictionary = {}
 var world: Node2D
@@ -37,6 +39,9 @@ var _last_bounce_msec: int = 0
 var _gamepad_fired: bool = false
 
 func _ready() -> void:
+	var settings_error: Error = shot_settings.load(SHOT_SETTINGS_PATH)
+	if settings_error != OK:
+		push_error("Could not load shot settings: " + SHOT_SETTINGS_PATH)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	world = Node2D.new()
 	world.name = "PhysicsWorld"
@@ -289,8 +294,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 func _update_drag(pointer: Vector2) -> void:
 	var pull: Vector2 = hazel.position - pointer
-	if pull.length() > tuning.max_drag_power:
-		pull = pull.normalized() * tuning.max_drag_power
 	aim_vector = pull.normalized() if pull.length() > 10.0 else Vector2.ZERO
 	if hazel_sprite != null: hazel_sprite.pose = "aim" if aim_vector != Vector2.ZERO else "idle"
 	if hazel_sprite != null: hazel_sprite.queue_redraw()
@@ -298,13 +301,12 @@ func _update_drag(pointer: Vector2) -> void:
 
 func _release_aim(pointer: Vector2) -> void:
 	_update_drag(pointer)
-	var power: float = hazel.position.distance_to(pointer)
 	pointer_active = false
-	if power <= tuning.minimum_drag_pixels:
+	if hazel.position.distance_to(pointer) <= tuning.minimum_drag_pixels:
 		aim_vector = Vector2.ZERO
 		queue_redraw()
 		return
-	fire(aim_vector, power)
+	fire(aim_vector)
 
 func tutorial_drag_is_real(start: Vector2, end: Vector2) -> bool:
 	if hazel == null or start.distance_to(end) < 24:
@@ -315,7 +317,7 @@ func tutorial_drag_is_real(start: Vector2, end: Vector2) -> bool:
 func gameplay_screen_origin() -> Vector2:
 	return get_global_transform_with_canvas() * hazel.position
 
-func fire(direction: Vector2, power: float = -1.0) -> void:
+func fire(direction: Vector2, _ignored_power: float = -1.0) -> void:
 	if state != "aiming" or direction.length_squared() < 0.002 or shots_used >= shot_limit:
 		return
 	_save_snapshot()
@@ -334,11 +336,11 @@ func fire(direction: Vector2, power: float = -1.0) -> void:
 	body.collision_mask = 1
 	body.contact_monitor = true
 	body.max_contacts_reported = tuning.shot_max_contacts
-	body.gravity_scale = tuning.shot_gravity_scale * tuning.gravity / tuning.default_gravity
-	body.linear_damp = tuning.shot_linear_damp
-	body.angular_damp = tuning.shot_angular_damp
+	body.gravity_scale = 0.0
+	body.linear_damp = 0.0
+	body.angular_damp = 0.0
 	var material: PhysicsMaterial = PhysicsMaterial.new()
-	material.bounce = tuning.bounce
+	material.bounce = 1.0
 	material.friction = 0.0
 	body.physics_material_override = material
 	var shot_shape: CircleShape2D = CircleShape2D.new()
@@ -349,8 +351,7 @@ func fire(direction: Vector2, power: float = -1.0) -> void:
 	world.add_child(body)
 	body.position = hazel.position + direction.normalized() * tuning.shot_spawn_offset
 	_add_sprite(body, "hazel", Color(palette.get("accent", "#e38c55")), Color(palette.get("text", "#241d31")), Color(palette.get("moon", "#f4c95d")))
-	var strength: float = tuning.max_drag_power * 0.66 if power < 0 else clampf(power, tuning.minimum_drag_power, tuning.max_drag_power)
-	body.apply_central_impulse(direction.normalized() * tuning.shot_speed * strength / tuning.max_drag_power)
+	body.linear_velocity = direction.normalized() * _shot_speed()
 	body.body_entered.connect(_on_shot_body_entered.bind(body))
 	projectiles.append(body)
 	shot_age = 0.0
@@ -362,6 +363,7 @@ func fire(direction: Vector2, power: float = -1.0) -> void:
 func _on_shot_body_entered(other: Node, shot: RigidBody2D) -> void:
 	if not is_instance_valid(shot):
 		return
+	_keep_shot_speed(shot)
 	if other.is_in_group("ghoul"):
 		AudioManager.play_game("ghoul_hit")
 		if other in ghouls:
@@ -406,6 +408,8 @@ func _physics_process(delta: float) -> void:
 	if state != "shot_flying" and state != "settling":
 		return
 	shot_age += delta
+	for projectile: RigidBody2D in projectiles:
+		if is_instance_valid(projectile): _keep_shot_speed(projectile)
 	if win_delay_age >= 0.0:
 		win_delay_age += delta
 		if win_delay_age >= 0.6:
@@ -414,13 +418,7 @@ func _physics_process(delta: float) -> void:
 			projectiles.clear()
 			_finish_shot()
 			return
-	if shots_used >= shot_limit and not ghouls.is_empty() and shot_age >= tuning.last_shot_wait:
-		for projectile in projectiles:
-			if is_instance_valid(projectile): projectile.queue_free()
-		projectiles.clear()
-		_finish_shot()
-		return
-	if shot_age >= tuning.shot_lifetime:
+	if shot_age >= _shot_lifetime():
 		for projectile in projectiles:
 			if is_instance_valid(projectile): projectile.queue_free()
 		projectiles.clear()
@@ -434,15 +432,7 @@ func _physics_process(delta: float) -> void:
 		for ghoul in ghouls.duplicate():
 			if is_instance_valid(ghoul) and projectile.position.distance_to(ghoul.position) <= tuning.ghoul_radius + tuning.shot_radius + tuning.ghoul_hit_padding:
 				_kill_ghoul(ghoul)
-		var slow_enough: bool = projectile.linear_velocity.length() < tuning.shot_stop_speed
-		var slow_time: float = float(projectile.get_meta("slow_time", 0.0))
-		slow_time = slow_time + delta if slow_enough else 0.0
-		projectile.set_meta("slow_time", slow_time)
-		if shot_age >= tuning.shot_lifetime or slow_time >= 1.0:
-			projectile.queue_free()
-			projectiles.erase(projectile)
-		else:
-			moving = true
+		moving = true
 	for crate in crates:
 		if is_instance_valid(crate) and crate.linear_velocity.length() > tuning.crate_stop_speed:
 			moving = true
@@ -450,10 +440,22 @@ func _physics_process(delta: float) -> void:
 		state = "settling"
 		settle_age += delta
 		state_changed.emit(state)
-		if settle_age >= tuning.settle_time or shot_age >= tuning.shot_lifetime and shots_used >= shot_limit:
+		if settle_age >= tuning.settle_time:
 			_finish_shot()
-	elif shot_age >= tuning.shot_lifetime:
-		_finish_shot()
+
+func _shot_speed() -> float:
+	return float(shot_settings.get_value("shot", "shot_speed"))
+
+func _shot_lifetime() -> float:
+	return float(shot_settings.get_value("shot", "shot_lifetime_seconds"))
+
+func _keep_shot_speed(shot: RigidBody2D) -> void:
+	var direction: Vector2 = shot.linear_velocity.normalized()
+	if direction.length_squared() > 0.0:
+		shot.set_meta("flight_direction", direction)
+	else:
+		direction = shot.get_meta("flight_direction", Vector2.RIGHT)
+	shot.linear_velocity = direction * _shot_speed()
 
 func _finish_shot() -> void:
 	if state == "win" or state == "try_again":
