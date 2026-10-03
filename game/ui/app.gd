@@ -82,13 +82,8 @@ func _process(_delta: float) -> void:
 	if tutorial_overlay == null or not is_instance_valid(tutorial_overlay):
 		return
 	var hand: Label = tutorial_overlay.get_node_or_null("TutorialHand") as Label
-	if hand != null and tutorial_target != null and is_instance_valid(tutorial_target):
-		var target: Rect2 = _tutorial_target_rect().grow(14.0)
-		var aim_start: Vector2 = target.get_center() + Vector2(80.0, target.size.y * 0.25)
-		if current_level_number <= 2 and gameplay != null:
-			aim_start = _tutorial_canvas_local(gameplay.gameplay_screen_origin())
-		var drag_amount: float = (sin(float(Time.get_ticks_msec()) / 300.0) + 1.0) * 0.5
-		hand.position = aim_start + Vector2(-22.0, -22.0) + Vector2(-115.0, -60.0) * drag_amount
+	if hand != null:
+		hand.position = Vector2(8.0, 28.0 + sin(float(Time.get_ticks_msec()) / 300.0) * 4.0)
 
 func _build_world() -> void:
 	var backdrop: ColorRect = ColorRect.new()
@@ -1013,8 +1008,12 @@ func _on_game_action(action: String) -> void:
 	AudioManager.play_ui("ui_click")
 	if action == "shot":
 		game_state = "shot_flying"
+		if _tutorial_waiting_for("drag"):
+			_advance_tutorial()
 	elif action == "undo":
 		game_state = "aiming"
+		if _tutorial_waiting_for("tutorial_undo"):
+			_advance_tutorial()
 
 func _on_game_state_changed(value: String) -> void:
 	game_state = value
@@ -1130,8 +1129,7 @@ func _show_tutorial(replay: bool, steps: Array[Dictionary] = []) -> void:
 	tutorial_overlay.name = "TutorialOverlay"
 	tutorial_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	tutorial_overlay.z_index = 50
-	tutorial_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	tutorial_overlay.gui_input.connect(_on_tutorial_input)
+	tutorial_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content_layer.add_child(tutorial_overlay)
 	tutorial_overlay.draw.connect(_draw_tutorial_overlay)
 	var skip: Button = _make_button(tutorial_overlay, _t("skip"), _finish_tutorial, Vector2(144.0, 64.0), "secondary")
@@ -1156,26 +1154,25 @@ func _show_tutorial(replay: bool, steps: Array[Dictionary] = []) -> void:
 		content_layer.add_child(tutorial_target)
 	var card: PanelContainer = _make_panel()
 	card.name = "TutorialTextCard"
-	card.custom_minimum_size = Vector2(minf(620.0, get_viewport_rect().size.x * 0.76), 120.0)
-	card.anchor_left = 0.5
-	card.anchor_right = 0.5
-	card.anchor_top = 1.0
-	card.anchor_bottom = 1.0
-	card.offset_left = -card.custom_minimum_size.x * 0.5
-	card.offset_right = card.custom_minimum_size.x * 0.5
-	card.offset_top = -160.0
-	card.offset_bottom = -32.0
-	if _tutorial_target_rect().get_center().y > get_viewport_rect().size.y * 0.55:
-		card.anchor_top = 0.0
-		card.anchor_bottom = 0.0
-		card.offset_top = 104.0
-		card.offset_bottom = 232.0
+	var card_width: float = minf(620.0, get_viewport_rect().size.x - 280.0)
+	card.custom_minimum_size = Vector2(card_width, 120.0)
+	card.anchor_left = 0.0
+	card.anchor_right = 0.0
+	card.anchor_top = 0.0
+	card.anchor_bottom = 0.0
+	card.offset_left = 70.0
+	card.offset_right = 70.0 + card_width
+	card.offset_top = 8.0
+	card.offset_bottom = 128.0
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tutorial_overlay.add_child(card)
 	var pad: MarginContainer = MarginContainer.new()
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side: String in ["left", "right", "top", "bottom"]:
 		pad.add_theme_constant_override("margin_" + side, 20)
 	card.add_child(pad)
 	var step: Label = _make_label(pad, str(active_tutorial_steps[0].get("message", "tutorial_action_aim")), 30, "text")
+	step.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	step.name = "TutorialStep"
 	step.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var hand: Label = _make_label(tutorial_overlay, "tutorial_hand", 54, "accent")
@@ -1199,25 +1196,19 @@ func _draw_tutorial_overlay() -> void:
 		return
 	var w: float = tutorial_overlay.size.x
 	var h: float = tutorial_overlay.size.y
-	var target: Rect2 = _tutorial_target_rect().grow(14.0)
+	var target: Rect2 = _tutorial_play_area_rect()
 	var dim: Color = Color(palette["overlay"], 0.78)
 	tutorial_overlay.draw_rect(Rect2(0, 0, w, target.position.y), dim, true)
 	tutorial_overlay.draw_rect(Rect2(0, target.end.y, w, h - target.end.y), dim, true)
 	tutorial_overlay.draw_rect(Rect2(0, target.position.y, target.position.x, target.size.y), dim, true)
 	tutorial_overlay.draw_rect(Rect2(target.end.x, target.position.y, w - target.end.x, target.size.y), dim, true)
-	tutorial_overlay.draw_rect(target, Color(palette["accent"], 0.45), false, 4.0, true)
-	var card_center: Vector2 = Vector2(w * 0.5, h - 96.0)
-	tutorial_overlay.draw_line(card_center + Vector2(0, -64), Vector2(target.get_center().x, target.end.y + 18.0), Color(palette["accent"]), 4.0, true)
-	var aim_start: Vector2 = target.get_center() + Vector2(80.0, target.size.y * 0.25)
-	if current_level_number == 2 and gameplay != null:
-		var path: PackedVector2Array = gameplay.get_solution_line()
-		for segment in range(path.size() - 1):
-			var start: Vector2 = _tutorial_canvas_local(gameplay.get_global_transform_with_canvas() * path[segment])
-			var finish: Vector2 = _tutorial_canvas_local(gameplay.get_global_transform_with_canvas() * path[segment + 1])
-			for dot in 20:
-				tutorial_overlay.draw_circle(start.lerp(finish, float(dot) / 20.0), 3.2, Color(palette["accent"], 0.52))
-	else:
-		tutorial_overlay.draw_line(aim_start, aim_start + Vector2(-150.0, -85.0), Color(palette["text"], 0.3), 4.0, true)
+
+func _tutorial_play_area_rect() -> Rect2:
+	var area: Control = screen_body.find_child("PlayArea", true, false) as Control if screen_body != null else null
+	if area == null or tutorial_overlay == null:
+		return Rect2()
+	var global: Rect2 = area.get_global_rect()
+	return Rect2(global.position - tutorial_overlay.global_position, global.size)
 
 func _tutorial_canvas_local(point: Vector2) -> Vector2:
 	return tutorial_overlay.get_global_transform_with_canvas().affine_inverse() * point
@@ -1234,14 +1225,14 @@ func _on_tutorial_input(event: InputEvent) -> void:
 			tutorial_drag_start = mouse.position
 			if tutorial_action.begins_with("tutorial_"):
 				_perform_tutorial_action(tutorial_action)
-				_advance_tutorial()
+				if tutorial_overlay != null: _advance_tutorial()
 		elif not mouse.pressed and tutorial_drag_active:
 			var dragged: float = mouse.position.distance_to(tutorial_drag_start)
 			tutorial_drag_active = false
 			if Rect2(Vector2.ZERO, tutorial_overlay.size).has_point(mouse.position) and dragged > 24.0 and tutorial_action == "drag" and gameplay != null and gameplay.tutorial_drag_is_real(tutorial_drag_start, mouse.position):
 				if gameplay != null:
 					gameplay.fire(tutorial_drag_start - mouse.position)
-				_advance_tutorial()
+				if tutorial_overlay != null: _advance_tutorial()
 	elif event is InputEventScreenTouch:
 		var touch: InputEventScreenTouch = event as InputEventScreenTouch
 		var target: Rect2 = _tutorial_target_rect().grow(14.0)
@@ -1250,13 +1241,13 @@ func _on_tutorial_input(event: InputEvent) -> void:
 			tutorial_drag_start = touch.position
 			if tutorial_action.begins_with("tutorial_"):
 				_perform_tutorial_action(tutorial_action)
-				_advance_tutorial()
+				if tutorial_overlay != null: _advance_tutorial()
 		elif not touch.pressed and tutorial_drag_active:
 			tutorial_drag_active = false
 			if Rect2(Vector2.ZERO, tutorial_overlay.size).has_point(touch.position) and touch.position.distance_to(tutorial_drag_start) > 24.0 and tutorial_action == "drag" and gameplay != null and gameplay.tutorial_drag_is_real(tutorial_drag_start, touch.position):
 				if gameplay != null:
 					gameplay.fire(tutorial_drag_start - touch.position)
-				_advance_tutorial()
+				if tutorial_overlay != null: _advance_tutorial()
 	if tutorial_overlay != null:
 		tutorial_overlay.accept_event()
 
@@ -1290,6 +1281,9 @@ func _finish_tutorial() -> void:
 
 func _use_hint() -> void:
 	if tutorial_overlay != null:
+		if _tutorial_waiting_for("tutorial_hint") and gameplay != null:
+			gameplay.show_hint()
+			_advance_tutorial()
 		return
 	if gameplay == null or gameplay.state != "aiming":
 		return
@@ -1374,6 +1368,11 @@ func _undo_shot() -> void:
 	if game_overlay != null:
 		game_overlay.queue_free()
 		game_overlay = null
+	if _tutorial_waiting_for("tutorial_undo"):
+		_advance_tutorial()
+
+func _tutorial_waiting_for(action: String) -> bool:
+	return tutorial_overlay != null and not active_tutorial_steps.is_empty() and tutorial_step < active_tutorial_steps.size() and str(active_tutorial_steps[tutorial_step].get("action", "")) == action
 
 func _tutorial_was_seen(level: int) -> bool:
 	return SaveSystem.data.get("tutorial_levels_seen", []).has(level)
