@@ -4,7 +4,7 @@
 
 Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the web). It is portrait-first and works with touch, mouse, keyboard and gamepad.
 
-**Play / download:** https://ramlakhanmadheshiya.github.io/carom/ — Android APK, or play in the browser on any phone.
+**Play / download:** https://theramlakhan.com/carom/ — Android APK, or play in the browser on any phone.
 
 ## The game
 
