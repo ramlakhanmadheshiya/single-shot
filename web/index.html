@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Carom — a quiet ricochet puzzle</title>
+<meta name="description" content="Drag to aim, release, and bank one orb off the walls to pop every target. 100 rooms, 5 chapters. Free for Android and the web.">
+<meta name="theme-color" content="#FFF4E8">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@250;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #2D2A4A; --muted: rgba(45,42,74,.55); --faint: rgba(45,42,74,.08);
+    --top: #FFF4E8; --bottom: #FFD3C2; --accent: #FF8A5B; --target: #FF5D5D;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: Outfit, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--ink);
+    background: linear-gradient(180deg, var(--top), var(--bottom)) fixed;
+    padding: max(24px, env(safe-area-inset-top)) 20px max(32px, env(safe-area-inset-bottom));
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 520px; margin: 0 auto; text-align: center; }
+  .icon { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 12px 32px rgba(45,42,74,.15); margin-top: 24px; }
+  h1 { font-weight: 250; font-size: clamp(64px, 18vw, 104px); letter-spacing: .12em; margin: 12px 0 0; line-height: 1; padding-left: .12em; }
+  .tag { color: var(--muted); font-size: 20px; margin: 10px 0 28px; }
+  .arena { position: relative; height: 210px; background: var(--faint); border-radius: 28px; margin: 0 auto 32px; overflow: hidden;
+    background-image: radial-gradient(rgba(45,42,74,.09) 1.4px, transparent 1.5px); background-size: 24px 24px; }
+  .arena svg { width: 100%; height: 100%; }
+  .btn { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 68px; border-radius: 999px;
+    font: 600 22px Outfit, system-ui, sans-serif; text-decoration: none; transition: transform .12s ease; }
+  .btn:active { transform: scale(.96); }
+  .primary { background: var(--ink); color: var(--top); }
+  .ghost { border: 3px solid rgba(45,42,74,.2); color: var(--ink); margin-top: 14px; }
+  .meta { color: var(--muted); font-size: 15px; margin: 12px 0 0; }
+  .card { background: rgba(255,255,255,.55); border-radius: 28px; padding: 24px; margin-top: 32px; text-align: left; }
+  .card h2 { font-size: 20px; font-weight: 600; margin: 0 0 12px; }
+  .card ol { margin: 0; padding-left: 22px; line-height: 1.6; color: rgba(45,42,74,.85); }
+  .qr { display: flex; gap: 20px; align-items: center; }
+  .qr div { flex: none; background: #fff; border-radius: 16px; padding: 10px; line-height: 0; }
+  .qr p { margin: 0; color: rgba(45,42,74,.85); line-height: 1.5; }
+  .chapters { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 14px; }
+  .chapters span { border-radius: 14px; padding: 12px 0 10px; font-size: 13px; font-weight: 500; text-align: center; }
+  footer { color: var(--muted); font-size: 13px; margin-top: 36px; line-height: 1.6; }
+  footer a { color: inherit; }
+  @media (hover: none) and (pointer: coarse) { .desktop-only { display: none; } }
+</style>
+</head>
+<body>
+<main>
+  <img class="icon" src="icon.svg" alt="Carom app icon">
+  <h1>carom</h1>
+  <p class="tag">a quiet ricochet puzzle</p>
+
+  <div class="arena" aria-hidden="true">
+    <svg viewBox="0 0 480 210">
+      <rect x="150" y="54" width="120" height="12" rx="6" fill="#2D2A4A"/>
+      <rect x="330" y="120" width="12" height="70" rx="6" fill="#2D2A4A"/>
+      <polyline id="path" points="80,190 210,20 330,104 440,30" fill="none" stroke="#2D2A4A" stroke-opacity=".35" stroke-width="4" stroke-dasharray="1 12" stroke-linecap="round"/>
+      <circle cx="80" cy="190" r="13" fill="none" stroke="#2D2A4A" stroke-width="3"/>
+      <circle id="orb" r="6" fill="#2D2A4A">
+        <animateMotion dur="2.6s" repeatCount="indefinite" path="M80,190 L210,20 L330,104 L440,30" keyPoints="0;1" keyTimes="0;1"/>
+      </circle>
+      <circle cx="268" cy="60" r="13" fill="#FF5D5D"/><circle cx="268" cy="60" r="5" fill="none" stroke="#FFF4E8" stroke-width="3"/>
+      <circle cx="400" cy="57" r="13" fill="#FF5D5D"/><circle cx="400" cy="57" r="5" fill="none" stroke="#FFF4E8" stroke-width="3"/>
+    </svg>
+  </div>
+
+  <a class="btn primary" href="carom.apk" download>
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+    Download for Android
+  </a>
+  <p class="meta">APK · {{APK_SIZE}} · version {{VERSION}} · built {{BUILD_DATE}}</p>
+  <a class="btn ghost" href="play/">Play in your browser</a>
+
+  <section class="card desktop-only">
+    <h2>On your phone</h2>
+    <div class="qr">
+      <div id="qr" aria-label="QR code linking to this page"></div>
+      <p>Scan with your phone camera to open this page, then tap <b>Download for Android</b> — or <b>Play in your browser</b> on any phone.</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Install the APK</h2>
+    <ol>
+      <li>Tap <b>Download for Android</b> on your phone.</li>
+      <li>Open the downloaded <b>carom.apk</b>.</li>
+      <li>If asked, allow your browser to <b>install unknown apps</b>.</li>
+      <li>Tap <b>Install</b>, then open Carom. New versions install over the old one and keep your stars.</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <h2>100 rooms, five moods</h2>
+    <p style="margin:0;color:rgba(45,42,74,.85);line-height:1.5">Drag to aim, release to shoot. Every room can be cleared in one shot — that's ★★★.</p>
+    <div class="chapters">
+      <span style="background:#FFD3C2">Dawn</span>
+      <span style="background:#B7E4DA;color:#173A45">Glass</span>
+      <span style="background:#23204A;color:#F1EEFF">Void</span>
+      <span style="background:#5E4485;color:#FFF1F7">Shift</span>
+      <span style="background:#0F1328;color:#E9EDFF">Prism</span>
+    </div>
+  </section>
+
+  <footer>
+    Made with Godot · Outfit font (SIL OFL) · Lucide icons (ISC)<br>
+    Music &amp; sound synthesised for Carom
+  </footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script>
+  try {
+    var qr = qrcode(0, 'M');
+    qr.addData(location.href.split('#')[0]);
+    qr.make();
+    document.getElementById('qr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: false });
+  } catch (e) {
+    var card = document.querySelector('.desktop-only');
+    if (card) card.style.display = 'none';
+  }
+</script>
+</body>
+</html>

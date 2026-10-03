@@ -72,14 +72,14 @@ func show_rewarded() -> void:
 	box.add_theme_constant_override("separation", 22)
 	card.add_child(box)
 	var message: Label = Label.new()
-	message.text = Strings.text("ad_playing")
+	message.text = "Playing a short ad…"
 	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	message.add_theme_font_size_override("font_size", 34)
 	message.add_theme_color_override("font_color", Color("#F2EEFF"))
 	box.add_child(message)
 	var close: Button = Button.new()
 	close.name = "MockAdClose"
-	close.text = Strings.text("close")
+	close.text = "Close"
 	close.custom_minimum_size = Vector2(180, 72)
 	close.add_theme_font_size_override("font_size", 25)
 	close.visible = false

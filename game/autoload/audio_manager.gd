@@ -1,99 +1,143 @@
 extends Node
-## Small pooled one-shot player system plus independently mixed music.
-const SOUND_DIR: String = "res://assets/audio/"
-var music_player: AudioStreamPlayer
-var ui_player: AudioStreamPlayer
-var sfx_players: Array[AudioStreamPlayer] = []
-var _pool_cursor: int = 0
-var _game_sound_variant: int = 0
+## Crossfading music per chapter plus a pooled, pitchable sound-effect player.
+
+const MUSIC_DIR: String = "res://assets/audio/music/"
+const SFX_DIR: String = "res://assets/audio/sfx/"
+const MUSIC_DB: float = -12.0
+## C major pentatonic, two octaves: target pops climb this ladder within a shot.
+const PENTATONIC: Array[float] = [1.0, 1.125, 1.25, 1.5, 1.6667, 2.0, 2.25, 2.5, 3.0]
+
 var mute_for_tests: bool = false
+var _music: Array[AudioStreamPlayer] = []
+var _active: int = 0
+var _current_track: String = ""
+var _sfx: Array[AudioStreamPlayer] = []
+var _cursor: int = 0
+var _cache: Dictionary = {}
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var _unlocked: bool = false
+var _last_play_msec: Dictionary = {}
+
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	_rng.randomize()
-	_ensure_bus("Music")
-	_ensure_bus("SFX")
-	_ensure_bus("UI")
-	music_player = _make_player("Music")
-	ui_player = _make_player("UI")
-	for index: int in 8:
-		sfx_players.append(_make_player("SFX"))
-	Events.sound_requested.connect(play_sfx)
-	_apply_volumes()
-	if DisplayServer.get_name() != "headless":
-		music_player.stream = load(SOUND_DIR + "menu_waltz.wav") as AudioStream
-		if music_player.stream is AudioStreamWAV:
-			(music_player.stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
-		music_player.volume_db = -9.0
-		if not OS.has_feature("web"):
-			music_player.play()
+	for bus: String in ["Music", "SFX", "UI"]:
+		if AudioServer.get_bus_index(bus) < 0:
+			AudioServer.add_bus()
+			AudioServer.set_bus_name(AudioServer.bus_count - 1, bus)
+	for i: int in 2:
+		var m: AudioStreamPlayer = AudioStreamPlayer.new()
+		m.bus = "Music"
+		m.volume_db = -80.0
+		add_child(m)
+		_music.append(m)
+	for i: int in 12:
+		var p: AudioStreamPlayer = AudioStreamPlayer.new()
+		p.bus = "SFX"
+		add_child(p)
+		_sfx.append(p)
+	# Browsers only allow audio after a user gesture.
+	_unlocked = not OS.has_feature("web")
+	Events.setting_changed.connect(_on_setting)
+	_apply_settings()
 
-func start_after_user_gesture() -> void:
-	if music_player != null and music_player.stream != null and not music_player.playing:
-		music_player.play()
 
-func _make_player(bus_name: String) -> AudioStreamPlayer:
-	var player: AudioStreamPlayer = AudioStreamPlayer.new()
-	player.bus = bus_name
-	add_child(player)
-	return player
-
-func _ensure_bus(bus_name: String) -> void:
-	if AudioServer.get_bus_index(bus_name) >= 0:
+func _input(event: InputEvent) -> void:
+	if _unlocked:
 		return
-	AudioServer.add_bus()
-	AudioServer.set_bus_name(AudioServer.bus_count - 1, bus_name)
+	if event is InputEventMouseButton or event is InputEventScreenTouch or event is InputEventKey:
+		_unlocked = true
+		if not _current_track.is_empty():
+			var wanted: String = _current_track
+			_current_track = ""
+			play_music(wanted)
 
-func play_sfx(sound_id: String) -> void:
-	if mute_for_tests or DisplayServer.get_name() == "headless":
+
+func _silent() -> bool:
+	return mute_for_tests or DisplayServer.get_name() == "headless"
+
+
+func _load(path: String) -> AudioStream:
+	if _cache.has(path):
+		return _cache[path]
+	var s: AudioStream = load(path) as AudioStream if ResourceLoader.exists(path) else null
+	_cache[path] = s
+	return s
+
+
+## Crossfades to a music track ("menu", "ch1"...). Safe to call repeatedly.
+func play_music(track: String) -> void:
+	if track == _current_track:
 		return
-	var path: String = SOUND_DIR + sound_id + ".wav"
-	if not ResourceLoader.exists(path):
-		path = SOUND_DIR + "ui_click.wav"
-	var stream: AudioStream = load(path) as AudioStream
+	_current_track = track
+	if _silent() or not _unlocked:
+		return
+	var stream: AudioStream = _load(MUSIC_DIR + track + ".wav")
 	if stream == null:
 		return
-	var player: AudioStreamPlayer = sfx_players[_pool_cursor]
-	_pool_cursor = (_pool_cursor + 1) % sfx_players.size()
-	player.stream = stream
-	player.pitch_scale = _rng.randf_range(0.92, 1.08)
-	player.play()
+	if stream is AudioStreamWAV:
+		var wav: AudioStreamWAV = stream
+		if wav.loop_mode == AudioStreamWAV.LOOP_DISABLED:
+			wav.loop_mode = AudioStreamWAV.LOOP_FORWARD
+			wav.loop_begin = 0
+			wav.loop_end = int(wav.get_length() * float(wav.mix_rate))
+	var old: AudioStreamPlayer = _music[_active]
+	_active = 1 - _active
+	var new: AudioStreamPlayer = _music[_active]
+	new.stream = stream
+	new.volume_db = -40.0
+	new.play()
+	var tw: Tween = create_tween().set_parallel(true)
+	tw.tween_property(new, "volume_db", MUSIC_DB, 1.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_property(old, "volume_db", -60.0, 1.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(old.stop)
 
-func play_ui(sound_id: String = "ui_click") -> void:
-	if mute_for_tests or DisplayServer.get_name() == "headless":
-		return
-	var path: String = SOUND_DIR + sound_id + ".wav"
-	if ResourceLoader.exists(path):
-		ui_player.stream = load(path) as AudioStream
-		ui_player.play()
 
-func play_game(sound_id: String) -> void:
-	if mute_for_tests or DisplayServer.get_name() == "headless":
+## Plays a one-shot effect. pitch < 0 means a small random variation.
+func play(id: String, pitch: float = -1.0, volume_db: float = 0.0) -> void:
+	if _silent():
 		return
-	var chosen_id: String = sound_id
-	if sound_id == "bounce" or sound_id == "ghoul_death":
-		_game_sound_variant = (_game_sound_variant + 1) % 3
-		chosen_id += "_%d" % (_game_sound_variant + 1) if ResourceLoader.exists(SOUND_DIR + "game_" + sound_id + "_%d.wav" % (_game_sound_variant + 1)) else ""
-	var path: String = SOUND_DIR + "game_" + chosen_id + ".wav"
-	if not ResourceLoader.exists(path):
-		play_sfx("ui_click")
+	# Avoid machine-gun stacking of the same sound within a few milliseconds.
+	var now: int = Time.get_ticks_msec()
+	if now - int(_last_play_msec.get(id, -1000)) < 28:
 		return
-	var stream: AudioStream = load(path) as AudioStream
+	_last_play_msec[id] = now
+	var stream: AudioStream = _load(SFX_DIR + id + ".wav")
 	if stream == null:
 		return
-	var player: AudioStreamPlayer = sfx_players[_pool_cursor]
-	_pool_cursor = (_pool_cursor + 1) % sfx_players.size()
-	player.stream = stream
-	player.pitch_scale = _rng.randf_range(0.94, 1.06)
-	player.play()
+	var p: AudioStreamPlayer = _sfx[_cursor]
+	_cursor = (_cursor + 1) % _sfx.size()
+	p.stream = stream
+	p.pitch_scale = pitch if pitch > 0.0 else _rng.randf_range(0.95, 1.05)
+	p.volume_db = volume_db
+	p.play()
 
-func set_bus_linear(bus_name: String, amount: float) -> void:
-	var index: int = AudioServer.get_bus_index(bus_name)
-	if index >= 0:
-		var clamped: float = clampf(amount, 0.0, 1.0)
-		AudioServer.set_bus_volume_db(index, linear_to_db(maxf(clamped, 0.0001)))
 
-func _apply_volumes() -> void:
-	set_bus_linear("Music", float(SaveSystem.get_setting("music", 0.65)))
-	set_bus_linear("SFX", float(SaveSystem.get_setting("sfx", 0.8)))
-	set_bus_linear("UI", float(SaveSystem.get_setting("ui", 0.85)))
+## The n-th note of the pop ladder, so combo chains sound like a melody.
+func play_note(id: String, step: int, volume_db: float = 0.0) -> void:
+	play(id, PENTATONIC[clampi(step, 0, PENTATONIC.size() - 1)], volume_db)
+
+
+func play_ui(id: String = "ui_tap") -> void:
+	play(id, 1.0, -2.0)
+
+
+func _on_setting(_key: String, _value: Variant) -> void:
+	_apply_settings()
+
+
+func _apply_settings() -> void:
+	_set_bus("Music", float(SaveSystem.get_setting("music_volume", 0.5)))
+	var sound: float = float(SaveSystem.get_setting("sound_volume", 0.75))
+	_set_bus("SFX", sound)
+	_set_bus("UI", sound)
+
+
+## Volume is a 0..1 slider value; perceived loudness is logarithmic, so map to dB.
+func _set_bus(bus: String, amount: float) -> void:
+	var i: int = AudioServer.get_bus_index(bus)
+	if i < 0:
+		return
+	AudioServer.set_bus_mute(i, amount <= 0.01)
+	AudioServer.set_bus_volume_db(i, linear_to_db(clampf(amount, 0.0001, 1.0)))

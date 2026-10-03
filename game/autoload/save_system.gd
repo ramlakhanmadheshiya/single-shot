@@ -1,184 +1,154 @@
 extends Node
-## Versioned local progress and settings. Each level uses a stable string key.
-const SAVE_PATH: String = "user://save.json"
-const SAVE_VERSION: int = 4
+## Versioned local progress and settings, stored as JSON in user://.
+
+const SAVE_PATH: String = "user://carom_save.json"
+const SAVE_VERSION: int = 1
+const DAILY_HINTS: int = 3
+
 var data: Dictionary = {}
+
 
 func _ready() -> void:
 	load_save()
-	update_daily_hints()
+	refresh_daily_hints()
+
 
 func load_save() -> void:
+	data = _defaults()
 	if not FileAccess.file_exists(SAVE_PATH):
-		data = _default_data()
 		return
 	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.READ)
 	if file == null:
-		data = _default_data()
 		return
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
-	data = parsed if parsed is Dictionary else _default_data()
-	_migrate()
+	if parsed is Dictionary:
+		_merge(data, parsed)
+
 
 func save() -> void:
-	data["save_version"] = SAVE_VERSION
+	data["version"] = SAVE_VERSION
 	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file != null:
 		file.store_string(JSON.stringify(data, "\t"))
 
+
 func get_setting(key: String, fallback: Variant = null) -> Variant:
-	var settings: Dictionary = data.get("settings", {})
-	return settings.get(key, fallback)
+	return (data["settings"] as Dictionary).get(key, fallback)
+
 
 func set_setting(key: String, value: Variant) -> void:
-	var settings: Dictionary = data.get("settings", {})
-	settings[key] = value
-	data["settings"] = settings
+	data["settings"][key] = value
 	save()
 	Events.setting_changed.emit(key, value)
 
-func get_level(level_id: String) -> Dictionary:
-	var levels: Dictionary = data.get("levels", {})
-	var record: Variant = levels.get(level_id, {})
-	return record if record is Dictionary else {}
 
-func update_daily_hints(today: String = "") -> void:
-	if today.is_empty():
-		today = local_date_string()
-	var changed: bool = false
-	if not data.has("hints_left"):
-		data["hints_left"] = 3
-		changed = true
-	if not data.has("bonus_hints"):
-		data["bonus_hints"] = 0
-		changed = true
-	var last_reset: String = str(data.get("last_reset_date", ""))
-	var last_seen: String = str(data.get("last_seen_date", ""))
-	if last_reset.is_empty():
-		last_reset = today
-		data["last_reset_date"] = today
-		changed = true
-	var effective_day: String = today
-	if last_seen > effective_day:
-		effective_day = last_seen
-	if last_reset > effective_day:
-		effective_day = last_reset
-	if effective_day > last_reset:
-		data["hints_left"] = 3
-		data["last_reset_date"] = effective_day
-		changed = true
-	if effective_day > last_seen:
-		data["last_seen_date"] = effective_day
-		changed = true
-	if changed:
-		save()
+func level_record(level_id: String) -> Dictionary:
+	return (data["levels"] as Dictionary).get(level_id, {})
 
-func local_date_string() -> String:
-	var date: Dictionary = Time.get_datetime_dict_from_system()
-	return "%04d-%02d-%02d" % [int(date.get("year", 2000)), int(date.get("month", 1)), int(date.get("day", 1))]
 
-func spend_hint() -> bool:
-	update_daily_hints()
-	var free_count: int = int(data.get("hints_left", 0))
-	if free_count > 0:
-		data["hints_left"] = free_count - 1
-		save()
-		return true
-	var bonus_count: int = int(data.get("bonus_hints", 0))
-	if bonus_count > 0:
-		data["bonus_hints"] = bonus_count - 1
-		save()
-		return true
-	return false
+func stars_for(level_id: String) -> int:
+	return int(level_record(level_id).get("stars", 0))
 
-func add_bonus_hint(count: int = 1) -> void:
-	data["bonus_hints"] = int(data.get("bonus_hints", 0)) + maxi(0, count)
+
+func is_cleared(level_id: String) -> bool:
+	return stars_for(level_id) > 0
+
+
+## Stores a finished level. Returns true if this was a new best.
+func record_level(level_id: String, stars: int, shots: int) -> bool:
+	var prev: Dictionary = level_record(level_id)
+	var better: bool = stars > int(prev.get("stars", 0))
+	data["levels"][level_id] = {
+		"stars": maxi(stars, int(prev.get("stars", 0))),
+		"best": mini(shots, int(prev.get("best", 99))),
+	}
 	save()
+	return better
 
-func record_level(level_id: String, stars: int, badge: bool = false, shots: int = 999) -> void:
-	var levels: Dictionary = data.get("levels", {})
-	var previous: Dictionary = get_level(level_id)
-	var best_shots: int = mini(shots, int(previous.get("best_shots", 999)))
-	levels[level_id] = {"stars": maxi(stars, int(previous.get("stars", 0))), "badge": badge or bool(previous.get("badge", false)), "best_shots": best_shots}
-	data["levels"] = levels
-	save()
 
 func total_stars() -> int:
 	var total: int = 0
-	var levels: Dictionary = data.get("levels", {})
-	for record: Variant in levels.values():
-		if record is Dictionary:
-			total += int(record.get("stars", 0))
+	for rec: Variant in (data["levels"] as Dictionary).values():
+		if rec is Dictionary:
+			total += int(rec.get("stars", 0))
 	return total
 
-func chapter_is_open(chapter_number: int) -> bool:
-	if chapter_number <= 1:
-		return true
-	var levels: Dictionary = data.get("levels", {})
-	var previous_chapter: int = chapter_number - 1
-	for number: int in 20:
-		var level_id: String = "ch%02d_l%03d" % [previous_chapter, number + 1]
-		if not levels.has(level_id):
-			return false
+
+func set_last_played(chapter_id: String, index: int) -> void:
+	data["last"] = {"chapter": chapter_id, "index": index}
+	save()
+
+
+func last_played() -> Dictionary:
+	return data.get("last", {"chapter": "ch1", "index": 0})
+
+
+func flag(key: String) -> bool:
+	return bool((data["flags"] as Dictionary).get(key, false))
+
+
+func set_flag(key: String, value: bool = true) -> void:
+	data["flags"][key] = value
+	save()
+
+
+# --- Hints -------------------------------------------------------------------
+
+func refresh_daily_hints() -> void:
+	var today: String = Time.get_date_string_from_system()
+	if str(data.get("hint_day", "")) < today:
+		data["hint_day"] = today
+		data["hints"] = maxi(int(data.get("hints", 0)), DAILY_HINTS)
+		save()
+
+
+func hints_left() -> int:
+	return int(data.get("hints", 0))
+
+
+func spend_hint() -> bool:
+	refresh_daily_hints()
+	if hints_left() <= 0:
+		return false
+	data["hints"] = hints_left() - 1
+	save()
 	return true
+
+
+func add_hints(count: int) -> void:
+	data["hints"] = hints_left() + maxi(0, count)
+	save()
+
 
 func reset_progress() -> void:
 	data["levels"] = {}
-	data["unlocks"] = ["ch01"]
-	data["tutorial_seen"] = false
-	data["tutorial_levels_seen"] = []
-	data["current_level"] = 1
-	var settings: Dictionary = data.get("settings", {})
-	settings["last_played_chapter"] = 0
-	data["settings"] = settings
+	data["last"] = {"chapter": "ch1", "index": 0}
+	data["flags"] = {}
 	save()
 
-func _default_data() -> Dictionary:
+
+func _defaults() -> Dictionary:
 	return {
-		"save_version": SAVE_VERSION,
+		"version": SAVE_VERSION,
 		"levels": {},
-		"unlocks": ["ch01"],
-		"tutorial_seen": false,
-		"tutorial_levels_seen": [],
-		"current_level": 1,
-		"hints_left": 3,
-		"bonus_hints": 0,
-		"last_reset_date": "",
-		"last_seen_date": "",
+		"last": {"chapter": "ch1", "index": 0},
+		"flags": {},
+		"hints": DAILY_HINTS,
+		"hint_day": "",
 		"settings": {
-			"music_volume": 0.65,
-			"sound_volume": 0.8,
-			"ui_volume": 0.85,
-			"sound_enabled": true,
-			"music_enabled": true,
-			"vibration": true,
-			"show_aim_guide": true,
-			"screen_shake": true,
-			"theme": "dark",
-			"last_played_chapter": 0,
-			"ads_enabled": true
-		}
+			"music_volume": 0.5,
+			"sound_volume": 0.75,
+			"haptics": true,
+			"shake": true,
+			"long_guide": false,
+		},
 	}
 
-func _migrate() -> void:
-	var defaults: Dictionary = _default_data()
-	for key: String in defaults:
-		if not data.has(key):
-			data[key] = defaults[key]
-	var old_settings: Dictionary = data.get("settings", {})
-	var default_settings: Dictionary = defaults["settings"]
-	for key: String in default_settings:
-		if not old_settings.has(key):
-			old_settings[key] = default_settings[key]
-	# Carry forward the old Foundation volume and guide choices.
-	if old_settings.has("music") and not old_settings.has("music_volume"):
-		old_settings["music_volume"] = old_settings["music"]
-	if old_settings.has("sfx") and not old_settings.has("sound_volume"):
-		old_settings["sound_volume"] = old_settings["sfx"]
-	if old_settings.has("ui") and not old_settings.has("ui_volume"):
-		old_settings["ui_volume"] = old_settings["ui"]
-	if old_settings.has("aim_assist") and not old_settings.has("show_aim_guide"):
-		old_settings["show_aim_guide"] = old_settings["aim_assist"]
-	data["settings"] = old_settings
-	data["save_version"] = SAVE_VERSION
-	save()
+
+## Copies saved values over defaults so new keys appear after updates.
+func _merge(into: Dictionary, from: Dictionary) -> void:
+	for key: Variant in from:
+		if into.has(key) and into[key] is Dictionary and from[key] is Dictionary and key != "levels":
+			_merge(into[key], from[key])
+		else:
+			into[key] = from[key]

@@ -1,0 +1,746 @@
+class_name Board
+extends Control
+## The play field: draws the room, handles aiming, plays shots back from the
+## deterministic simulation, and layers on feedback (rings, particles, shake,
+## slow motion on the final target, pitched pops).
+
+signal shot_fired
+signal shot_finished(cleared: bool, shots_used: int)
+signal target_popped(left: int)
+signal aim_started
+
+const SPEED: float = 1500.0
+
+var pal: Dictionary = Palette.get_palette("ch1")
+var level: Dictionary = {}
+var state: Dictionary = {}
+var history: Array = []
+var shots_used: int = 0
+var demo: bool = false
+var quiet: bool = false
+var input_enabled: bool = true
+
+# View transform (arena units -> control pixels).
+var view_scale: float = 1.0
+var view_offset: Vector2 = Vector2.ZERO
+var _shake: Vector2 = Vector2.ZERO
+var _trauma: float = 0.0
+var _clock: float = 0.0
+
+# Aiming.
+var aim_angle: float = -PI / 2.0
+var aiming: bool = false
+var has_aim: bool = false
+var _last_tick_angle: float = 0.0
+var _preview: Dictionary = {}
+
+# Playback.
+var playing: bool = false
+var _result: Dictionary = {}
+var _play_t: float = 0.0
+var _event_i: int = 0
+var _settle: float = -1.0
+var _slowmo: float = 0.0
+var _rate: float = 1.0
+var _hp: Array = []
+var _intact: Array = []
+var _combo: int = 0
+var _trails: Dictionary = {}
+
+# Effects.
+var _particles: Array = []
+var _rings: Array = []
+var _flash: Dictionary = {}
+var _pops: Dictionary = {}
+var _bumps: Dictionary = {}
+var _screen_flash: float = 0.0
+var _kick: float = 0.0
+var _hint_tracks: Array = []
+var _hint_t: float = 0.0
+var _intro: float = 1.0
+var _demo_wait: float = 1.0
+var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
+
+
+func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	focus_mode = Control.FOCUS_ALL
+	clip_contents = false
+	resized.connect(_layout)
+	_rng.randomize()
+	_layout()
+
+
+func setup(level_data: Dictionary, palette: Dictionary) -> void:
+	level = level_data
+	pal = palette
+	reset()
+
+
+func reset() -> void:
+	state = RicochetSim.initial_state(level)
+	history.clear()
+	shots_used = 0
+	_stop_playback()
+	_hint_t = 0.0
+	_intro = 0.0
+	aiming = false
+	has_aim = false
+	_particles.clear()
+	_rings.clear()
+	_pops.clear()
+	_sync_display()
+	queue_redraw()
+
+
+func undo() -> bool:
+	if playing or history.is_empty():
+		return false
+	state = history.pop_back()
+	shots_used = maxi(0, shots_used - 1)
+	_sync_display()
+	_sound("undo")
+	_add_ring(RicochetSim.launcher(level), 10.0, 60.0, 0.35, pal["accent"], 4.0)
+	return true
+
+
+func shots_left() -> int:
+	return int(level.get("shots", 3)) - shots_used
+
+
+func targets_left() -> int:
+	return RicochetSim.targets_left(state)
+
+
+func _sync_display() -> void:
+	_hp = (state["hp"] as Array).duplicate()
+	_intact = (state["intact"] as Array).duplicate()
+
+
+func _stop_playback() -> void:
+	playing = false
+	_result = {}
+	_settle = -1.0
+	_slowmo = 0.0
+	_rate = 1.0
+	_trails.clear()
+
+
+func _layout() -> void:
+	var avail: Vector2 = size
+	view_scale = minf(avail.x / RicochetSim.ARENA.x, avail.y / RicochetSim.ARENA.y)
+	view_offset = (avail - RicochetSim.ARENA * view_scale) * 0.5
+
+
+func to_world(p: Vector2) -> Vector2:
+	return (p - view_offset) / view_scale
+
+
+func to_screen(p: Vector2) -> Vector2:
+	return view_offset + p * view_scale
+
+
+# --- Input -------------------------------------------------------------------
+
+func _gui_input(event: InputEvent) -> void:
+	if demo or playing or not input_enabled or level.is_empty() or shots_left() <= 0:
+		return
+	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		var mb: InputEventMouseButton = event
+		if mb.pressed:
+			aiming = true
+			_aim_at(mb.position)
+			aim_started.emit()
+		elif aiming:
+			aiming = false
+			_aim_at(mb.position)
+			if has_aim:
+				fire(aim_angle)
+			has_aim = false
+		accept_event()
+	elif event is InputEventMouseMotion and aiming:
+		_aim_at((event as InputEventMouseMotion).position)
+		accept_event()
+
+
+func _aim_at(screen_pos: Vector2) -> void:
+	var d: Vector2 = to_world(screen_pos) - RicochetSim.launcher(level)
+	has_aim = d.length() > 46.0
+	if has_aim:
+		aim_angle = d.angle()
+		if absf(angle_difference(aim_angle, _last_tick_angle)) > deg_to_rad(2.5):
+			_last_tick_angle = aim_angle
+			_sound("aim_tick", 1.0, -6.0)
+	_preview = {}
+	queue_redraw()
+
+
+## Keyboard / gamepad aiming.
+func nudge_aim(degrees: float) -> void:
+	if playing or demo:
+		return
+	has_aim = true
+	aim_angle = wrapf(aim_angle + deg_to_rad(degrees), -PI, PI)
+	_preview = {}
+	_sound("aim_tick", 1.0, -6.0)
+	queue_redraw()
+
+
+func fire_current() -> void:
+	if has_aim and not playing:
+		fire(aim_angle)
+		has_aim = false
+
+
+# --- Shooting & playback ------------------------------------------------------
+
+func fire(angle: float) -> void:
+	if playing or shots_left() <= 0:
+		return
+	history.append(RicochetSim.copy_state(state))
+	shots_used += 1
+	_result = RicochetSim.simulate(level, state, angle)
+	playing = true
+	_play_t = 0.0
+	_event_i = 0
+	_settle = -1.0
+	_combo = 0
+	_trails.clear()
+	_hint_t = 0.0
+	_preview = {}
+	_kick = 1.0
+	_add_trauma(0.08)
+	_sound("launch")
+	_haptic(8)
+	var origin: Vector2 = RicochetSim.launcher(level)
+	_add_ring(origin, 14.0, 46.0, 0.3, pal["orb"], 3.0)
+	shot_fired.emit()
+
+
+func _process(delta: float) -> void:
+	_clock += delta
+	_intro = minf(1.0, _intro + delta * 2.2)
+	if playing:
+		_advance(delta)
+	elif demo:
+		_demo_tick(delta)
+	_update_fx(delta)
+	queue_redraw()
+
+
+func _advance(delta: float) -> void:
+	if _slowmo > 0.0:
+		_slowmo -= delta
+		_rate = lerpf(_rate, 0.2, minf(1.0, delta * 18.0))
+	else:
+		_rate = lerpf(_rate, 1.0, minf(1.0, delta * 5.0))
+	if _settle < 0.0:
+		_play_t += SPEED * delta * _rate
+		var events: Array = _result["events"]
+		while _event_i < events.size() and float(events[_event_i]["t"]) <= _play_t:
+			_apply_event(events[_event_i])
+			_event_i += 1
+		for track: Dictionary in _result["tracks"]:
+			var p: Variant = _track_pos(track, _play_t)
+			var id: int = track["id"]
+			if p != null:
+				var tr: Array = _trails.get(id, [])
+				tr.append(p)
+				if tr.size() > 16:
+					tr.pop_front()
+				_trails[id] = tr
+			elif _trails.has(id):
+				var tr2: Array = _trails[id]
+				if not tr2.is_empty():
+					tr2.pop_front()
+		if _play_t >= float(_result["duration"]):
+			_settle = 0.0
+	else:
+		_settle += delta
+		for id: Variant in _trails.keys():
+			var tr3: Array = _trails[id]
+			if not tr3.is_empty():
+				tr3.pop_front()
+		if _settle >= 0.38:
+			_finish_shot()
+
+
+func _finish_shot() -> void:
+	state = _result["state"]
+	_sync_display()
+	var cleared: bool = bool(_result["cleared"])
+	_stop_playback()
+	shot_finished.emit(cleared, shots_used)
+
+
+## Position of an orb on its track at time t, or null if it is not in flight.
+func _track_pos(track: Dictionary, t: float) -> Variant:
+	var times: Array = track["times"]
+	var pts: Array = track["points"]
+	if t < float(times[0]) or t > float(times[-1]):
+		return null
+	for k: int in range(times.size() - 1):
+		var t0: float = times[k]
+		var t1: float = times[k + 1]
+		if t <= t1:
+			var span: float = t1 - t0
+			return (pts[k] as Vector2).lerp(pts[k + 1], 0.0 if span <= 0.0001 else (t - t0) / span)
+	return pts[-1]
+
+
+func _apply_event(e: Dictionary) -> void:
+	var pos: Vector2 = e["pos"]
+	var idx: int = int(e.get("index", -1))
+	match str(e["type"]):
+		"bounce":
+			if idx >= 0:
+				_flash["w%d" % idx] = 1.0
+			_add_ring(pos, 4.0, 26.0, 0.32, Color(pal["ink"], 0.55), 3.0)
+			_burst(pos, 4, Color(pal["ink"], 0.6), 90.0, 2.5, e.get("n", Vector2.ZERO))
+			_sound("bounce")
+			_add_trauma(0.05)
+			_haptic(4)
+		"glass":
+			_intact[idx] = false
+			_shatter(idx)
+			_sound("bounce_glass")
+			_sound("glass_break", -1.0, -2.0)
+			_add_trauma(0.16)
+			_haptic(14)
+		"bumper":
+			_bumps[idx] = 1.0
+			_add_ring(pos, 6.0, 40.0, 0.35, pal["accent"], 4.0)
+			_sound("bumper")
+			_add_trauma(0.08)
+			_haptic(6)
+		"pop":
+			_hp[idx] = 0
+			_pops[idx] = 0.0
+			var tp: Vector2 = _target_pos(idx)
+			_add_ring(tp, RicochetSim.TARGET_R, RicochetSim.TARGET_R * 3.8, 0.55, pal["target"], 6.0)
+			_burst(tp, 18, pal["target"], 260.0, 5.0)
+			AudioManager.play_note("pop", _combo) if not quiet else null
+			_combo += 1
+			_add_trauma(0.22)
+			_haptic(16)
+			target_popped.emit(int(e.get("left", 0)))
+			if int(e.get("left", 0)) == 0:
+				_slowmo = 0.45
+				_screen_flash = 1.0
+				_add_trauma(0.35)
+				_haptic(30)
+		"shield":
+			_hp[idx] = int(_hp[idx]) - 1
+			var sp: Vector2 = _target_pos(idx)
+			_add_ring(sp, RicochetSim.TARGET_R + 8.0, RicochetSim.TARGET_R + 40.0, 0.45, pal["target"], 4.0)
+			_burst(sp, 8, pal["ink"], 180.0, 3.0)
+			_sound("shield")
+			_add_trauma(0.12)
+			_haptic(10)
+		"portal":
+			var p2: Vector2 = e["pos2"]
+			_add_ring(pos, 30.0, 4.0, 0.3, pal["special"], 4.0)
+			_add_ring(p2, 4.0, 44.0, 0.4, pal["special"], 4.0)
+			_sound("portal")
+			_haptic(8)
+		"split":
+			_add_ring(pos, 10.0, 60.0, 0.45, pal["special"], 5.0)
+			_burst(pos, 10, pal["special"], 200.0, 3.5)
+			_sound("split")
+			_add_trauma(0.12)
+			_haptic(12)
+		"absorb":
+			_add_ring(pos, 44.0, 2.0, 0.4, pal["accent"], 4.0)
+			_sound("absorb")
+			_add_trauma(0.1)
+			_haptic(10)
+		"fizzle":
+			_burst(pos, 7, Color(pal["orb"], 0.7), 70.0, 2.5)
+			_sound("fizzle", -1.0, -4.0)
+
+
+func _target_pos(i: int) -> Vector2:
+	var t: Array = level["targets"][i]
+	return Vector2(float(t[0]), float(t[1]))
+
+
+# --- Hints --------------------------------------------------------------------
+
+## Shows the solving path for the current room state. Returns false if the room
+## can no longer be cleared in one shot (the player should restart).
+func show_hint() -> bool:
+	if playing:
+		return false
+	var angle: float
+	if history.is_empty():
+		angle = deg_to_rad(float(level.get("solution", [-90.0])[0]))
+	else:
+		var wins: Array = RicochetSim.solve(level, state, 720, false)
+		if wins.is_empty():
+			return false
+		angle = wins[0]["angle"]
+	var res: Dictionary = RicochetSim.simulate(level, state, angle)
+	if not bool(res["cleared"]):
+		return false
+	var last_pop: float = 0.0
+	for e: Dictionary in res["events"]:
+		if str(e["type"]) == "pop":
+			last_pop = maxf(last_pop, float(e["t"]))
+	_hint_tracks = []
+	for track: Dictionary in res["tracks"]:
+		var pts: Array = []
+		var times: Array = track["times"]
+		for k: int in (track["points"] as Array).size():
+			if float(times[k]) <= last_pop + 1.0:
+				pts.append(track["points"][k])
+			elif k > 0 and float(times[k - 1]) < last_pop:
+				var p: Variant = _track_pos(track, last_pop + 30.0)
+				if p != null:
+					pts.append(p)
+		if pts.size() >= 2:
+			_hint_tracks.append(pts)
+	_hint_t = 5.0
+	aim_angle = angle
+	has_aim = true
+	_preview = {}
+	_sound("hint")
+	return true
+
+
+# --- Demo / attract mode -----------------------------------------------------
+
+func _demo_tick(delta: float) -> void:
+	_demo_wait -= delta
+	if _demo_wait > 0.0:
+		var target: float = deg_to_rad(float(level.get("solution", [-90.0])[0]))
+		has_aim = RicochetSim.is_cleared(state) == false
+		aim_angle = lerp_angle(aim_angle, target, minf(1.0, delta * 2.5))
+		_preview = {}
+		return
+	if RicochetSim.is_cleared(state) or shots_left() <= 0:
+		reset()
+		_demo_wait = 1.6
+		return
+	fire(deg_to_rad(float(level.get("solution", [-90.0])[0])))
+	_demo_wait = 2.2
+
+
+# --- Effects -------------------------------------------------------------------
+
+func _sound(id: String, pitch: float = -1.0, db: float = 0.0) -> void:
+	if not quiet:
+		AudioManager.play(id, pitch, db)
+
+
+func _haptic(ms: int) -> void:
+	if not quiet:
+		Haptics.tap(ms)
+
+
+func _add_trauma(amount: float) -> void:
+	if quiet or not bool(SaveSystem.get_setting("shake", true)):
+		return
+	_trauma = minf(1.0, _trauma + amount)
+
+
+func _add_ring(p: Vector2, r0: float, r1: float, life: float, color: Color, width: float) -> void:
+	_rings.append({"p": p, "r0": r0, "r1": r1, "life": life, "max": life, "c": color, "w": width})
+
+
+func _burst(p: Vector2, count: int, color: Color, speed: float, radius: float, normal: Vector2 = Vector2.ZERO) -> void:
+	for i: int in count:
+		var dir: Vector2 = Vector2.from_angle(_rng.randf() * TAU)
+		if normal != Vector2.ZERO:
+			dir = (normal + dir * 0.9).normalized()
+		var life: float = _rng.randf_range(0.35, 0.7)
+		_particles.append({"p": p, "v": dir * speed * _rng.randf_range(0.4, 1.0), "life": life, "max": life, "c": color, "r": radius * _rng.randf_range(0.6, 1.2), "shard": false})
+
+
+func _shatter(wall_index: int) -> void:
+	var pts: PackedVector2Array = RicochetSim.wall_corners(level["walls"][wall_index])
+	for i: int in 22:
+		var a: Vector2 = pts[0].lerp(pts[1], _rng.randf())
+		var b: Vector2 = pts[3].lerp(pts[2], _rng.randf())
+		var p: Vector2 = a.lerp(b, _rng.randf())
+		var life: float = _rng.randf_range(0.5, 0.9)
+		_particles.append({"p": p, "v": Vector2.from_angle(_rng.randf() * TAU) * _rng.randf_range(60, 220) + Vector2(0, 40), "life": life, "max": life, "c": pal["special"], "r": _rng.randf_range(5, 11), "shard": true, "rot": _rng.randf() * TAU})
+
+
+func _update_fx(delta: float) -> void:
+	for p: Dictionary in _particles:
+		p["life"] = float(p["life"]) - delta
+		p["p"] = (p["p"] as Vector2) + (p["v"] as Vector2) * delta
+		p["v"] = (p["v"] as Vector2) * pow(0.04, delta) + Vector2(0, 160 if p["shard"] else 0) * delta
+		if p["shard"]:
+			p["rot"] = float(p["rot"]) + delta * 6.0
+	_particles = _particles.filter(func(p: Dictionary) -> bool: return float(p["life"]) > 0.0)
+	for r: Dictionary in _rings:
+		r["life"] = float(r["life"]) - delta
+	_rings = _rings.filter(func(r: Dictionary) -> bool: return float(r["life"]) > 0.0)
+	for key: Variant in _flash.keys():
+		_flash[key] = float(_flash[key]) - delta * 4.0
+		if float(_flash[key]) <= 0.0:
+			_flash.erase(key)
+	for key: Variant in _bumps.keys():
+		_bumps[key] = float(_bumps[key]) - delta * 4.0
+		if float(_bumps[key]) <= 0.0:
+			_bumps.erase(key)
+	for key: Variant in _pops.keys():
+		_pops[key] = float(_pops[key]) + delta * 4.0
+		if float(_pops[key]) >= 1.0:
+			_pops.erase(key)
+	_screen_flash = maxf(0.0, _screen_flash - delta * 3.0)
+	_kick = maxf(0.0, _kick - delta * 5.0)
+	_hint_t = maxf(0.0, _hint_t - delta)
+	_trauma = maxf(0.0, _trauma - delta * 1.4)
+	var s: float = _trauma * _trauma
+	_shake = Vector2(14.0 * s * (0.6 * sin(_clock * 47.0) + 0.4 * sin(_clock * 89.0 + 1.3)), 10.0 * s * (0.6 * sin(_clock * 53.0 + 0.7) + 0.4 * sin(_clock * 97.0)))
+
+
+# --- Drawing ------------------------------------------------------------------
+
+func _draw() -> void:
+	if level.is_empty():
+		return
+	var ease_in: float = 1.0 - pow(1.0 - _intro, 3.0)
+	draw_set_transform(view_offset + _shake, 0.0, Vector2.ONE * view_scale)
+	_draw_arena()
+	if _hint_t > 0.0:
+		_draw_hint()
+	if not playing and (aiming or has_aim) and shots_left() > 0:
+		_draw_aim()
+	_draw_walls(ease_in)
+	_draw_features()
+	_draw_targets(ease_in)
+	_draw_orbs()
+	_draw_launcher()
+	_draw_fx()
+	if _screen_flash > 0.0:
+		draw_rect(Rect2(Vector2.ZERO, RicochetSim.ARENA), Color(1, 1, 1, 0.18 * _screen_flash))
+	draw_set_transform(Vector2.ZERO)
+
+
+func _draw_arena() -> void:
+	var rect: Rect2 = Rect2(Vector2.ZERO, RicochetSim.ARENA)
+	_draw_round_rect(rect, 28.0, pal["faint"])
+	var dot: Color = Color(pal["ink"], 0.07)
+	var y: float = 40.0
+	while y < RicochetSim.ARENA.y:
+		var x: float = 40.0
+		while x < RicochetSim.ARENA.x:
+			draw_circle(Vector2(x, y), 1.6, dot, true, -1.0, true)
+			x += 40.0
+		y += 40.0
+
+
+func _draw_round_rect(rect: Rect2, radius: float, color: Color) -> void:
+	var sb: StyleBoxFlat = StyleBoxFlat.new()
+	sb.bg_color = color
+	sb.set_corner_radius_all(int(radius))
+	sb.corner_detail = 10
+	sb.anti_aliasing = true
+	draw_style_box(sb, rect)
+
+
+func _draw_aim() -> void:
+	if _preview.is_empty():
+		_preview = RicochetSim.preview(level, state, aim_angle, 150.0, 2 if bool(SaveSystem.get_setting("long_guide", false)) else 1)
+	var pts: PackedVector2Array = _preview["points"]
+	var col: Color = Color(pal["ink"], 0.75)
+	var phase: float = fmod(_clock * 60.0, 22.0)
+	for i: int in pts.size() - 1:
+		_dotted(pts[i], pts[i + 1], col if i == 0 else Color(col, 0.5), 22.0, 3.4, phase if i == 0 else 0.0)
+	if pts.size() >= 2:
+		var hit: Vector2 = pts[-1]
+		draw_arc(hit, RicochetSim.ORB_R, 0.0, TAU, 28, Color(pal["ink"], 0.8), 2.5, true)
+		var stub: Vector2 = _preview["stub_end"]
+		if stub.distance_to(hit) > 2.0:
+			var n: int = 6
+			for k: int in n:
+				var f: float = float(k + 1) / float(n + 1)
+				draw_circle(hit.lerp(stub, f), 3.0 * (1.0 - f * 0.6), Color(pal["ink"], 0.5 * (1.0 - f)), true, -1.0, true)
+	for ti: int in _preview.get("pops", []):
+		draw_arc(_target_pos(ti), RicochetSim.TARGET_R + 8.0, 0.0, TAU, 40, Color(pal["target"], 0.7), 2.5, true)
+
+
+func _dotted(a: Vector2, b: Vector2, color: Color, spacing: float, radius: float, phase: float = 0.0) -> void:
+	var length: float = a.distance_to(b)
+	if length < 1.0:
+		return
+	var dir: Vector2 = (b - a) / length
+	var s: float = 26.0 + phase
+	while s < length:
+		draw_circle(a + dir * s, radius, color, true, -1.0, true)
+		s += spacing
+
+
+func _draw_hint() -> void:
+	var alpha: float = minf(1.0, _hint_t) * (0.65 + 0.2 * sin(_clock * 6.0))
+	for pts: Array in _hint_tracks:
+		for i: int in pts.size() - 1:
+			_dotted(pts[i], pts[i + 1], Color(pal["accent"], alpha), 18.0, 4.0, fmod(_clock * 40.0, 18.0))
+
+
+func _draw_walls(appear: float) -> void:
+	var walls: Array = level.get("walls", [])
+	for i: int in walls.size():
+		if not bool(_intact[i]) if i < _intact.size() else false:
+			continue
+		var w: Array = walls[i]
+		var kind: String = RicochetSim.wall_kind(w)
+		var flash: float = float(_flash.get("w%d" % i, 0.0))
+		var pts: PackedVector2Array = RicochetSim.wall_corners(w)
+		var centre: Vector2 = Vector2(float(w[0]), float(w[1]))
+		if appear < 1.0:
+			for k: int in 4:
+				pts[k] = centre + (pts[k] - centre) * appear
+		var thin: bool = minf(float(w[2]), float(w[3])) <= 24.0
+		match kind:
+			RicochetSim.KIND_GLASS:
+				var fill: Color = Color(pal["special"], 0.28 + 0.4 * flash)
+				draw_colored_polygon(pts, fill)
+				var outline: PackedVector2Array = pts.duplicate()
+				outline.append(pts[0])
+				draw_polyline(outline, Color(pal["special"], 0.95), 2.5, true)
+				var glint_a: Vector2 = pts[0].lerp(pts[1], 0.15).lerp(pts[3].lerp(pts[2], 0.15), 0.5)
+				var glint_b: Vector2 = pts[0].lerp(pts[1], 0.32).lerp(pts[3].lerp(pts[2], 0.32), 0.5)
+				draw_line(glint_a, glint_b, Color(1, 1, 1, 0.8), 3.0, true)
+			RicochetSim.KIND_VOID:
+				draw_colored_polygon(pts, pal["special"])
+				var o: PackedVector2Array = pts.duplicate()
+				o.append(pts[0])
+				draw_polyline(o, Color(pal["accent"], 0.45 + 0.2 * sin(_clock * 3.0 + float(i))), 2.0, true)
+			_:
+				var col: Color = (pal["wall"] as Color).lerp(pal["accent"], flash * 0.8)
+				if thin:
+					var a: Vector2 = pts[0].lerp(pts[3], 0.5)
+					var b: Vector2 = pts[1].lerp(pts[2], 0.5)
+					var t: float = float(w[3]) * appear
+					if float(w[3]) > float(w[2]):
+						a = pts[0].lerp(pts[1], 0.5)
+						b = pts[3].lerp(pts[2], 0.5)
+						t = float(w[2]) * appear
+					var dir: Vector2 = (b - a).normalized()
+					a += dir * t * 0.5
+					b -= dir * t * 0.5
+					draw_line(a, b, col, t, true)
+					draw_circle(a, t * 0.5, col, true, -1.0, true)
+					draw_circle(b, t * 0.5, col, true, -1.0, true)
+				else:
+					draw_colored_polygon(pts, col)
+					var o2: PackedVector2Array = pts.duplicate()
+					o2.append(pts[0])
+					draw_polyline(o2, col, 3.0, true)
+
+
+func _draw_features() -> void:
+	for i: int in (level.get("bumpers", []) as Array).size():
+		var b: Array = level["bumpers"][i]
+		var c: Vector2 = Vector2(float(b[0]), float(b[1]))
+		var r: float = float(b[2]) if b.size() > 2 else RicochetSim.BUMPER_R
+		var pulse: float = float(_bumps.get(i, 0.0))
+		r *= 1.0 + 0.12 * pulse
+		draw_circle(c, r, Color(pal["accent"], 0.16 + 0.3 * pulse), true, -1.0, true)
+		draw_arc(c, r, 0.0, TAU, 48, pal["accent"], 4.0, true)
+		draw_circle(c, 5.0, pal["accent"], true, -1.0, true)
+	for i: int in (level.get("portals", []) as Array).size():
+		var pt: Array = level["portals"][i]
+		for side: int in 2:
+			var c: Vector2 = Vector2(float(pt[side * 2]), float(pt[side * 2 + 1]))
+			var col: Color = pal["special"]
+			draw_circle(c, RicochetSim.PORTAL_R + 4.0, Color(col, 0.18), true, -1.0, true)
+			draw_arc(c, RicochetSim.PORTAL_R + 4.0, 0.0, TAU, 40, col, 3.0, true)
+			var spin: float = _clock * (1.6 if side == 0 else -1.6)
+			for k: int in 3:
+				var a0: float = spin + TAU * float(k) / 3.0
+				draw_arc(c, RicochetSim.PORTAL_R + 13.0, a0, a0 + 1.1, 12, Color(col, 0.7), 3.0, true)
+			draw_circle(c, 5.0, col, true, -1.0, true)
+	for i: int in (level.get("prisms", []) as Array).size():
+		var pr: Array = level["prisms"][i]
+		var c: Vector2 = Vector2(float(pr[0]), float(pr[1]))
+		var rot: float = _clock * 0.8
+		var r: float = RicochetSim.PRISM_R + 6.0
+		var pts: PackedVector2Array = PackedVector2Array()
+		for k: int in 3:
+			pts.append(c + Vector2.from_angle(rot + TAU * float(k) / 3.0) * r)
+		draw_colored_polygon(pts, Color(pal["special"], 0.3))
+		var o: PackedVector2Array = pts.duplicate()
+		o.append(pts[0])
+		draw_polyline(o, pal["special"], 3.0, true)
+		draw_circle(c, 4.0, pal["special2"], true, -1.0, true)
+
+
+func _draw_targets(appear: float) -> void:
+	var targets: Array = level.get("targets", [])
+	for i: int in targets.size():
+		var c: Vector2 = _target_pos(i)
+		var hp: int = int(_hp[i]) if i < _hp.size() else 0
+		if hp <= 0:
+			if _pops.has(i):
+				var k: float = float(_pops[i])
+				draw_circle(c, RicochetSim.TARGET_R * (1.0 + 0.6 * k), Color(pal["target"], 1.0 - k), true, -1.0, true)
+			continue
+		var breathe: float = 1.0 + 0.035 * sin(_clock * 2.4 + float(i) * 1.7)
+		var r: float = RicochetSim.TARGET_R * breathe * appear
+		draw_circle(c, r, pal["target"], true, -1.0, true)
+		draw_arc(c, r * 0.46, 0.0, TAU, 32, Color(pal["top"], 0.9), 3.0, true)
+		if hp >= 2:
+			draw_arc(c, r + 8.0, 0.0, TAU, 48, pal["target"], 4.0, true)
+			draw_arc(c, r + 8.0, 0.0, TAU, 48, Color(pal["ink"], 0.25), 1.5, true)
+
+
+func _draw_orbs() -> void:
+	var orb_c: Color = pal["orb"]
+	var dark: bool = bool(pal.get("dark", false))
+	for id: Variant in _trails:
+		var tr: Array = _trails[id]
+		var n: int = tr.size()
+		for k: int in range(1, n):
+			var f: float = float(k) / float(n)
+			draw_line(tr[k - 1], tr[k], Color(orb_c, 0.28 * f), RicochetSim.ORB_R * 1.6 * f, true)
+	if not playing or _result.is_empty():
+		return
+	for track: Dictionary in _result["tracks"]:
+		var p: Variant = _track_pos(track, _play_t)
+		if p == null:
+			continue
+		if dark:
+			draw_circle(p, RicochetSim.ORB_R * 2.8, Color(orb_c, 0.06), true, -1.0, true)
+			draw_circle(p, RicochetSim.ORB_R * 1.8, Color(orb_c, 0.14), true, -1.0, true)
+		else:
+			draw_circle(p, RicochetSim.ORB_R * 1.7, Color(orb_c, 0.1), true, -1.0, true)
+		draw_circle(p, RicochetSim.ORB_R, orb_c, true, -1.0, true)
+
+
+func _draw_launcher() -> void:
+	var c: Vector2 = RicochetSim.launcher(level)
+	var ink: Color = pal["ink"]
+	var k: float = 1.0 + 0.18 * _kick
+	draw_arc(c, 24.0 * k, 0.0, TAU, 40, Color(ink, 0.9), 3.0, true)
+	if not playing and shots_left() > 0:
+		var bob: float = 1.0 + 0.05 * sin(_clock * 3.0)
+		draw_circle(c, RicochetSim.ORB_R * bob, pal["orb"], true, -1.0, true)
+	# Bounce allowance as pips arched over the launcher.
+	var n: int = int(level.get("bounces", 0))
+	var spread: float = deg_to_rad(16.0)
+	var base: float = aim_angle if (aiming or has_aim) and not playing else -PI / 2.0
+	for i: int in n:
+		var a: float = base + (float(i) - float(n - 1) * 0.5) * spread
+		draw_circle(c + Vector2.from_angle(a) * 38.0, 3.6, Color(ink, 0.85), true, -1.0, true)
+
+
+func _draw_fx() -> void:
+	for r: Dictionary in _rings:
+		var k: float = 1.0 - float(r["life"]) / float(r["max"])
+		var e: float = 1.0 - pow(1.0 - k, 3.0)
+		var rad: float = lerpf(float(r["r0"]), float(r["r1"]), e)
+		var col: Color = r["c"]
+		draw_arc(r["p"], maxf(0.5, rad), 0.0, TAU, 48, Color(col, col.a * (1.0 - k)), maxf(0.5, float(r["w"]) * (1.0 - k * 0.7)), true)
+	for p: Dictionary in _particles:
+		var k2: float = float(p["life"]) / float(p["max"])
+		var col2: Color = p["c"]
+		if p["shard"]:
+			var dir: Vector2 = Vector2.from_angle(float(p["rot"])) * float(p["r"]) * 0.5
+			draw_line((p["p"] as Vector2) - dir, (p["p"] as Vector2) + dir, Color(col2, k2), 3.0, true)
+		else:
+			draw_circle(p["p"], float(p["r"]) * (0.4 + 0.6 * k2), Color(col2, col2.a * k2), true, -1.0, true)

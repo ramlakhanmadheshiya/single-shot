@@ -1,9 +1,5 @@
 extends Node
-## Typed, project-wide signals. UI and gameplay communicate through this bus.
-signal theme_changed(mode: int)
-signal scene_change_started(path: String)
-signal scene_change_finished(path: String)
+## Project-wide signals so UI and gameplay stay decoupled.
 signal setting_changed(key: String, value: Variant)
-signal level_won(level_id: String, stars: int, badge: bool)
-signal level_failed(level_id: String)
-signal sound_requested(sound_id: String)
+signal level_completed(level_id: String, stars: int)
+signal hints_changed(count: int)
