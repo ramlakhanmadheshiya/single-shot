@@ -18,6 +18,7 @@ var projectiles: Array[RigidBody2D] = []
 var crates: Array[RigidBody2D] = []
 var ghouls: Array[Area2D] = []
 var ghoul_sprites: Array[Node2D] = []
+var aim_cast: ShapeCast2D
 var shots_used: int = 0
 var shot_limit: int = 3
 var par_three: int = 1
@@ -90,6 +91,14 @@ func _build_level() -> void:
 	crates.clear()
 	ghouls.clear()
 	ghoul_sprites.clear()
+	aim_cast = ShapeCast2D.new()
+	aim_cast.name = "AimCast"
+	aim_cast.collide_with_bodies = true
+	aim_cast.collide_with_areas = true
+	var guide_shape: CircleShape2D = CircleShape2D.new()
+	guide_shape.radius = tuning.shot_radius
+	aim_cast.shape = guide_shape
+	world.add_child(aim_cast)
 	world.position = Vector2.ZERO
 	_world_size = size
 	var floor_y: float = size.y * tuning.floor_height
@@ -209,28 +218,28 @@ func show_hint() -> void:
 func _draw_aim_path(direction: Vector2, dots: int, tint: Color) -> void:
 	if direction.length_squared() < 0.001:
 		return
-	var start: Vector2 = hazel.position + Vector2(25, 0)
+	var start: Vector2 = hazel.position + direction.normalized() * tuning.shot_spawn_offset
 	var direction_n: Vector2 = direction.normalized()
-	var distance: float = minf(size.x * 0.68, tuning.shot_speed * 0.85)
-	var hit: Dictionary = _ray_hit(start, start + direction_n * distance)
-	var first_end: Vector2 = hit.get("position", start + direction_n * distance)
+	var distance: float = size.x * 1.5
+	aim_cast.collision_mask = 1
+	if not projectiles.is_empty() and is_instance_valid(projectiles[0]):
+		aim_cast.collision_mask = projectiles[0].collision_mask
+	aim_cast.position = start
+	aim_cast.target_position = direction_n * distance
+	aim_cast.force_shapecast_update()
+	var hit: bool = aim_cast.is_colliding()
+	var first_end: Vector2 = start + direction_n * distance
+	if hit:
+		first_end = start + direction_n * distance * aim_cast.get_closest_collision_safe_fraction()
 	_draw_dots(start, first_end, dots, tint)
-	if not hit.is_empty():
-		var normal: Vector2 = hit.get("normal", Vector2.ZERO)
+	if hit:
+		var normal: Vector2 = aim_cast.get_collision_normal(0)
 		var bounce_dir: Vector2 = direction_n.bounce(normal)
 		_draw_dots(first_end, first_end + bounce_dir * minf(distance * 0.55, size.x * 0.4), dots / 2, Color(tint, tint.a * 0.72))
 
 func _draw_dots(from: Vector2, to: Vector2, count: int, tint: Color) -> void:
 	for index in maxi(2, count):
 		draw_circle(from.lerp(to, float(index) / float(maxi(2, count))), 3.1 if index % 2 == 0 else 2.0, tint)
-
-func _ray_hit(from: Vector2, to: Vector2) -> Dictionary:
-	var query: PhysicsRayQueryParameters2D = PhysicsRayQueryParameters2D.create(world.to_global(from), world.to_global(to))
-	for ghoul in ghouls:
-		if is_instance_valid(ghoul): query.exclude.append(ghoul.get_rid())
-	for crate in crates:
-		if is_instance_valid(crate): query.exclude.append(crate.get_rid())
-	return get_world_2d().direct_space_state.intersect_ray(query)
 
 func _gui_input(event: InputEvent) -> void:
 	if state != "aiming" or hazel == null:
@@ -320,6 +329,8 @@ func fire(direction: Vector2, power: float = -1.0) -> void:
 	var body: RigidBody2D = RigidBody2D.new()
 	body.name = "Shot"
 	body.continuous_cd = RigidBody2D.CCD_MODE_CAST_RAY
+	body.collision_layer = 1
+	body.collision_mask = 1
 	body.contact_monitor = true
 	body.max_contacts_reported = tuning.shot_max_contacts
 	body.gravity_scale = tuning.shot_gravity_scale * tuning.gravity / tuning.default_gravity
@@ -391,7 +402,7 @@ func _physics_process(delta: float) -> void:
 	if state != "shot_flying" and state != "settling":
 		return
 	shot_age += delta
-	if shot_age >= tuning.last_shot_wait:
+	if shot_age >= tuning.shot_lifetime:
 		for projectile in projectiles:
 			if is_instance_valid(projectile): projectile.queue_free()
 		projectiles.clear()
@@ -405,8 +416,11 @@ func _physics_process(delta: float) -> void:
 		for ghoul in ghouls.duplicate():
 			if is_instance_valid(ghoul) and projectile.position.distance_to(ghoul.position) <= tuning.ghoul_radius + tuning.shot_radius + tuning.ghoul_hit_padding:
 				_kill_ghoul(ghoul)
-		var margin: float = tuning.shot_offscreen_margin
-		if shot_age >= tuning.shot_lifetime or projectile.position.x < -margin or projectile.position.x > size.x + margin or projectile.position.y > size.y + margin or projectile.position.y < -margin or projectile.linear_velocity.length() < tuning.shot_stop_speed and shot_age > tuning.shot_min_motion_time:
+		var slow_enough: bool = projectile.linear_velocity.length() < tuning.shot_stop_speed
+		var slow_time: float = float(projectile.get_meta("slow_time", 0.0))
+		slow_time = slow_time + delta if slow_enough else 0.0
+		projectile.set_meta("slow_time", slow_time)
+		if shot_age >= tuning.shot_lifetime or slow_time >= 1.0:
 			projectile.queue_free()
 			projectiles.erase(projectile)
 		else:
@@ -418,7 +432,7 @@ func _physics_process(delta: float) -> void:
 		state = "settling"
 		settle_age += delta
 		state_changed.emit(state)
-		if settle_age >= tuning.settle_time or shot_age >= tuning.last_shot_wait and shots_used >= shot_limit:
+		if settle_age >= tuning.settle_time or shot_age >= tuning.shot_lifetime and shots_used >= shot_limit:
 			_finish_shot()
 	elif shot_age >= tuning.shot_lifetime:
 		_finish_shot()
@@ -490,10 +504,17 @@ func get_solution_line() -> PackedVector2Array:
 	var result := PackedVector2Array()
 	if hazel == null: return result
 	var dir: Vector2 = _solution_vector()
-	var start: Vector2 = hazel.position + dir * 26
-	var distance: float = size.x * 0.74
-	var hit: Dictionary = _ray_hit(start, start + dir * distance)
-	var end: Vector2 = hit.get("position", start + dir * distance)
+	var start: Vector2 = hazel.position + dir * tuning.shot_spawn_offset
+	var distance: float = size.x * 1.5
+	aim_cast.collision_mask = 1
+	if not projectiles.is_empty() and is_instance_valid(projectiles[0]):
+		aim_cast.collision_mask = projectiles[0].collision_mask
+	aim_cast.position = start
+	aim_cast.target_position = dir * distance
+	aim_cast.force_shapecast_update()
+	var hit: bool = aim_cast.is_colliding()
+	var end: Vector2 = start + dir * distance
+	if hit: end = start + dir * distance * aim_cast.get_closest_collision_safe_fraction()
 	result.append(start); result.append(end)
-	if not hit.is_empty(): result.append(end + dir.bounce(hit.get("normal", Vector2.UP)) * distance * 0.44)
+	if hit: result.append(end + dir.bounce(aim_cast.get_collision_normal(0)) * distance * 0.44)
 	return result
