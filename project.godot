@@ -70,3 +70,4 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 environment/defaults/default_clear_color=Color(1, 0.956863, 0.909804, 1)
 anti_aliasing/quality/msaa_2d=2
+textures/vram_compression/import_etc2_astc=true
