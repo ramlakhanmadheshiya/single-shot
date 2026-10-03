@@ -4,7 +4,7 @@ const DARK: Dictionary = preload("res://game/ui/themes/theme_tokens.gd").DARK
 const LIGHT: Dictionary = preload("res://game/ui/themes/theme_tokens.gd").LIGHT
 const PAGE_DOT_WINDOW: int = 5
 const HINTS_PER_LEVEL: int = 3
-const TUTORIAL_STEPS: Array[String] = ["tutorial_aim", "tutorial_bounce", "tutorial_ghouls", "tutorial_tools"]
+const START_TUTORIAL: Array[Dictionary] = [{"target": "PlayArea", "message": "tutorial_action_aim", "action": "drag"}]
 var palette: Dictionary = {}
 var screen: String = "menu"
 var content_layer: Control
@@ -43,6 +43,12 @@ var _pointer_start: Vector2 = Vector2.ZERO
 var _pointer_down: bool = false
 var _touching_sheet: bool = false
 var _next_playable_level: int = 1
+var _return_to_menu_after_level: bool = false
+var tutorial_drag_start: Vector2 = Vector2.ZERO
+var tutorial_drag_active: bool = false
+var tutorial_target: Control
+var _tutorial_hand_base_y: float = 0.0
+var active_tutorial_steps: Array[Dictionary] = []
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -51,6 +57,16 @@ func _ready() -> void:
 	_build_world()
 	get_viewport().size_changed.connect(_on_viewport_resized)
 	_show_menu()
+
+func _process(_delta: float) -> void:
+	if tutorial_overlay == null or not is_instance_valid(tutorial_overlay):
+		return
+	var hand: Label = tutorial_overlay.get_node_or_null("TutorialHand") as Label
+	if hand != null and tutorial_target != null and is_instance_valid(tutorial_target):
+		var target: Rect2 = _tutorial_target_rect().grow(14.0)
+		var aim_start: Vector2 = target.get_center() + Vector2(80.0, target.size.y * 0.25)
+		var drag_amount: float = (sin(float(Time.get_ticks_msec()) / 300.0) + 1.0) * 0.5
+		hand.position = aim_start + Vector2(-22.0, -22.0) + Vector2(-120.0, -68.0) * drag_amount
 
 func _build_world() -> void:
 	var backdrop: ColorRect = ColorRect.new()
@@ -189,16 +205,74 @@ func _show_menu() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var tagline: Label = _make_label(menu, "tagline", 30, "text_muted")
 	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var play: Button = _make_button(menu, _t("play"), _show_level_select, Vector2(minf(610.0, get_viewport_rect().size.x * 0.78), 112.0), "primary")
+	var play: Button = _make_button(menu, "", _play_current_level, Vector2(minf(610.0, get_viewport_rect().size.x * 0.78), 128.0), "primary")
 	play.name = "PlayButton"
 	play.set_meta("bb_action", "play")
+	var play_text: VBoxContainer = VBoxContainer.new()
+	play_text.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	play_text.alignment = BoxContainer.ALIGNMENT_CENTER
+	play_text.add_theme_constant_override("separation", -3)
+	play_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	play.add_child(play_text)
+	var play_label: Label = _make_label(play_text, "play", 38, "text")
+	play_label.add_theme_color_override("font_color", Color.WHITE)
+	play_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var current_label: Label = _make_label(play_text, "current_level", 21, "text")
+	current_label.text = _t("current_level", {"number": _current_level_global()})
+	current_label.add_theme_color_override("font_color", Color.WHITE)
+	current_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var levels_button: Button = _make_button(menu, _t("levels"), _show_level_select, Vector2(minf(420.0, get_viewport_rect().size.x * 0.58), 84.0), "secondary")
+	levels_button.name = "LevelsButton"
+	levels_button.set_meta("bb_action", "levels_menu")
 
 func _show_level_select() -> void:
 	_close_jump_overlay()
 	_clear_screen()
 	screen = "levels"
-	chapter_index = clampi(int(SaveSystem.get_setting("last_played_chapter", 0)), 0, maxi(0, LevelRegistry.chapters.size() - 1))
+	_return_to_menu_after_level = false
+	chapter_index = _current_level_chapter()
 	_build_level_page()
+
+func _play_current_level() -> void:
+	var current: int = _current_level_global()
+	if current > LevelRegistry.total_level_count():
+		_show_level_select()
+		return
+	var chapter: int = _current_level_chapter()
+	chapter_index = chapter
+	chapter_data = LevelRegistry.load_chapter(str(LevelRegistry.chapters[chapter].get("id", "")))
+	_return_to_menu_after_level = true
+	_open_level(current - chapter * 20)
+
+func _current_level_global() -> int:
+	var global_number: int = 1
+	for entry: Dictionary in LevelRegistry.chapters:
+		var chapter_id: String = str(entry.get("id", ""))
+		var level_count: int = int(entry.get("level_count", 20))
+		for index: int in level_count:
+			var record: Dictionary = SaveSystem.get_level("%s_l%03d" % [chapter_id, index + 1])
+			if record.is_empty():
+				_store_current_level(global_number)
+				return global_number
+			global_number += 1
+	var total: int = LevelRegistry.total_level_count()
+	_store_current_level(total + 1)
+	return total + 1
+
+func _store_current_level(number: int) -> void:
+	if int(SaveSystem.data.get("current_level", 1)) == number:
+		return
+	SaveSystem.data["current_level"] = number
+	SaveSystem.save()
+
+func _current_level_chapter() -> int:
+	var current: int = _current_level_global()
+	if LevelRegistry.chapters.is_empty():
+		return 0
+	return clampi((current - 1) / 20, 0, LevelRegistry.chapters.size() - 1)
+
+func _global_level_number(chapter: int, local_number: int) -> int:
+	return chapter * 20 + local_number
 
 func _build_level_page() -> void:
 	_clear_screen()
@@ -283,9 +357,7 @@ func _build_level_grid(parent: Control, chapter: Dictionary) -> void:
 		var record: Dictionary = SaveSystem.get_level(id)
 		var open: bool = _is_level_open(chapter, index)
 		var stars: int = int(record.get("stars", 0))
-		var tile_text: String = str(number) + "\n" + _t("stars_%d" % clampi(stars, 0, 3))
-		if not open:
-			tile_text += "\n" + _t("locked")
+		var tile_text: String = (str(number) + "\n" + _t("stars_%d" % clampi(stars, 0, 3))) if open else ""
 		var action: Callable = _open_level.bind(number) if open else _ignore_locked_level
 		var style: String = "highlight" if number == _next_playable_level and open else ("completed" if record.size() > 0 else "tile")
 		var tile: Button = _make_button(grid, tile_text, action, Vector2(tile_width, tile_height), style)
@@ -295,20 +367,33 @@ func _build_level_grid(parent: Control, chapter: Dictionary) -> void:
 		tile.set_meta("bb_action", "level_%02d" % number)
 		tile.disabled = not open
 		if not open:
-			_add_lock_icon(tile, 34.0)
+			_add_lock_icon(tile, minf(66.0, tile_height * 0.62), true)
 
-func _add_lock_icon(parent: Control, icon_size: float) -> void:
+func _add_lock_icon(parent: Control, icon_size: float, centered: bool = false) -> void:
 	var icon: LockIcon = LockIcon.new()
+	icon.name = "LockIcon"
 	icon.custom_minimum_size = Vector2(icon_size, icon_size)
 	icon.size = icon.custom_minimum_size
-	icon.anchor_left = 1.0
-	icon.anchor_right = 1.0
-	icon.offset_left = -icon_size - 10.0
-	icon.offset_right = -10.0
-	icon.offset_top = 8.0
-	icon.offset_bottom = icon_size + 8.0
+	if centered:
+		icon.anchor_left = 0.5
+		icon.anchor_right = 0.5
+		icon.anchor_top = 0.5
+		icon.anchor_bottom = 0.5
+		icon.offset_left = -icon_size * 0.5
+		icon.offset_right = icon_size * 0.5
+		icon.offset_top = -icon_size * 0.5
+		icon.offset_bottom = icon_size * 0.5
+	else:
+		icon.anchor_left = 0.5
+		icon.anchor_right = 0.5
+		icon.anchor_top = 0.0
+		icon.anchor_bottom = 0.0
+		icon.offset_left = -icon_size * 0.5
+		icon.offset_right = icon_size * 0.5
+		icon.offset_top = 82.0
+		icon.offset_bottom = 82.0 + icon_size
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon.set_colors(Color(palette["outline"]), Color(palette["accent"]))
+	icon.set_colors(Color(palette["text"]), Color(palette["surface_alt"]))
 	parent.add_child(icon)
 
 func _build_locked_chapter(parent: Control) -> void:
@@ -316,13 +401,19 @@ func _build_locked_chapter(parent: Control) -> void:
 	panel.name = "LockedChapterButton"
 	panel.set_meta("bb_action", "locked_chapter")
 	var box: VBoxContainer = VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 20)
 	panel.add_child(box)
-	var locked_title: Label = _make_label(box, "locked", 78, "accent")
-	locked_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_add_lock_icon(panel, 72.0)
+	var lock: LockIcon = LockIcon.new()
+	lock.custom_minimum_size = Vector2(120.0, 120.0)
+	lock.size = lock.custom_minimum_size
+	lock.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	lock.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lock.set_colors(Color(palette["text"]), Color(palette["surface_alt"]))
+	box.add_child(lock)
 	var locked_line: Label = _make_label(box, "chapter_locked", 30, "text", {"number": chapter_index})
+	locked_line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	locked_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 func _build_pager(parent: Control, total_pages: int) -> void:
@@ -584,7 +675,7 @@ func _is_mobile() -> bool:
 	return force_mobile_controls or OS.has_feature("mobile")
 
 func _open_how_to() -> void:
-	_open_info_sheet("how_to")
+	_show_tutorial(true)
 
 func _open_credits() -> void:
 	_open_info_sheet("credits")
@@ -635,37 +726,15 @@ func _open_info_sheet(kind: String) -> void:
 		var delete: Button = _make_button(buttons, _t("delete"), _delete_progress, Vector2(190.0, 74.0), "danger")
 		delete.set_meta("bb_action", "reset_delete")
 	else:
-		var title_key: String = "how_to_play" if kind == "how_to" else ("credits" if kind == "credits" else "about")
+		var title_key: String = "credits" if kind == "credits" else "about"
 		_make_label(box, title_key, 42, "accent")
-		if kind == "how_to":
-			var tutorial_text: Label = _make_label(box, TUTORIAL_STEPS[info_step], 30, "text")
-			tutorial_text.name = "InfoTutorialStep"
-			tutorial_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			var tutorial_buttons: HBoxContainer = HBoxContainer.new()
-			tutorial_buttons.alignment = BoxContainer.ALIGNMENT_CENTER
-			tutorial_buttons.add_theme_constant_override("separation", 16)
-			box.add_child(tutorial_buttons)
-			var next_step: Button = _make_button(tutorial_buttons, _t("tap_continue"), _next_info_tutorial, Vector2(270.0, 74.0), "primary")
-			next_step.set_meta("bb_action", "info_tutorial_next")
-			var skip_step: Button = _make_button(tutorial_buttons, _t("skip"), _close_info_sheet, Vector2(150.0, 74.0), "secondary")
-			skip_step.set_meta("bb_action", "info_tutorial_skip")
-		else:
-			var body_key: String = "credits_text" if kind == "credits" else "about_text"
-			var body: Label = _make_label(box, body_key, 27, "text")
-			body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			var close: Button = _make_button(box, _t("close"), _close_info_sheet, Vector2(220.0, 74.0), "primary")
-			close.set_meta("bb_action", "info_close")
+		var body_key: String = "credits_text" if kind == "credits" else "about_text"
+		var body: Label = _make_label(box, body_key, 27, "text")
+		body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var close: Button = _make_button(box, _t("close"), _close_info_sheet, Vector2(220.0, 74.0), "primary")
+		close.set_meta("bb_action", "info_close")
 	_make_label(box, "version", 18, "text_muted").horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-
-func _next_info_tutorial() -> void:
-	info_step += 1
-	if info_step >= TUTORIAL_STEPS.size():
-		_close_info_sheet()
-		return
-	var text_label: Label = info_layer.find_child("InfoTutorialStep", true, false) as Label
-	if text_label != null:
-		text_label.text = _t(TUTORIAL_STEPS[info_step])
 
 func _delete_progress() -> void:
 	SaveSystem.reset_progress()
@@ -741,7 +810,7 @@ func _show_game(level_number: int) -> void:
 	var header: HBoxContainer = HBoxContainer.new()
 	header.add_theme_constant_override("separation", 8 if compact else 20)
 	game_box.add_child(header)
-	var back: Button = _make_button(header, _t("back"), _show_level_select, Vector2(90.0 if compact else 120.0, 72.0), "secondary")
+	var back: Button = _make_button(header, _t("back"), _game_back, Vector2(90.0 if compact else 120.0, 72.0), "secondary")
 	back.set_meta("bb_action", "game_back")
 	var level_title: Label = _make_label(header, "level_number", 28 if compact else 38, "text", {"number": current_level_number})
 	level_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -788,68 +857,131 @@ func _show_game(level_number: int) -> void:
 	if current_level_number <= 3 and not bool(SaveSystem.data.get("tutorial_seen", false)):
 		_show_tutorial(false)
 
-func _show_tutorial(replay: bool) -> void:
+func _show_tutorial(replay: bool, steps: Array[Dictionary] = []) -> void:
 	if tutorial_overlay != null:
 		tutorial_overlay.queue_free()
 	tutorial_replay = replay
 	tutorial_step = 0
+	active_tutorial_steps = steps.duplicate(true) if not steps.is_empty() else START_TUTORIAL.duplicate(true)
 	tutorial_overlay = Control.new()
 	tutorial_overlay.name = "TutorialOverlay"
 	tutorial_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	tutorial_overlay.z_index = 50
+	tutorial_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	tutorial_overlay.gui_input.connect(_on_tutorial_input)
 	content_layer.add_child(tutorial_overlay)
-	var dim: ColorRect = ColorRect.new()
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(palette["overlay"], 0.68)
-	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tutorial_overlay.add_child(dim)
-	var spotlight: Control = Control.new()
-	spotlight.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	spotlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	spotlight.draw.connect(_draw_tutorial_spotlight.bind(spotlight))
-	tutorial_overlay.add_child(spotlight)
-	var center: CenterContainer = CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	tutorial_overlay.add_child(center)
-	var panel: PanelContainer = _make_panel()
-	panel.custom_minimum_size = Vector2(minf(760.0, get_viewport_rect().size.x * 0.86), 410.0)
-	center.add_child(panel)
-	var box: VBoxContainer = VBoxContainer.new()
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 22)
-	panel.add_child(box)
-	_make_label(box, "tutorial_title", 42, "accent")
-	var step: Label = _make_label(box, TUTORIAL_STEPS[0], 30, "text")
+	tutorial_overlay.draw.connect(_draw_tutorial_overlay)
+	var skip: Button = _make_button(tutorial_overlay, _t("skip"), _finish_tutorial, Vector2(144.0, 64.0), "secondary")
+	skip.name = "TutorialSkip"
+	skip.set_meta("bb_action", "tutorial_skip")
+	skip.anchor_left = 1.0
+	skip.anchor_right = 1.0
+	skip.offset_left = -170.0
+	skip.offset_right = -24.0
+	skip.offset_top = 22.0
+	skip.offset_bottom = 86.0
+	tutorial_target = find_child(str(active_tutorial_steps[0].get("target", "PlayArea")), true, false) as Control
+	if tutorial_target == null and settings_panel != null:
+		tutorial_target = settings_panel
+	if tutorial_target == null:
+		tutorial_target = Control.new()
+		tutorial_target.name = "TutorialPracticeTarget"
+		tutorial_target.anchor_left = 0.18
+		tutorial_target.anchor_right = 0.82
+		tutorial_target.anchor_top = 0.2
+		tutorial_target.anchor_bottom = 0.76
+		content_layer.add_child(tutorial_target)
+	var card: PanelContainer = _make_panel()
+	card.name = "TutorialTextCard"
+	card.custom_minimum_size = Vector2(minf(620.0, get_viewport_rect().size.x * 0.76), 120.0)
+	card.anchor_left = 0.5
+	card.anchor_right = 0.5
+	card.anchor_top = 1.0
+	card.anchor_bottom = 1.0
+	card.offset_left = -card.custom_minimum_size.x * 0.5
+	card.offset_right = card.custom_minimum_size.x * 0.5
+	card.offset_top = -160.0
+	card.offset_bottom = -32.0
+	tutorial_overlay.add_child(card)
+	var pad: MarginContainer = MarginContainer.new()
+	for side: String in ["left", "right", "top", "bottom"]:
+		pad.add_theme_constant_override("margin_" + side, 20)
+	card.add_child(pad)
+	var step: Label = _make_label(pad, str(active_tutorial_steps[0].get("message", "tutorial_action_aim")), 30, "text")
 	step.name = "TutorialStep"
 	step.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var buttons: HBoxContainer = HBoxContainer.new()
-	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
-	buttons.add_theme_constant_override("separation", 18)
-	box.add_child(buttons)
-	var next: Button = _make_button(buttons, _t("tap_continue"), _next_tutorial_step, Vector2(300.0, 78.0), "primary")
-	next.set_meta("bb_action", "tutorial_next")
-	var skip: Button = _make_button(buttons, _t("skip"), _finish_tutorial, Vector2(160.0, 78.0), "secondary")
-	skip.set_meta("bb_action", "tutorial_skip")
+	var hand: Label = _make_label(tutorial_overlay, "tutorial_hand", 54, "accent")
+	hand.name = "TutorialHand"
+	hand.text = "👆"
+	hand.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tutorial_hand_base_y = hand.position.y
+	tutorial_overlay.queue_redraw()
 
-func _draw_tutorial_spotlight(canvas: Control) -> void:
-	var w: float = canvas.size.x
-	var h: float = canvas.size.y
-	var target: Rect2 = Rect2(Vector2(w * 0.25, h * 0.35), Vector2(w * 0.5, h * 0.18))
-	if tutorial_step == 3:
-		target = Rect2(Vector2(w * 0.25, h * 0.79), Vector2(w * 0.5, h * 0.12))
-	canvas.draw_rect(target, Color(palette["accent"], 0.22), false, 5.0, true)
+func _tutorial_target_rect() -> Rect2:
+	if tutorial_target == null or not is_instance_valid(tutorial_target):
+		return Rect2()
+	var global: Rect2 = tutorial_target.get_global_rect()
+	return Rect2(global.position - tutorial_overlay.global_position, global.size)
 
-func _next_tutorial_step() -> void:
+func _draw_tutorial_overlay() -> void:
+	var w: float = tutorial_overlay.size.x
+	var h: float = tutorial_overlay.size.y
+	var target: Rect2 = _tutorial_target_rect().grow(14.0)
+	var dim: Color = Color(palette["overlay"], 0.78)
+	tutorial_overlay.draw_rect(Rect2(0, 0, w, target.position.y), dim, true)
+	tutorial_overlay.draw_rect(Rect2(0, target.end.y, w, h - target.end.y), dim, true)
+	tutorial_overlay.draw_rect(Rect2(0, target.position.y, target.position.x, target.size.y), dim, true)
+	tutorial_overlay.draw_rect(Rect2(target.end.x, target.position.y, w - target.end.x, target.size.y), dim, true)
+	tutorial_overlay.draw_rect(target, Color(palette["accent"], 0.45), false, 4.0, true)
+	var card_center: Vector2 = Vector2(w * 0.5, h - 96.0)
+	tutorial_overlay.draw_line(card_center + Vector2(0, -64), Vector2(target.get_center().x, target.end.y + 18.0), Color(palette["accent"]), 4.0, true)
+	var aim_start: Vector2 = target.get_center() + Vector2(80.0, target.size.y * 0.25)
+	tutorial_overlay.draw_line(aim_start, aim_start + Vector2(-150.0, -85.0), Color(palette["text"], 0.3), 4.0, true)
+
+func _on_tutorial_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var mouse: InputEventMouseButton = event as InputEventMouseButton
+		if mouse.button_index != MOUSE_BUTTON_LEFT:
+			return
+		var target: Rect2 = _tutorial_target_rect().grow(14.0)
+		if mouse.pressed and target.has_point(mouse.position):
+			tutorial_drag_active = true
+			tutorial_drag_start = mouse.position
+			if str(active_tutorial_steps[tutorial_step].get("action", "drag")) == "tap":
+				_advance_tutorial()
+		elif not mouse.pressed and tutorial_drag_active:
+			var dragged: float = mouse.position.distance_to(tutorial_drag_start)
+			tutorial_drag_active = false
+			if target.has_point(mouse.position) and dragged > 24.0:
+				_advance_tutorial()
+	elif event is InputEventScreenTouch:
+		var touch: InputEventScreenTouch = event as InputEventScreenTouch
+		var target: Rect2 = _tutorial_target_rect().grow(14.0)
+		if touch.pressed and target.has_point(touch.position):
+			tutorial_drag_active = true
+			tutorial_drag_start = touch.position
+			if str(active_tutorial_steps[tutorial_step].get("action", "drag")) == "tap":
+				_advance_tutorial()
+		elif not touch.pressed and tutorial_drag_active:
+			tutorial_drag_active = false
+			if target.has_point(touch.position) and touch.position.distance_to(tutorial_drag_start) > 24.0:
+				_advance_tutorial()
+	if tutorial_overlay != null:
+		tutorial_overlay.accept_event()
+
+func _advance_tutorial() -> void:
 	tutorial_step += 1
-	if tutorial_step >= TUTORIAL_STEPS.size():
+	if tutorial_step >= active_tutorial_steps.size():
 		_finish_tutorial()
 		return
+	var step: Dictionary = active_tutorial_steps[tutorial_step]
 	var label: Label = tutorial_overlay.find_child("TutorialStep", true, false) as Label
 	if label != null:
-		label.text = _t(TUTORIAL_STEPS[tutorial_step])
-	var spotlight: Control = tutorial_overlay.get_child(1) as Control
-	if spotlight != null:
-		spotlight.queue_redraw()
+		label.text = _t(str(step.get("message", "tutorial_action_aim")))
+	tutorial_target = find_child(str(step.get("target", "PlayArea")), true, false) as Control
+	if tutorial_target == null:
+		tutorial_target = settings_panel
+	tutorial_overlay.queue_redraw()
 
 func _finish_tutorial() -> void:
 	if not tutorial_replay:
@@ -858,6 +990,9 @@ func _finish_tutorial() -> void:
 	if tutorial_overlay != null:
 		tutorial_overlay.queue_free()
 	tutorial_overlay = null
+	tutorial_target = null
+	tutorial_drag_active = false
+	active_tutorial_steps.clear()
 
 func _use_hint() -> void:
 	if hints_left <= 0:
@@ -897,6 +1032,13 @@ func _open_level(number: int) -> void:
 		return
 	_show_game(number)
 
+func _game_back() -> void:
+	if _return_to_menu_after_level:
+		_return_to_menu_after_level = false
+		_show_menu()
+	else:
+		_show_level_select()
+
 func _ignore_locked_level() -> void:
 	return
 
@@ -930,7 +1072,7 @@ func _find_next_playable(chapter: Dictionary) -> int:
 	for index: int in mini(20, levels.size()):
 		if _is_level_open(chapter, index) and SaveSystem.get_level(str((levels[index] as Dictionary).get("id", ""))).is_empty():
 			return index + 1
-	return 20
+	return 0
 
 func _level_metadata(number: int) -> Dictionary:
 	var levels: Array = chapter_data.get("levels", [])

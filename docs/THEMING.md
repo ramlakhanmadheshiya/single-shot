@@ -12,14 +12,16 @@ The screen colors use the semantic tokens in `game/ui/themes/theme_tokens.gd`. `
 | Level Select, open chapter | ✓ | ✓ | ✓ |
 | Level Select, locked chapter | ✓ | ✓ | ✓ |
 | Settings sheet | ✓ | ✓ | ✓ |
-| How to play sheet | ✓ | ✓ | ✓ |
+| How to play action tutorial | ✓ | ✓ | ✓ |
 | Credits sheet | ✓ | ✓ | ✓ |
 | About sheet | ✓ | ✓ | ✓ |
 | Reset question | ✓ | ✓ | ✓ |
 | Tutorial overlay | ✓ | ✓ | ✓ |
 | In-level screen | ✓ | ✓ | ✓ |
 
-The automated navigation test visits each screen with both color themes. The GUI run also saves temporary review images under `/tmp/bb_*.png`.
+The automated navigation test visits each screen with both color themes. The GUI run saves menu, level, locked chapter, settings, and tutorial images in `docs/screenshots/`.
+
+The tutorial darkens the screen around a cutout over its target. A padded card sits below the target. The hand and faint aim line point into the clear area. The tutorial waits for a drag inside that area. Skip stays visible at the top right.
 
 ## Window sizes
 

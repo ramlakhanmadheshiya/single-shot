@@ -1,7 +1,7 @@
 extends Node
 ## Versioned local progress and settings. Each level uses a stable string key.
 const SAVE_PATH: String = "user://save.json"
-const SAVE_VERSION: int = 2
+const SAVE_VERSION: int = 3
 var data: Dictionary = {}
 
 func _ready() -> void:
@@ -71,6 +71,7 @@ func reset_progress() -> void:
 	data["levels"] = {}
 	data["unlocks"] = ["ch01"]
 	data["tutorial_seen"] = false
+	data["current_level"] = 1
 	var settings: Dictionary = data.get("settings", {})
 	settings["last_played_chapter"] = 0
 	data["settings"] = settings
@@ -82,6 +83,7 @@ func _default_data() -> Dictionary:
 		"levels": {},
 		"unlocks": ["ch01"],
 		"tutorial_seen": false,
+		"current_level": 1,
 		"settings": {
 			"music_volume": 0.65,
 			"sound_volume": 0.8,

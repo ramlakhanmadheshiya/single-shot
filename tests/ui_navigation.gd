@@ -23,14 +23,37 @@ func _run() -> void:
 	await get_tree().process_frame
 	_expect(app.screen == "menu", "Main Menu opens first")
 	_expect(_find_action("play") != null, "Play appears on Main Menu")
+	_expect(_find_action("levels_menu") != null, "Levels appears below Play")
+	_expect(_has_text("Level 1"), "Play button shows the current level")
 	await _capture("bb_menu_dark")
 
 	await _press_action("play")
-	_expect(app.screen == "levels", "Play opens Level Select directly")
+	_expect(app.screen == "game" and app.current_level_number == 1, "Play continues to new player's Level 1")
+	_expect(int(SaveSystem.data.get("current_level", 0)) == 1, "Save file stores the current level")
+	_expect(app.tutorial_overlay != null, "First level shows its action tutorial")
+	var outside_down: InputEventMouseButton = InputEventMouseButton.new()
+	outside_down.button_index = MOUSE_BUTTON_LEFT
+	outside_down.pressed = true
+	outside_down.position = Vector2(5.0, 5.0)
+	app._on_tutorial_input(outside_down)
+	var outside_up: InputEventMouseButton = InputEventMouseButton.new()
+	outside_up.button_index = MOUSE_BUTTON_LEFT
+	outside_up.position = Vector2(5.0, 5.0)
+	app._on_tutorial_input(outside_up)
+	_expect(app.tutorial_overlay != null and app.hints_left == 3, "Outside taps do not finish or spend tutorial hints")
+	await _do_tutorial_drag()
+	_expect(app.tutorial_overlay == null and bool(SaveSystem.data.get("tutorial_seen", false)), "Tutorial waits for a real drag and saves once")
+	await _press_action("game_back")
+	_expect(app.screen == "menu", "Play entry returns to Main Menu from a level")
+	await _press_action("levels_menu")
+	_expect(app.screen == "levels", "Levels opens Level Select")
 	_expect(app.page_dots.size() <= 5, "Chapter dots use a short row")
 	_expect(_find_named("LevelGrid") != null, "Level Select builds its visible level grid")
 	await _capture("bb_levels_dark")
 	_expect(app.find_children("LevelTile_*", "Button", true, false).size() == 20, "One page shows exactly twenty levels")
+	var locked_tile: Button = _level_tile(2)
+	_expect(locked_tile != null and locked_tile.text.is_empty(), "Locked tile shows no word or empty stars")
+	_expect(locked_tile != null and locked_tile.find_child("LockIcon", true, false) != null, "Locked tile shows its lock icon")
 	_swipe(-150.0)
 	await get_tree().process_frame
 	_expect(app.chapter_index == 1, "Swipe opens the next chapter")
@@ -101,7 +124,7 @@ func _run() -> void:
 	await _press_action("theme_1")
 	await _press_action("close_settings")
 	await _capture("bb_menu_light")
-	await _press_action("play")
+	await _press_action("levels_menu")
 	_expect(ThemeManager.mode == ThemeManager.Mode.LIGHT, "Level Select keeps the Light theme")
 	await _capture("bb_levels_light")
 	_swipe(-150.0)
@@ -113,13 +136,12 @@ func _run() -> void:
 	await _press_action("settings")
 	await _open_and_close_info("about")
 	await _press_action("close_settings")
-	await _press_action("play")
+	await _press_action("levels_menu")
 	await _press_level(1)
 	_expect(app.screen == "game", "Unlocked level opens the in-level screen")
 	_expect(app.tutorial_overlay != null, "First room opens the short tutorial")
 	await _capture("bb_tutorial_light")
-	for step: int in 4:
-		await _press_action("tutorial_next")
+	await _do_tutorial_drag()
 	_expect(bool(SaveSystem.data.get("tutorial_seen", false)), "Tutorial shows only once")
 	_expect(_find_action("hint") != null, "In-level Hint button appears")
 	await _press_action("hint")
@@ -133,6 +155,15 @@ func _run() -> void:
 		SaveSystem.record_level("ch01_l%03d" % (number + 1), 3)
 	app._build_level_page()
 	await get_tree().process_frame
+	await _press_action("back")
+	await _press_action("play")
+	_expect(app.screen == "game" and app.current_level_number == 7, "Play continues at the first unfinished level")
+	_expect(int(SaveSystem.data.get("current_level", 0)) == 7, "Save file advances to Level 7")
+	await _press_action("game_back")
+	_expect(app.screen == "menu", "Play-launched level returns to Main Menu")
+	await _press_action("levels_menu")
+	_expect(app.chapter_index == 0, "Levels opens the current level's chapter")
+	_expect(str(_level_tile(7).get_meta("bb_style", "")) == "highlight", "Level Select highlights the current level")
 	await _press_level(7)
 	_expect(_has_text("Level 7"), "In-level screen shows its level number")
 	_expect(_has_text("Shots used: 0"), "In-level screen shows shots used")
@@ -148,6 +179,11 @@ func _run() -> void:
 	_expect(app.screen == "levels", "Level Back returns to Level Select")
 	await _press_action("back")
 	_expect(app.screen == "menu", "Final Back returns to Main Menu")
+	for chapter: int in 5:
+		for number: int in 20:
+			SaveSystem.record_level("ch%02d_l%03d" % [chapter + 1, number + 1], 1)
+	await _press_action("play")
+	_expect(app.screen == "levels" and app.chapter_index == 4, "Play opens Level Select after every level is done")
 
 	SaveSystem.data = saved_data
 	SaveSystem.save()
@@ -189,11 +225,13 @@ func _exercise_settings() -> void:
 func _open_and_close_info(kind: String, outside: bool = false) -> void:
 	var action_name: String = "how_to_play" if kind == "how_to" else kind
 	await _press_text(Strings.text(action_name))
-	_expect(app.info_layer != null and app.info_id == kind, kind + " opens above Settings")
 	if kind == "how_to":
-		for step: int in 4:
-			await _press_action("info_tutorial_next")
-	elif outside:
+		_expect(app.tutorial_overlay != null and app.info_layer == null, "How to play starts the action tutorial")
+		await _do_tutorial_drag()
+		_expect(app.tutorial_overlay == null, "How to play tutorial waits for its action")
+		return
+	_expect(app.info_layer != null and app.info_id == kind, kind + " opens above Settings")
+	if outside:
 		var tap: InputEventMouseButton = InputEventMouseButton.new()
 		tap.button_index = MOUSE_BUTTON_LEFT
 		tap.pressed = true
@@ -223,15 +261,17 @@ func _press_text(text: String) -> void:
 		await get_tree().process_frame
 
 func _press_level(number: int) -> void:
-	var tile: Button = null
-	for node: Node in app.find_children("LevelTile_*", "Button", true, false):
-		if int(node.get_meta("level_number", 0)) == number:
-			tile = node as Button
-			break
+	var tile: Button = _level_tile(number)
 	_expect(tile != null, "Level tile exists: " + str(number))
 	if tile != null:
 		tile.pressed.emit()
 		await get_tree().process_frame
+
+func _level_tile(number: int) -> Button:
+	for node: Node in app.find_children("LevelTile_*", "Button", true, false):
+		if int(node.get_meta("level_number", 0)) == number:
+			return node as Button
+	return null
 
 func _find_action(action_name: String) -> Button:
 	for node: Node in app.find_children("", "Button", true, false):
@@ -244,7 +284,7 @@ func _find_named(node_name: String) -> Node:
 
 func _find_text_button(text: String) -> Button:
 	for node: Node in app.find_children("", "Button", true, false):
-		if (node as Button).text == text:
+		if (node as Button).text.contains(text):
 			return node as Button
 	return null
 
@@ -272,7 +312,26 @@ func _capture(file_name: String) -> void:
 	await get_tree().create_timer(0.08).timeout
 	await get_tree().process_frame
 	var image: Image = get_viewport().get_texture().get_image()
+	var screenshot_dir: String = ProjectSettings.globalize_path("res://docs/screenshots")
+	DirAccess.make_dir_recursive_absolute(screenshot_dir)
+	image.save_png(screenshot_dir.path_join(file_name + ".png"))
 	image.save_png("/tmp/" + file_name + ".png")
+
+func _do_tutorial_drag() -> void:
+	if app.tutorial_overlay == null or app.tutorial_target == null:
+		return
+	var start: Vector2 = app.tutorial_target.get_global_rect().get_center()
+	var down: InputEventMouseButton = InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	down.position = start
+	app._on_tutorial_input(down)
+	var up: InputEventMouseButton = InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	up.position = start + Vector2(-90.0, -40.0)
+	app._on_tutorial_input(up)
+	await get_tree().process_frame
 
 func _right_key() -> InputEventKey:
 	var event: InputEventKey = InputEventKey.new()

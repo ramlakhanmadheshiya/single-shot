@@ -44,6 +44,8 @@ func _run() -> void:
 	get_tree().root.add_child(app)
 	var build_start: int = Time.get_ticks_msec()
 	app._show_level_select()
+	app._set_chapter(0)
+	LevelRegistry.metadata_load_count = 0
 	await get_tree().process_frame
 	var first_page_ms: int = Time.get_ticks_msec() - build_start
 	_expect(_tiles().size() == 20, "only twenty tiles exist on the shown page")

@@ -2,11 +2,11 @@
 
 ## Foundation UX revision (2026-10-03)
 
-**Status: complete after automated UI checks.** Replaced the extra chapter screen with a direct Level Select. Added five chapter pages, each with twenty numbered levels, star marks, locks, and a highlighted next level. Pages support arrows, touch swipes, a five-dot window, and a chapter jump box. The last played chapter opens first.
+**Status: complete after automated UI checks.** Added five chapter pages, each with twenty numbered levels, star marks, locks, and a highlighted next level. Pages support arrows, touch swipes, a five-dot window, and a chapter jump box. Levels opens at the current chapter.
 
 Settings now slides up from the Main Menu or level screen. It has sound and music switches, mobile vibration, three themes, aim guide, screen shake, sound sliders, How to play, Credits, About, and Reset progress. Help pages open above Settings. Reset asks before clearing stars.
 
-Added the pre-game screen with shots used, a three-star goal, Hint, Undo, Restart, and Settings. Early levels show a four-step guide once. The English words live in `game/ui/strings.gd` and use Godot's TranslationServer.
+Added the pre-game screen with shots used, a three-star goal, Hint, Undo, Restart, and Settings. First play shows a drag tutorial once. The English words live in `game/ui/strings.gd` and use Godot's TranslationServer.
 
 Added five chapter JSON files with exactly twenty level records each. Level metadata loads only when its page appears. Added a 30-chapter test with 600 level records. Added `tools/validate_levels.gd` for the twenty-level rule.
 
@@ -19,3 +19,14 @@ Added five chapter JSON files with exactly twenty level records each. Level meta
 - `godot --headless --path . --script tools/validate_levels.gd` — all five chapter files pass.
 
 No errors or warnings appeared in the checked Godot output. The 20 level scenes and game physics are not part of this UX update. The next work waits for the user's approval.
+### Menu and tutorial follow-up
+
+- Play now continues to the first unfinished unlocked level and shows its number.
+- Levels opens the current chapter. Level Back follows the path used to enter.
+- The tutorial uses a spotlight, action prompt, moving hand, and ghost aim line.
+- The first tutorial step waits for a drag inside the highlighted play area.
+- Locked level tiles show a clear lock icon without a word or star row.
+- Saved current level lookup uses the registry index without reading every chapter.
+- Dark and Light menu, level, locked chapter, and settings screenshots are in `docs/screenshots/`.
+- Headless and GUI click-through suites cover new and continuing players.
+- Milestone 2 has not started.
