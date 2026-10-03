@@ -186,9 +186,10 @@ func _run() -> void:
 	await _capture("bb_tutorial_light")
 	await _do_tutorial_drag()
 	_expect(bool(SaveSystem.data.get("tutorial_seen", false)), "Tutorial shows only once")
+	app.gameplay.restart()
 	_expect(_find_action("hint") != null, "In-level Hint button appears")
 	await _press_action("hint")
-	_expect(app.hints_left == 2 and _find_named("HintLine") != null, "Hint shows a faint aim line")
+	_expect(app.hints_left == 2 and app.gameplay.hint_visible, "Hint shows its solving aim line")
 	await _press_action("hint")
 	await _press_action("hint")
 	_expect(app.hints_left == 0 and int(SaveSystem.data.get("bonus_hints", -1)) == 0, "Three daily hints are used before ad hints")
@@ -216,6 +217,21 @@ func _run() -> void:
 	_expect(_has_text("No ad available right now"), "Failed ad shows a retry message")
 	await _capture("bb_no_ad_light")
 	await _press_action("hint_not_now")
+	var hints_before_tutorials: int = int(SaveSystem.data.get("hints_left", 0))
+	app._show_game(2)
+	for _frame: int in 4: await get_tree().process_frame
+	_expect(app.tutorial_overlay != null and _has_text("Bounce it off the wall"), "Level 2 teaches a wall bounce")
+	await _do_tutorial_drag()
+	_expect(SaveSystem.data.get("tutorial_levels_seen", []).has(2), "Level 2 waits for its real shot")
+	app._show_game(3)
+	for _frame: int in 4: await get_tree().process_frame
+	_expect(app.tutorial_overlay != null and _has_text("Made a mistake? Tap Undo"), "Level 3 starts with Undo")
+	_tap_tutorial_target()
+	_expect(app.tutorial_overlay != null and app.tutorial_step == 1, "Undo tap advances to the bulb step")
+	_tap_tutorial_target()
+	_expect(app.tutorial_overlay == null and SaveSystem.data.get("tutorial_levels_seen", []).has(3), "Bulb tap finishes Level 3 teaching")
+	_expect(int(SaveSystem.data.get("hints_left", 0)) == hints_before_tutorials, "Tutorial hint never spends a real hint")
+	app._show_game(1)
 	await _click_action("settings", true)
 	_expect(app.settings_layer != null, "In-level gear responds to a touch in Light mode")
 	await _press_action("close_settings")
@@ -256,7 +272,7 @@ func _run() -> void:
 	await _press_level(7)
 	_expect(_has_text("Level 7"), "In-level screen shows its level number")
 	_expect(_has_text("Shots used: 0"), "In-level screen shows shots used")
-	_expect(_has_text("3-star goal: 2"), "In-level screen shows the three-star goal")
+	_expect(_has_text("3-star goal: 1"), "In-level screen shows the three-star goal")
 	_expect(_find_action("undo") != null and _find_action("restart") != null, "Undo and Restart buttons appear")
 	await _press_action("undo")
 	await _press_action("restart")
@@ -273,6 +289,22 @@ func _run() -> void:
 			SaveSystem.record_level("ch%02d_l%03d" % [chapter + 1, number + 1], 1)
 	await _press_action("play")
 	_expect(app.screen == "levels" and app.chapter_index == 4, "Play opens Level Select after every level is done")
+	for mode_name: String in ["dark", "light"]:
+		ThemeManager.set_mode(ThemeManager.Mode.DARK if mode_name == "dark" else ThemeManager.Mode.LIGHT)
+		app.chapter_index = 0
+		app.chapter_data = LevelRegistry.load_chapter("ch01")
+		app._show_game(1)
+		for _frame: int in 4: await get_tree().process_frame
+		await _capture("bb_gameplay_" + mode_name)
+		app.gameplay.shots_used = 1
+		app._on_game_shots_changed(1)
+		app._finish_level_win()
+		for _frame: int in 4: await get_tree().process_frame
+		await _capture("bb_win_" + mode_name)
+		app._restart_game()
+		app._show_try_again_panel()
+		for _frame: int in 4: await get_tree().process_frame
+		await _capture("bb_try_again_" + mode_name)
 
 	SaveSystem.data = saved_data
 	SaveSystem.save()
@@ -283,7 +315,11 @@ func _run() -> void:
 	AudioManager.music_player.stream = null
 	AudioManager.ui_player.stop()
 	AudioManager.ui_player.stream = null
-	await get_tree().create_timer(0.2).timeout
+	for player: AudioStreamPlayer in AudioManager.sfx_players:
+		player.stop()
+		player.stream = null
+	app.queue_free()
+	for _frame: int in 3: await get_tree().physics_frame
 	print("PASS: menu, Level Select, sheets, settings, tutorials and in-level buttons")
 	get_tree().quit(0)
 
@@ -434,18 +470,33 @@ func _capture(file_name: String) -> void:
 func _do_tutorial_drag() -> void:
 	if app.tutorial_overlay == null or app.tutorial_target == null:
 		return
-	var start: Vector2 = app.tutorial_target.get_global_rect().get_center()
+	var start: Vector2 = app.gameplay.gameplay_screen_origin()
 	var down: InputEventMouseButton = InputEventMouseButton.new()
 	down.button_index = MOUSE_BUTTON_LEFT
 	down.pressed = true
 	down.position = start
 	app._on_tutorial_input(down)
+	_expect(app.tutorial_overlay != null, "Tutorial does not finish before the real drag ends")
 	var up: InputEventMouseButton = InputEventMouseButton.new()
 	up.button_index = MOUSE_BUTTON_LEFT
 	up.pressed = false
 	up.position = start + Vector2(-90.0, -40.0)
 	app._on_tutorial_input(up)
 	await get_tree().process_frame
+
+func _tap_tutorial_target() -> void:
+	if app.tutorial_overlay == null or app.tutorial_target == null: return
+	var point: Vector2 = app.tutorial_target.get_global_rect().get_center()
+	var down: InputEventMouseButton = InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	down.position = point
+	app._on_tutorial_input(down)
+	var up: InputEventMouseButton = InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	up.position = point
+	app._on_tutorial_input(up)
 
 func _right_key() -> InputEventKey:
 	var event: InputEventKey = InputEventKey.new()

@@ -5,6 +5,8 @@ const LIGHT: Dictionary = preload("res://game/ui/themes/theme_tokens.gd").LIGHT
 const PAGE_DOT_WINDOW: int = 5
 const HINTS_PER_LEVEL: int = 3
 const START_TUTORIAL: Array[Dictionary] = [{"target": "PlayArea", "message": "tutorial_action_aim", "action": "drag"}]
+const RuntimeScript = preload("res://game/core/level_runtime.gd")
+const TuningScript = preload("res://game/core/physics_tuning.tres")
 var palette: Dictionary = {}
 var screen: String = "menu"
 var content_layer: Control
@@ -55,6 +57,13 @@ var hint_sheet: Control
 var ad_sheet: Control
 var hint_bonus_mark: Label
 var web_start_layer: Control
+var gameplay: LevelRuntime
+var game_overlay: Control
+var game_state: String = "intro"
+var game_tuning: PhysicsTuning = TuningScript.duplicate(true)
+var physics_panel: PanelContainer
+var star_label: Label
+var best_result_label: Label
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -76,8 +85,10 @@ func _process(_delta: float) -> void:
 	if hand != null and tutorial_target != null and is_instance_valid(tutorial_target):
 		var target: Rect2 = _tutorial_target_rect().grow(14.0)
 		var aim_start: Vector2 = target.get_center() + Vector2(80.0, target.size.y * 0.25)
+		if current_level_number <= 2 and gameplay != null:
+			aim_start = _tutorial_canvas_local(gameplay.gameplay_screen_origin())
 		var drag_amount: float = (sin(float(Time.get_ticks_msec()) / 300.0) + 1.0) * 0.5
-		hand.position = aim_start + Vector2(-22.0, -22.0) + Vector2(-120.0, -68.0) * drag_amount
+		hand.position = aim_start + Vector2(-22.0, -22.0) + Vector2(-115.0, -60.0) * drag_amount
 
 func _build_world() -> void:
 	var backdrop: ColorRect = ColorRect.new()
@@ -894,8 +905,11 @@ func _show_game(level_number: int) -> void:
 	SaveSystem.set_setting("last_played_chapter", chapter_index)
 	var data: Dictionary = _level_metadata(level_number)
 	var par_three: int = int(data.get("par_3", 2))
+	GameState.begin_level(str(data.get("id", "ch01_l%03d" % level_number)), str(chapter_data.get("id", "ch01")))
+	game_state = "intro"
 	var page: VBoxContainer = VBoxContainer.new()
 	page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	screen_body = page
 	page.add_theme_constant_override("separation", 20)
 	var margin: MarginContainer = MarginContainer.new()
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -925,14 +939,20 @@ func _show_game(level_number: int) -> void:
 	play_area.name = "PlayArea"
 	play_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	game_box.add_child(play_area)
-	var ready_box: CenterContainer = CenterContainer.new()
-	play_area.add_child(ready_box)
-	_make_label(ready_box, "game_ready", 34, "text_muted")
+	gameplay = RuntimeScript.new() as LevelRuntime
+	gameplay.name = "Gameplay"
+	gameplay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	play_area.add_child(gameplay)
+	gameplay.configure(data, palette, game_tuning)
+	gameplay.shots_changed.connect(_on_game_shots_changed)
+	gameplay.state_changed.connect(_on_game_state_changed)
+	gameplay.action_made.connect(_on_game_action)
 	var hint_row: HBoxContainer = HBoxContainer.new()
 	hint_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	game_box.add_child(hint_row)
 	var hint_button: Button = _make_button(hint_row, _t("hint_count", {"number": hints_left + int(SaveSystem.data.get("bonus_hints", 0))}), _use_hint, Vector2(200.0, 72.0), "secondary")
 	hint_button.name = "HintButton"
+	hint_button.set_meta("bb_action", "hint")
 	var bulb: LightBulbIcon = LightBulbIcon.new()
 	bulb.custom_minimum_size = Vector2(38.0, 42.0)
 	bulb.anchor_left = 0.0
@@ -966,13 +986,131 @@ func _show_game(level_number: int) -> void:
 	footer.add_theme_constant_override("separation", 16)
 	game_box.add_child(footer)
 	var undo: Button = _make_button(footer, _t("undo"), _undo_shot, Vector2(200.0, 72.0), "secondary")
+	undo.name = "UndoButton"
 	undo.set_meta("bb_action", "undo")
-	var restart: Button = _make_button(footer, _t("restart"), func(): _show_game(current_level_number), Vector2(200.0, 72.0), "secondary")
+	var restart: Button = _make_button(footer, _t("restart"), _restart_game, Vector2(200.0, 72.0), "secondary")
+	restart.name = "RestartButton"
 	restart.set_meta("bb_action", "restart")
 	var settings: Button = _make_button(footer, _t("settings_icon"), _show_settings, Vector2(82.0, 72.0), "secondary")
 	settings.set_meta("bb_action", "settings")
-	if current_level_number <= 3 and not bool(SaveSystem.data.get("tutorial_seen", false)):
-		_show_tutorial(false)
+	if current_level_number <= 3 and not _tutorial_was_seen(current_level_number):
+		var steps: Array[Dictionary] = _tutorial_steps(current_level_number)
+		_show_tutorial(false, steps)
+	if OS.is_debug_build():
+		_set_physics_gravity()
+
+func _on_game_shots_changed(value: int) -> void:
+	shots_used = value
+	_update_shots_label()
+
+func _on_game_action(action: String) -> void:
+	AudioManager.play_ui("ui_click")
+	if action == "shot":
+		game_state = "shot_flying"
+	elif action == "undo":
+		game_state = "aiming"
+
+func _on_game_state_changed(value: String) -> void:
+	game_state = value
+	match value:
+		"aiming":
+			GameState.play_state = GameState.PlayState.AIMING
+			_set_hazel_pose("idle")
+		"shot_flying":
+			GameState.play_state = GameState.PlayState.FIRED
+			_set_hazel_pose("fire")
+		"settling": GameState.play_state = GameState.PlayState.RESOLVING
+		"win":
+			GameState.play_state = GameState.PlayState.WIN
+			_set_hazel_pose("win")
+			_finish_level_win()
+		"try_again":
+			GameState.play_state = GameState.PlayState.FAIL
+			_set_hazel_pose("lose")
+			_show_try_again_panel()
+
+func _set_hazel_pose(pose: String) -> void:
+	if gameplay != null and gameplay.hazel_sprite != null:
+		gameplay.hazel_sprite.pose = pose
+		gameplay.hazel_sprite.queue_redraw()
+
+func _finish_level_win() -> void:
+	if game_overlay != null:
+		return
+	var data: Dictionary = _level_metadata(current_level_number)
+	var level_id: String = str(data.get("id", "ch01_l%03d" % current_level_number))
+	var stars: int = gameplay.get_stars() if gameplay != null else 1
+	SaveSystem.record_level(level_id, stars, false, shots_used)
+	SaveSystem.data["current_level"] = _current_level_global()
+	SaveSystem.save()
+	AudioManager.play_game("star_ding")
+	_show_result_panel(true)
+
+func _show_try_again_panel() -> void:
+	_show_result_panel(false)
+
+func _show_result_panel(won: bool) -> void:
+	if game_overlay != null:
+		return
+	AdManager.hide_banner()
+	game_overlay = Control.new()
+	game_overlay.name = "WinPanel" if won else "TryAgainPanel"
+	game_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	game_overlay.z_index = 25
+	game_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	content_layer.add_child(game_overlay)
+	var dim: ColorRect = ColorRect.new()
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(palette["overlay"], 0.76)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	game_overlay.add_child(dim)
+	var center: CenterContainer = CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.offset_bottom = -94.0
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	game_overlay.add_child(center)
+	var panel: PanelContainer = _make_panel()
+	panel.name = "ResultCard"
+	panel.custom_minimum_size = Vector2(minf(620.0, size.x * 0.85), 350.0)
+	center.add_child(panel)
+	var box: VBoxContainer = VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 16)
+	panel.add_child(box)
+	_make_label(box, "win_title" if won else "try_again_text", 36, "text")
+	if won:
+		star_label = _make_label(box, "stars_" + str(gameplay.get_stars()), 42, "accent")
+		star_label.name = "EarnedStars"
+		star_label.scale = Vector2(0.5, 0.5)
+		var tw: Tween = create_tween()
+		tw.tween_property(star_label, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		var next: Button = _make_button(box, "", _go_next_level, Vector2(370, 68), "primary")
+		next.name = "NextLevelButton"
+		next.text = _t("next_level")
+		next.set_meta("bb_action", "next_level")
+	var retry: Button = _make_button(box, _t("try_again"), _restart_game, Vector2(370, 68), "secondary")
+	retry.set_meta("bb_action", "retry")
+	var levels_button: Button = _make_button(box, _t("levels"), _show_level_select, Vector2(370, 68), "secondary")
+	levels_button.set_meta("bb_action", "result_levels")
+	var result_data: Dictionary = _level_metadata(current_level_number)
+	var result_id: String = str(result_data.get("id", "ch01_l%03d" % current_level_number))
+	var record: Dictionary = SaveSystem.get_level(result_id)
+	best_result_label = _make_label(box, "best_shots", 18, "text_muted", {"number": int(record.get("best_shots", shots_used))})
+	best_result_label.name = "BestResult"
+
+func _restart_game() -> void:
+	if game_overlay != null:
+		game_overlay.queue_free()
+	game_overlay = null
+	_show_game(current_level_number)
+
+func _go_next_level() -> void:
+	if current_level_number < int(chapter_data.get("level_count", 20)):
+		if game_overlay != null: game_overlay.queue_free()
+		game_overlay = null
+		_show_game(current_level_number + 1)
+	else:
+		_show_level_select()
 
 func _show_tutorial(replay: bool, steps: Array[Dictionary] = []) -> void:
 	if screen != "game" or settings_layer != null or info_layer != null or hint_sheet != null:
@@ -999,7 +1137,7 @@ func _show_tutorial(replay: bool, steps: Array[Dictionary] = []) -> void:
 	skip.offset_right = -24.0
 	skip.offset_top = 22.0
 	skip.offset_bottom = 86.0
-	tutorial_target = find_child(str(active_tutorial_steps[0].get("target", "PlayArea")), true, false) as Control
+	tutorial_target = screen_body.find_child(str(active_tutorial_steps[0].get("target", "PlayArea")), true, false) as Control if screen_body != null else null
 	if tutorial_target == null and settings_panel != null:
 		tutorial_target = settings_panel
 	if tutorial_target == null:
@@ -1021,6 +1159,11 @@ func _show_tutorial(replay: bool, steps: Array[Dictionary] = []) -> void:
 	card.offset_right = card.custom_minimum_size.x * 0.5
 	card.offset_top = -160.0
 	card.offset_bottom = -32.0
+	if _tutorial_target_rect().get_center().y > get_viewport_rect().size.y * 0.55:
+		card.anchor_top = 0.0
+		card.anchor_bottom = 0.0
+		card.offset_top = 104.0
+		card.offset_bottom = 232.0
 	tutorial_overlay.add_child(card)
 	var pad: MarginContainer = MarginContainer.new()
 	for side: String in ["left", "right", "top", "bottom"]:
@@ -1037,12 +1180,17 @@ func _show_tutorial(replay: bool, steps: Array[Dictionary] = []) -> void:
 	tutorial_overlay.queue_redraw()
 
 func _tutorial_target_rect() -> Rect2:
+	if current_level_number <= 2 and gameplay != null and not active_tutorial_steps.is_empty() and str(active_tutorial_steps[tutorial_step].get("action", "")) == "drag":
+		var hazel_pos: Vector2 = _tutorial_canvas_local(gameplay.gameplay_screen_origin())
+		return Rect2(hazel_pos - Vector2(62.0, 62.0), Vector2(124.0, 124.0))
 	if tutorial_target == null or not is_instance_valid(tutorial_target):
 		return Rect2()
 	var global: Rect2 = tutorial_target.get_global_rect()
 	return Rect2(global.position - tutorial_overlay.global_position, global.size)
 
 func _draw_tutorial_overlay() -> void:
+	if tutorial_overlay == null or not is_instance_valid(tutorial_overlay):
+		return
 	var w: float = tutorial_overlay.size.x
 	var h: float = tutorial_overlay.size.y
 	var target: Rect2 = _tutorial_target_rect().grow(14.0)
@@ -1055,9 +1203,21 @@ func _draw_tutorial_overlay() -> void:
 	var card_center: Vector2 = Vector2(w * 0.5, h - 96.0)
 	tutorial_overlay.draw_line(card_center + Vector2(0, -64), Vector2(target.get_center().x, target.end.y + 18.0), Color(palette["accent"]), 4.0, true)
 	var aim_start: Vector2 = target.get_center() + Vector2(80.0, target.size.y * 0.25)
-	tutorial_overlay.draw_line(aim_start, aim_start + Vector2(-150.0, -85.0), Color(palette["text"], 0.3), 4.0, true)
+	if current_level_number == 2 and gameplay != null:
+		var path: PackedVector2Array = gameplay.get_solution_line()
+		for segment in range(path.size() - 1):
+			var start: Vector2 = _tutorial_canvas_local(gameplay.get_global_transform_with_canvas() * path[segment])
+			var finish: Vector2 = _tutorial_canvas_local(gameplay.get_global_transform_with_canvas() * path[segment + 1])
+			for dot in 20:
+				tutorial_overlay.draw_circle(start.lerp(finish, float(dot) / 20.0), 3.2, Color(palette["accent"], 0.52))
+	else:
+		tutorial_overlay.draw_line(aim_start, aim_start + Vector2(-150.0, -85.0), Color(palette["text"], 0.3), 4.0, true)
+
+func _tutorial_canvas_local(point: Vector2) -> Vector2:
+	return tutorial_overlay.get_global_transform_with_canvas().affine_inverse() * point
 
 func _on_tutorial_input(event: InputEvent) -> void:
+	var tutorial_action: String = str(active_tutorial_steps[tutorial_step].get("action", "drag")) if not active_tutorial_steps.is_empty() else "drag"
 	if event is InputEventMouseButton:
 		var mouse: InputEventMouseButton = event as InputEventMouseButton
 		if mouse.button_index != MOUSE_BUTTON_LEFT:
@@ -1066,12 +1226,15 @@ func _on_tutorial_input(event: InputEvent) -> void:
 		if mouse.pressed and target.has_point(mouse.position):
 			tutorial_drag_active = true
 			tutorial_drag_start = mouse.position
-			if str(active_tutorial_steps[tutorial_step].get("action", "drag")) == "tap":
+			if tutorial_action.begins_with("tutorial_"):
+				_perform_tutorial_action(tutorial_action)
 				_advance_tutorial()
 		elif not mouse.pressed and tutorial_drag_active:
 			var dragged: float = mouse.position.distance_to(tutorial_drag_start)
 			tutorial_drag_active = false
-			if target.has_point(mouse.position) and dragged > 24.0:
+			if Rect2(Vector2.ZERO, tutorial_overlay.size).has_point(mouse.position) and dragged > 24.0 and tutorial_action == "drag" and gameplay != null and gameplay.tutorial_drag_is_real(tutorial_drag_start, mouse.position):
+				if gameplay != null:
+					gameplay.fire(tutorial_drag_start - mouse.position)
 				_advance_tutorial()
 	elif event is InputEventScreenTouch:
 		var touch: InputEventScreenTouch = event as InputEventScreenTouch
@@ -1079,11 +1242,14 @@ func _on_tutorial_input(event: InputEvent) -> void:
 		if touch.pressed and target.has_point(touch.position):
 			tutorial_drag_active = true
 			tutorial_drag_start = touch.position
-			if str(active_tutorial_steps[tutorial_step].get("action", "drag")) == "tap":
+			if tutorial_action.begins_with("tutorial_"):
+				_perform_tutorial_action(tutorial_action)
 				_advance_tutorial()
 		elif not touch.pressed and tutorial_drag_active:
 			tutorial_drag_active = false
-			if target.has_point(touch.position) and touch.position.distance_to(tutorial_drag_start) > 24.0:
+			if Rect2(Vector2.ZERO, tutorial_overlay.size).has_point(touch.position) and touch.position.distance_to(tutorial_drag_start) > 24.0 and tutorial_action == "drag" and gameplay != null and gameplay.tutorial_drag_is_real(tutorial_drag_start, touch.position):
+				if gameplay != null:
+					gameplay.fire(tutorial_drag_start - touch.position)
 				_advance_tutorial()
 	if tutorial_overlay != null:
 		tutorial_overlay.accept_event()
@@ -1104,7 +1270,10 @@ func _advance_tutorial() -> void:
 
 func _finish_tutorial() -> void:
 	if not tutorial_replay:
-		SaveSystem.data["tutorial_seen"] = true
+		var seen: Array = SaveSystem.data.get("tutorial_levels_seen", [])
+		if not seen.has(current_level_number): seen.append(current_level_number)
+		SaveSystem.data["tutorial_levels_seen"] = seen
+		SaveSystem.data["tutorial_seen"] = not seen.is_empty()
 		SaveSystem.save()
 	if tutorial_overlay != null:
 		tutorial_overlay.queue_free()
@@ -1114,20 +1283,16 @@ func _finish_tutorial() -> void:
 	active_tutorial_steps.clear()
 
 func _use_hint() -> void:
+	if tutorial_overlay != null:
+		return
+	if gameplay == null or gameplay.state != "aiming":
+		return
 	if not SaveSystem.spend_hint():
 		_open_hint_sheet()
 		return
 	hints_left = int(SaveSystem.data.get("hints_left", 0))
 	_update_hint_button()
-	if hint_line != null:
-		hint_line.queue_free()
-	hint_line = AimHint.new()
-	hint_line.name = "HintLine"
-	hint_line.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hint_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hint_line.set_tint(Color(palette["accent"]))
-	content_layer.add_child(hint_line)
-	content_layer.move_child(hint_line, 1)
+	gameplay.show_hint()
 
 func _update_hint_button() -> void:
 	var button: Button = find_child("HintButton", true, false) as Button
@@ -1136,7 +1301,7 @@ func _update_hint_button() -> void:
 	button.text = _t("hint_count", {"number": int(SaveSystem.data.get("hints_left", 0)) + int(SaveSystem.data.get("bonus_hints", 0))})
 	var plus: Label = button.get_node_or_null("HintBonusMark") as Label
 	if plus != null:
-		plus.visible = int(SaveSystem.data.get("hints_left", 0)) == 0
+		plus.visible = int(SaveSystem.data.get("hints_left", 0)) + int(SaveSystem.data.get("bonus_hints", 0)) == 0
 
 func _open_hint_sheet() -> void:
 	if hint_sheet != null:
@@ -1196,8 +1361,33 @@ func _on_rewarded_failed() -> void:
 		status.visible = true
 
 func _undo_shot() -> void:
-	shots_used = maxi(0, shots_used - 1)
+	if gameplay != null:
+		gameplay.undo()
+		shots_used = gameplay.shots_used
 	_update_shots_label()
+	if game_overlay != null:
+		game_overlay.queue_free()
+		game_overlay = null
+
+func _tutorial_was_seen(level: int) -> bool:
+	return SaveSystem.data.get("tutorial_levels_seen", []).has(level)
+
+func _tutorial_steps(level: int) -> Array[Dictionary]:
+	match level:
+		1: return [{"target": "PlayArea", "message": "tutorial_action_aim", "action": "drag"}]
+		2: return [{"target": "PlayArea", "message": "tutorial_bounce", "action": "drag"}]
+		3: return [
+			{"target": "UndoButton", "message": "tutorial_undo", "action": "tutorial_undo"},
+			{"target": "HintButton", "message": "tutorial_hint", "action": "tutorial_hint"}
+		]
+	return []
+
+func _perform_tutorial_action(action: String) -> void:
+	if action == "tutorial_undo" and gameplay != null:
+		gameplay.undo()
+	elif action == "tutorial_hint" and gameplay != null:
+		gameplay.show_hint()
+		AudioManager.play_ui("ui_click")
 
 func _update_shots_label() -> void:
 	var label: Label = find_child("ShotsUsed", true, false) as Label
@@ -1312,15 +1502,82 @@ func _input(event: InputEvent) -> void:
 			_pointer_down = false
 
 func _unhandled_key_input(event: InputEvent) -> void:
-	if screen != "levels" or settings_layer != null or not event is InputEventKey:
+	if not event is InputEventKey:
 		return
 	var key: InputEventKey = event as InputEventKey
 	if not key.pressed or key.echo:
+		return
+	if key.keycode == KEY_F1 and OS.is_debug_build():
+		_toggle_physics_panel()
+		return
+	if screen != "levels" or settings_layer != null:
 		return
 	if key.keycode == KEY_LEFT:
 		_change_chapter(-1)
 	elif key.keycode == KEY_RIGHT:
 		_change_chapter(1)
+
+func _set_physics_gravity() -> void:
+	ProjectSettings.set_setting("physics/2d/default_gravity", game_tuning.gravity)
+	if gameplay != null:
+		gameplay.tuning.gravity = game_tuning.gravity
+		for body in gameplay.crates:
+			if is_instance_valid(body): body.gravity_scale = game_tuning.gravity / game_tuning.default_gravity
+		for shot in gameplay.projectiles:
+			if is_instance_valid(shot): shot.gravity_scale = game_tuning.shot_gravity_scale * game_tuning.gravity / game_tuning.default_gravity
+
+func _toggle_physics_panel() -> void:
+	if physics_panel != null:
+		physics_panel.queue_free()
+		physics_panel = null
+		return
+	physics_panel = _make_panel()
+	physics_panel.name = "PhysicsTuningPanel"
+	physics_panel.z_index = 110
+	physics_panel.anchor_left = 0.0
+	physics_panel.anchor_right = 0.0
+	physics_panel.anchor_top = 0.0
+	physics_panel.anchor_bottom = 0.0
+	physics_panel.position = Vector2(18, 18)
+	physics_panel.custom_minimum_size = Vector2(minf(520, size.x * 0.88), 500)
+	content_layer.add_child(physics_panel)
+	var list: VBoxContainer = VBoxContainer.new()
+	list.add_theme_constant_override("separation", 3)
+	physics_panel.add_child(list)
+	_make_label(list, "physics_tuning", 24, "text")
+	_add_tuning_slider(list, "tune_gravity", "gravity", 0, 1600, 25)
+	_add_tuning_slider(list, "tune_shot_speed", "shot_speed", 150, 1400, 20)
+	_add_tuning_slider(list, "tune_bounce", "bounce", 0, 1, 0.02)
+	_add_tuning_slider(list, "tune_gravity_scale", "shot_gravity_scale", 0, 1, 0.02)
+	_add_tuning_slider(list, "tune_lifetime", "shot_lifetime", 1, 10, 0.25)
+	_add_tuning_slider(list, "tune_max_drag", "max_drag_power", 100, 800, 10)
+	var print_button: Button = _make_button(list, _t("print_values"), _print_physics_values, Vector2(240, 48), "secondary")
+	print_button.name = "PrintPhysicsValues"
+
+func _add_tuning_slider(parent: Control, title: String, property: String, low: float, high: float, step: float) -> void:
+	var row: VBoxContainer = VBoxContainer.new()
+	row.add_theme_constant_override("separation", 0)
+	parent.add_child(row)
+	var value: float = float(game_tuning.get(property))
+	var label: Label = _make_label(row, title, 16, "text")
+	label.name = "Tune_" + property
+	label.text = _t(title) + ": " + str(snappedf(value, step))
+	var slider: HSlider = HSlider.new()
+	slider.min_value = low
+	slider.max_value = high
+	slider.step = step
+	slider.value = value
+	slider.custom_minimum_size = Vector2(430, 28)
+	slider.value_changed.connect(func(next_value: float):
+		game_tuning.set(property, next_value)
+		label.text = _t(title) + ": " + str(snappedf(next_value, step))
+		if gameplay != null: gameplay.tuning.set(property, next_value)
+		if property == "gravity" or property == "shot_gravity_scale": _set_physics_gravity()
+	)
+	row.add_child(slider)
+
+func _print_physics_values() -> void:
+	print("Physics tuning: gravity=%.2f shot_speed=%.2f bounce=%.3f shot_gravity_scale=%.3f shot_lifetime=%.2f max_drag_power=%.2f" % [game_tuning.gravity, game_tuning.shot_speed, game_tuning.bounce, game_tuning.shot_gravity_scale, game_tuning.shot_lifetime, game_tuning.max_drag_power])
 
 func _on_theme_changed(_mode: int) -> void:
 	_refresh_palette()

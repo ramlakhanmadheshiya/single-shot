@@ -15,7 +15,9 @@ A spooky graveyard puzzle game made with Godot 4.7.2 and GDScript.
 - Daily free hints with optional mock rewarded ads.
 - A Web export preset and a first-tap audio screen.
 
-The level screen is ready for gameplay work. Physics and level scenes are not included yet.
+Chapter 1 now has twenty playable slingshot levels. Drag back from Hazel and let go to shoot.
+You can also aim with the arrow keys and fire with Space. A gamepad stick and A button work too.
+Every level can be replayed, undone, or restarted. Your stars and best shots are saved.
 
 ## Run
 
@@ -32,6 +34,7 @@ Run the full screen checks in headless mode or with the regular renderer:
 ```sh
 python3 tests/run_ui_navigation.py
 python3 tests/run_ui_navigation.py --gui
+godot --headless --path . res://tests/gameplay_flow.tscn
 ```
 
 Check the chapter data rule:
@@ -41,6 +44,8 @@ godot --headless --path . --script tools/validate_levels.gd
 ```
 
 See [docs/PUBLISHING.md](docs/PUBLISHING.md) for web hosting, store release, and ad preparation.
+
+Press F1 in a debug build to tune physics while playing.
 
 ## Build generated sounds and themes
 

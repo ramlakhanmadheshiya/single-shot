@@ -15,10 +15,29 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 3,
+      "targets": [
+        [
+          0.72,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.72,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l002",
@@ -27,10 +46,36 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 3,
+      "targets": [
+        [
+          0.74,
+          0.66
+        ]
+      ],
+      "walls": [
+        [
+          0.65,
+          0.52,
+          0.7,
+          0.035
+        ]
+      ],
+      "crates": [],
+      "solution": [
+        0.97,
+        -0.24,
+        0.72
+      ],
+      "solution_target": [
+        0.74,
+        0.66
+      ],
+      "solution_mode": "bounce_top"
     },
     {
       "id": "ch01_l003",
@@ -39,10 +84,29 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 3,
+      "targets": [
+        [
+          0.72,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.72,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l004",
@@ -51,10 +115,29 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 3,
+      "targets": [
+        [
+          0.58,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.58,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l005",
@@ -63,10 +146,29 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 3,
+      "targets": [
+        [
+          0.615,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.615,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l006",
@@ -75,10 +177,34 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 3,
+      "targets": [
+        [
+          0.65,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [
+        [
+          0.42,
+          0.8
+        ]
+      ],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.65,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l007",
@@ -87,10 +213,29 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 3,
+      "targets": [
+        [
+          0.685,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.685,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l008",
@@ -99,10 +244,33 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 3,
+      "targets": [
+        [
+          0.58,
+          0.66
+        ],
+        [
+          0.78,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.58,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l009",
@@ -111,10 +279,38 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 3,
+      "targets": [
+        [
+          0.58,
+          0.66
+        ],
+        [
+          0.78,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [
+        [
+          0.42,
+          0.8
+        ]
+      ],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.58,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l010",
@@ -123,10 +319,33 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 3,
+      "targets": [
+        [
+          0.58,
+          0.66
+        ],
+        [
+          0.78,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.58,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l011",
@@ -135,10 +354,33 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 3,
+      "targets": [
+        [
+          0.58,
+          0.66
+        ],
+        [
+          0.78,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.58,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l012",
@@ -147,10 +389,38 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 3,
+      "targets": [
+        [
+          0.54,
+          0.66
+        ],
+        [
+          0.74,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [
+        [
+          0.42,
+          0.8
+        ]
+      ],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.54,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l013",
@@ -159,10 +429,38 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 3,
+      "targets": [
+        [
+          0.54,
+          0.66
+        ],
+        [
+          0.74,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [
+        [
+          0.42,
+          0.8
+        ]
+      ],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.54,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l014",
@@ -171,10 +469,38 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 3,
+      "targets": [
+        [
+          0.54,
+          0.66
+        ],
+        [
+          0.74,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [
+        [
+          0.42,
+          0.8
+        ]
+      ],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.54,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l015",
@@ -183,10 +509,38 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 3,
+      "targets": [
+        [
+          0.54,
+          0.66
+        ],
+        [
+          0.74,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [
+        [
+          0.42,
+          0.8
+        ]
+      ],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.54,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l016",
@@ -195,10 +549,37 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 2,
+      "targets": [
+        [
+          0.52,
+          0.66
+        ],
+        [
+          0.67,
+          0.66
+        ],
+        [
+          0.82,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.52,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l017",
@@ -207,10 +588,42 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 2,
+      "targets": [
+        [
+          0.52,
+          0.66
+        ],
+        [
+          0.67,
+          0.66
+        ],
+        [
+          0.82,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [
+        [
+          0.42,
+          0.8
+        ]
+      ],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.52,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l018",
@@ -219,10 +632,37 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 2,
+      "targets": [
+        [
+          0.52,
+          0.66
+        ],
+        [
+          0.67,
+          0.66
+        ],
+        [
+          0.82,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.52,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l019",
@@ -231,10 +671,42 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 2,
+      "targets": [
+        [
+          0.52,
+          0.66
+        ],
+        [
+          0.67,
+          0.66
+        ],
+        [
+          0.82,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [
+        [
+          0.42,
+          0.8
+        ]
+      ],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.52,
+        0.66
+      ],
+      "solution_mode": "direct"
     },
     {
       "id": "ch01_l020",
@@ -243,10 +715,42 @@
       "ammo": [
         "silver"
       ],
-      "par_3": 2,
-      "par_2": 3,
+      "par_3": 1,
+      "par_2": 2,
       "bonus_objective": "",
-      "hint_key": "game_ready"
+      "hint_key": "game_ready",
+      "shots": 2,
+      "targets": [
+        [
+          0.52,
+          0.66
+        ],
+        [
+          0.67,
+          0.66
+        ],
+        [
+          0.82,
+          0.66
+        ]
+      ],
+      "walls": [],
+      "crates": [
+        [
+          0.42,
+          0.8
+        ]
+      ],
+      "solution": [
+        1.0,
+        0.0,
+        0.72
+      ],
+      "solution_target": [
+        0.52,
+        0.66
+      ],
+      "solution_mode": "direct"
     }
   ]
 }

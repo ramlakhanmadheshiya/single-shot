@@ -95,10 +95,11 @@ func add_bonus_hint(count: int = 1) -> void:
 	data["bonus_hints"] = int(data.get("bonus_hints", 0)) + maxi(0, count)
 	save()
 
-func record_level(level_id: String, stars: int, badge: bool = false) -> void:
+func record_level(level_id: String, stars: int, badge: bool = false, shots: int = 999) -> void:
 	var levels: Dictionary = data.get("levels", {})
 	var previous: Dictionary = get_level(level_id)
-	levels[level_id] = {"stars": maxi(stars, int(previous.get("stars", 0))), "badge": badge or bool(previous.get("badge", false))}
+	var best_shots: int = mini(shots, int(previous.get("best_shots", 999)))
+	levels[level_id] = {"stars": maxi(stars, int(previous.get("stars", 0))), "badge": badge or bool(previous.get("badge", false)), "best_shots": best_shots}
 	data["levels"] = levels
 	save()
 
@@ -125,6 +126,7 @@ func reset_progress() -> void:
 	data["levels"] = {}
 	data["unlocks"] = ["ch01"]
 	data["tutorial_seen"] = false
+	data["tutorial_levels_seen"] = []
 	data["current_level"] = 1
 	var settings: Dictionary = data.get("settings", {})
 	settings["last_played_chapter"] = 0
@@ -137,6 +139,7 @@ func _default_data() -> Dictionary:
 		"levels": {},
 		"unlocks": ["ch01"],
 		"tutorial_seen": false,
+		"tutorial_levels_seen": [],
 		"current_level": 1,
 		"hints_left": 3,
 		"bonus_hints": 0,

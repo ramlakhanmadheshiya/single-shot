@@ -25,3 +25,16 @@ with wave.open(str(OUT/"menu_waltz.wav"),"wb") as f:
         v=(.055*math.sin(2*math.pi*root*t)+.025*math.sin(2*math.pi*third*t)+.012*math.sin(2*math.pi*melody*t)*env)*edge
         data.extend(struct.pack("<h",int(v*32767)))
     f.writeframes(data)
+
+# Short original game sounds.
+tone("game_shot.wav",[240,510,880],.20,.24,9)
+tone("game_bounce.wav",[340,680],.13,.20,16)
+tone("game_bounce_2.wav",[390,590],.12,.21,15)
+tone("game_bounce_3.wav",[290,740],.14,.18,15)
+tone("game_ghoul_hit.wav",[420,520,710],.16,.23,11)
+tone("game_ghoul_death.wav",[610,390,210],.42,.25,5)
+tone("game_ghoul_death_2.wav",[570,340,180],.46,.23,4.5)
+tone("game_crate_hit.wav",[155,220,310],.18,.24,14)
+tone("game_win.wav",[523,659,784,1047],.62,.22,2.8)
+tone("game_try_again.wav",[392,330,247],.54,.2,3.5)
+tone("game_star_ding.wav",[880,1175,1568],.35,.19,5)

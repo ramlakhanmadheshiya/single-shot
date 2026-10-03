@@ -5,6 +5,8 @@ var music_player: AudioStreamPlayer
 var ui_player: AudioStreamPlayer
 var sfx_players: Array[AudioStreamPlayer] = []
 var _pool_cursor: int = 0
+var _game_sound_variant: int = 0
+var mute_for_tests: bool = false
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 func _ready() -> void:
@@ -43,6 +45,8 @@ func _ensure_bus(bus_name: String) -> void:
 	AudioServer.set_bus_name(AudioServer.bus_count - 1, bus_name)
 
 func play_sfx(sound_id: String) -> void:
+	if mute_for_tests or DisplayServer.get_name() == "headless":
+		return
 	var path: String = SOUND_DIR + sound_id + ".wav"
 	if not ResourceLoader.exists(path):
 		path = SOUND_DIR + "ui_click.wav"
@@ -56,10 +60,32 @@ func play_sfx(sound_id: String) -> void:
 	player.play()
 
 func play_ui(sound_id: String = "ui_click") -> void:
+	if mute_for_tests or DisplayServer.get_name() == "headless":
+		return
 	var path: String = SOUND_DIR + sound_id + ".wav"
 	if ResourceLoader.exists(path):
 		ui_player.stream = load(path) as AudioStream
 		ui_player.play()
+
+func play_game(sound_id: String) -> void:
+	if mute_for_tests or DisplayServer.get_name() == "headless":
+		return
+	var chosen_id: String = sound_id
+	if sound_id == "bounce" or sound_id == "ghoul_death":
+		_game_sound_variant = (_game_sound_variant + 1) % 3
+		chosen_id += "_%d" % (_game_sound_variant + 1) if ResourceLoader.exists(SOUND_DIR + "game_" + sound_id + "_%d.wav" % (_game_sound_variant + 1)) else ""
+	var path: String = SOUND_DIR + "game_" + chosen_id + ".wav"
+	if not ResourceLoader.exists(path):
+		play_sfx("ui_click")
+		return
+	var stream: AudioStream = load(path) as AudioStream
+	if stream == null:
+		return
+	var player: AudioStreamPlayer = sfx_players[_pool_cursor]
+	_pool_cursor = (_pool_cursor + 1) % sfx_players.size()
+	player.stream = stream
+	player.pitch_scale = _rng.randf_range(0.94, 1.06)
+	player.play()
 
 func set_bus_linear(bus_name: String, amount: float) -> void:
 	var index: int = AudioServer.get_bus_index(bus_name)

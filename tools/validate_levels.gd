@@ -56,6 +56,19 @@ func _run() -> void:
 				push_error("Level ids must be present and unique in " + chapter_id)
 				errors += 1
 			level_ids[level_id] = true
+			if chapter_id == "ch01":
+				var level_data: Dictionary = level_value
+				var solution: Array = level_data.get("solution", [])
+				var solution_target: Array = level_data.get("solution_target", [])
+				if solution.size() != 3 or solution_target.size() != 2 or int(level_data.get("shots", 0)) < 1:
+					push_error("Level is missing its solving shot: " + level_id)
+					errors += 1
+				if level_data.get("targets", []).is_empty():
+					push_error("Level needs at least one ghoul: " + level_id)
+					errors += 1
+				if int(level_data.get("par_3", 0)) < 1 or int(level_data.get("par_2", 0)) < int(level_data.get("par_3", 0)):
+					push_error("Level star goals are invalid: " + level_id)
+					errors += 1
 	if errors > 0:
 		quit(1)
 	else:
