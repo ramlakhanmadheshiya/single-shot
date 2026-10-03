@@ -1,8 +1,9 @@
 extends Screen
-## 4 x 5 grid of round level tiles for one chapter.
+## Scrollable 5-column grid of round level tiles for one chapter.
 
 var chapter_id: String = "ch1"
 var _focus: Control
+var _scroll: ScrollContainer
 
 
 func music_track() -> String:
@@ -17,17 +18,20 @@ func _ready() -> void:
 	col.add_child(make_header(str(pal["name"]), func() -> void: app.open_chapters()))
 	var total: int = Levels.level_count(chapter_id)
 	col.add_child(UIKit.label("★ %d / %d" % [Levels.stars_in(chapter_id), total * 3], 24, pal["muted"], 500))
-	var spacer: Control = Control.new()
-	spacer.custom_minimum_size = Vector2(0, 20)
-	col.add_child(spacer)
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "Scroll"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	col.add_child(scroll)
 	var center: CenterContainer = CenterContainer.new()
-	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	col.add_child(center)
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(center)
 	var grid: GridContainer = GridContainer.new()
-	grid.columns = 4
-	grid.add_theme_constant_override("h_separation", 30)
-	grid.add_theme_constant_override("v_separation", 34)
+	grid.columns = 5
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 16)
 	center.add_child(grid)
+	_scroll = scroll
 	var next: Dictionary = Levels.continue_target()
 	for i: int in total:
 		var lv: Dictionary = Levels.level(chapter_id, i)
@@ -52,9 +56,11 @@ func _ready() -> void:
 		var tw: Tween = create_tween()
 		tw.tween_interval(0.018 * float(i))
 		tw.tween_property(tile, "modulate:a", 1.0, 0.25)
-	var bottom: Control = Control.new()
-	bottom.custom_minimum_size = Vector2(0, 60)
-	col.add_child(bottom)
+	# Bring the current room into view.
+	(func() -> void:
+		if _focus != null and _scroll != null:
+			_scroll.scroll_vertical = int(maxf(0.0, _focus.position.y - _scroll.size.y * 0.35))
+	).call_deferred()
 
 
 func focus_default() -> void:
@@ -77,7 +83,7 @@ class _LevelTile:
 	var _t: float = 0.0
 
 	func _init() -> void:
-		custom_minimum_size = Vector2(112, 132)
+		custom_minimum_size = Vector2(118, 132)
 		focus_mode = Control.FOCUS_ALL
 		flat = true
 		var empty: StyleBoxEmpty = StyleBoxEmpty.new()
@@ -95,13 +101,15 @@ class _LevelTile:
 	func _draw() -> void:
 		var ink: Color = pal["ink"]
 		var c: Vector2 = Vector2(size.x * 0.5, 52)
-		var r: float = 46.0
+		var r: float = 44.0
 		var f: Font = UIKit.font(600)
 		if has_focus():
 			draw_arc(c, r + 9.0, 0.0, TAU, 48, pal["accent"], 3.0, true)
 		if not open:
 			draw_circle(c, r, Color(ink, 0.05), true, -1.0, true)
-			draw_circle(c, 5.0, Color(ink, 0.25), true, -1.0, true)
+			var lock: Texture2D = UIKit.icon("lock")
+			var ls: float = 30.0
+			draw_texture_rect(lock, Rect2(c - Vector2(ls, ls) * 0.5, Vector2(ls, ls)), false, Color(ink, 0.35))
 			return
 		if stars > 0:
 			draw_circle(c, r, ink, true, -1.0, true)

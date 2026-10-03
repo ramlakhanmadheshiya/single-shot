@@ -12,6 +12,8 @@ const TARGET_R: float = 22.0
 const PORTAL_R: float = 20.0
 const PRISM_R: float = 18.0
 const BUMPER_R: float = 30.0
+const SWITCH_R: float = 18.0
+const SPARK_R: float = 16.0
 const SPLIT_ANGLE: float = 0.5585  # 32 degrees either side
 const MAX_EVENTS: int = 220
 const MAX_TRAVEL: float = 14000.0
@@ -20,6 +22,10 @@ const INF: float = 1.0e20
 const KIND_WALL: String = "wall"
 const KIND_GLASS: String = "glass"
 const KIND_VOID: String = "void"
+## Solid until any switch is hit, then gone for the rest of the attempt.
+const KIND_GATE: String = "gate"
+## Reflects, then turns 90 degrees about its centre.
+const KIND_PIVOT: String = "pivot"
 
 
 ## Returns a fresh mutable state for a level (target health and glass panes).
@@ -28,13 +34,18 @@ static func initial_state(level: Dictionary) -> Dictionary:
 	for t: Array in level.get("targets", []):
 		hp.append(int(t[2]) if t.size() > 2 else 1)
 	var intact: Array[bool] = []
+	var rot: Array[float] = []
 	for w: Array in level.get("walls", []):
 		intact.append(true)
-	return {"hp": hp, "intact": intact}
+		rot.append(0.0)
+	return {"hp": hp, "intact": intact, "rot": rot, "open": false}
 
 
 static func copy_state(state: Dictionary) -> Dictionary:
-	return {"hp": (state["hp"] as Array).duplicate(), "intact": (state["intact"] as Array).duplicate()}
+	return {
+		"hp": (state["hp"] as Array).duplicate(), "intact": (state["intact"] as Array).duplicate(),
+		"rot": (state.get("rot", []) as Array).duplicate(), "open": bool(state.get("open", false)),
+	}
 
 
 static func is_cleared(state: Dictionary) -> bool:
@@ -58,10 +69,10 @@ static func launcher(level: Dictionary) -> Vector2:
 
 
 ## Corners of a rotated wall rectangle, clockwise.
-static func wall_corners(w: Array) -> PackedVector2Array:
+static func wall_corners(w: Array, extra_deg: float = 0.0) -> PackedVector2Array:
 	var c: Vector2 = Vector2(float(w[0]), float(w[1]))
 	var half: Vector2 = Vector2(float(w[2]), float(w[3])) * 0.5
-	var rot: float = deg_to_rad(float(w[4])) if w.size() > 4 else 0.0
+	var rot: float = deg_to_rad((float(w[4]) if w.size() > 4 else 0.0) + extra_deg)
 	var pts: PackedVector2Array = PackedVector2Array()
 	for corner: Vector2 in [Vector2(-half.x, -half.y), Vector2(half.x, -half.y), Vector2(half.x, half.y), Vector2(-half.x, half.y)]:
 		pts.append(c + corner.rotated(rot))
@@ -83,12 +94,16 @@ static func _segments(level: Dictionary, state: Dictionary) -> Array:
 		segs.append([pair[0], pair[1], -1, KIND_WALL])
 	var walls: Array = level.get("walls", [])
 	var intact: Array = state["intact"]
+	var rot: Array = state.get("rot", [])
+	var open: bool = bool(state.get("open", false))
 	for i: int in walls.size():
 		if not bool(intact[i]):
 			continue
 		var w: Array = walls[i]
-		var pts: PackedVector2Array = wall_corners(w)
 		var kind: String = wall_kind(w)
+		if kind == KIND_GATE and open:
+			continue
+		var pts: PackedVector2Array = wall_corners(w, float(rot[i]) if i < rot.size() else 0.0)
 		for k: int in 4:
 			segs.append([pts[k], pts[(k + 1) % 4], i, kind])
 	return segs
@@ -195,13 +210,29 @@ static func _next_hit(level: Dictionary, state: Dictionary, segs: Array, orb: Di
 		var hit_r: Array = _ray_circle(p, dir, Vector2(float(pr[0]), float(pr[1])), PRISM_R, false)
 		if not hit_r.is_empty() and float(hit_r[0]) < float(best["d"]):
 			best = {"d": hit_r[0], "type": "prism", "index": i}
+	if not bool(state.get("open", false)):
+		var switches: Array = level.get("switches", [])
+		for i: int in switches.size():
+			var sw: Array = switches[i]
+			var hit_s: Array = _ray_circle(p, dir, Vector2(float(sw[0]), float(sw[1])), SWITCH_R, false)
+			if not hit_s.is_empty() and float(hit_s[0]) < float(best["d"]):
+				best = {"d": hit_s[0], "type": "switch", "index": i}
+	var sparks: Array = level.get("sparks", [])
+	var used_sparks: Array = orb.get("used_sparks", [])
+	for i: int in sparks.size():
+		if used_sparks.has(i):
+			continue
+		var sk: Array = sparks[i]
+		var hit_k: Array = _ray_circle(p, dir, Vector2(float(sk[0]), float(sk[1])), SPARK_R, false)
+		if not hit_k.is_empty() and float(hit_k[0]) < float(best["d"]):
+			best = {"d": hit_k[0], "type": "spark", "index": i}
 	return best
 
 
 static func _new_orb(id: int, pos: Vector2, dir: Vector2, bounces: int, t: float, used: Array, parent: int) -> Dictionary:
 	return {
 		"id": id, "pos": pos, "dir": dir.normalized(), "bounces": bounces, "alive": true,
-		"used_prisms": used.duplicate(), "travel": 0.0,
+		"used_prisms": used.duplicate(), "used_sparks": [], "travel": 0.0,
 		"track": {"id": id, "parent": parent, "points": [pos], "times": [t], "end": "", "bounces": [bounces]},
 	}
 
@@ -276,6 +307,10 @@ static func simulate(level: Dictionary, state_in: Dictionary, angle: float, boun
 						state["intact"][idx] = false
 						segs = _segments(level, state)
 						events.append({"t": t, "type": "glass", "pos": pos, "orb": orb["id"], "index": idx, "n": n})
+					elif kind == KIND_PIVOT:
+						state["rot"][idx] = fmod(float(state["rot"][idx]) + 90.0, 360.0)
+						segs = _segments(level, state)
+						events.append({"t": t, "type": "pivot", "pos": pos, "orb": orb["id"], "index": idx, "n": n, "rot": state["rot"][idx]})
 					else:
 						events.append({"t": t, "type": "bounce", "pos": pos, "orb": orb["id"], "index": idx, "n": n})
 			"bumper":
@@ -317,6 +352,7 @@ static func simulate(level: Dictionary, state_in: Dictionary, angle: float, boun
 				var twin: Dictionary = _new_orb(next_id, out_pos, orb["dir"], int(orb["bounces"]), t, orb["used_prisms"], int(orb["id"]))
 				next_id += 1
 				twin["travel"] = orb["travel"]
+				twin["used_sparks"] = (orb["used_sparks"] as Array).duplicate()
 				orbs.append(twin)
 				events.append({"t": t, "type": "portal", "pos": entry, "pos2": exit_c, "orb": orb["id"], "orb2": twin["id"], "index": pi})
 			"prism":
@@ -332,10 +368,21 @@ static func simulate(level: Dictionary, state_in: Dictionary, angle: float, boun
 				for sgn: float in [-1.0, 1.0]:
 					var kid: Dictionary = _new_orb(next_id, centre, (orb["dir"] as Vector2).rotated(SPLIT_ANGLE * sgn), int(orb["bounces"]), t, used, int(orb["id"]))
 					kid["travel"] = orb["travel"]
+					kid["used_sparks"] = (orb["used_sparks"] as Array).duplicate()
 					next_id += 1
 					orbs.append(kid)
 					kids.append(kid["id"])
 				events.append({"t": t, "type": "split", "pos": centre, "orb": orb["id"], "index": ri, "kids": kids})
+			"switch":
+				state["open"] = true
+				segs = _segments(level, state)
+				events.append({"t": t, "type": "switch", "pos": pos, "orb": orb["id"], "index": best_hit["index"]})
+			"spark":
+				(orb["used_sparks"] as Array).append(best_hit["index"])
+				_push_point(orb, t)
+				orb["bounces"] = int(orb["bounces"]) + 1
+				orb["track"]["bounces"][-1] = int(orb["bounces"])
+				events.append({"t": t, "type": "spark", "pos": pos, "orb": orb["id"], "index": best_hit["index"]})
 			"expire":
 				_push_point(orb, t)
 				events.append({"t": t, "type": "fizzle", "pos": pos, "orb": orb["id"], "index": -1})
@@ -360,18 +407,24 @@ static func _end_orb(orb: Dictionary, tracks: Array, reason: String) -> void:
 ## reflected stub. Returns {points: PackedVector2Array, hit: Vector2, stub_end: Vector2, kind: String}.
 static func preview(level: Dictionary, state: Dictionary, angle: float, stub_length: float = 120.0, segments: int = 1) -> Dictionary:
 	var segs: Array = _segments(level, state)
-	var orb: Dictionary = {"pos": launcher(level), "dir": Vector2.from_angle(angle), "used_prisms": []}
+	var orb: Dictionary = {"pos": launcher(level), "dir": Vector2.from_angle(angle), "used_prisms": [], "used_sparks": []}
 	var points: PackedVector2Array = PackedVector2Array([orb["pos"]])
 	var kind: String = ""
 	var pops: Array[int] = []
 	var temp_state: Dictionary = copy_state(state)
 	for i: int in segments:
 		var hit: Dictionary = _next_hit(level, temp_state, segs, orb)
-		while str(hit.get("type", "")) == "target":
-			# Pass-through targets: remember them and keep looking.
-			if int(temp_state["hp"][hit["index"]]) < 2:
-				pops.append(hit["index"])
-			temp_state["hp"][hit["index"]] = 0
+		while str(hit.get("type", "")) in ["target", "switch", "spark"]:
+			# Pass-through triggers: remember popped targets and keep looking.
+			match str(hit["type"]):
+				"target":
+					if int(temp_state["hp"][hit["index"]]) < 2:
+						pops.append(hit["index"])
+					temp_state["hp"][hit["index"]] = 0
+				"switch":
+					temp_state["open"] = true
+				"spark":
+					(orb["used_sparks"] as Array).append(hit["index"])
 			hit = _next_hit(level, temp_state, segs, orb)
 		if float(hit["d"]) >= INF:
 			break

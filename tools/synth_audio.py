@@ -5,7 +5,7 @@ Carom -- procedural audio synthesizer.
 Generates ALL of Carom's music and sound effects from scratch (pure synthesis,
 no samples, no third-party material). Output is 16-bit PCM WAV:
 
-    assets/audio/music/{menu,ch1,ch2,ch3,ch4,ch5}.wav   (mono, 44100 Hz, seamless loops)
+    assets/audio/music/{menu,ch1..ch8}.wav              (mono, 44100 Hz, seamless loops)
     assets/audio/sfx/*.wav                               (mono, 44100 Hz, one-shots)
 
 Usage (from the project root):
@@ -194,6 +194,39 @@ def pluck(m, dur=2.5, bright=0.5, tau1=None, nh=12, inharm=0.00012, detune_c=0.7
                 -np.arange(n) / (0.002 * SR))
         return fade_tail(y, 0.1) / 1.2
     return cached(("pluck", m, dur, bright, tau1, nh, inharm, detune_c, hammer), make)
+
+
+def marimba(m, dur=1.8, bright=1.0):
+    """Soft woody marimba bar: fundamental plus tuned 4th and 10th partials
+    (harmonic, like the pop SFX) and a tiny low-passed mallet thump."""
+    def make():
+        f = mtof(m)
+        tau = 0.55 * (392.0 / f) ** 0.4
+        y = additive(f, dur, [(1.0, 1.0, tau), (2.0, 0.03, tau * 0.3),
+                              (4.0, 0.22 * bright, tau * 0.18),
+                              (10.0, 0.035 * bright, tau * 0.05)], attack=0.002, release=0.08)
+        rng = np.random.default_rng(int(m * 17) + 3)
+        n = int(0.006 * SR)
+        y[:n] += 0.06 * bright * lp(rng.standard_normal(n), 1200) * np.exp(-np.arange(n) / (0.0018 * SR))
+        return y
+    return cached(("mar", m, dur, bright), make)
+
+
+def epiano(m, dur=2.4, bright=0.5, tau=1.3):
+    """Rhodes-ish electric piano: soft FM body (ratio 1, decaying index)
+    plus a short harmonic 'tine' partial at 14x that only colours the attack."""
+    def make():
+        f = mtof(m)
+        t = tax(dur)
+        tt = tau * (261.6 / f) ** 0.3
+        idx = (0.4 + 1.1 * bright) * min(1.0, 900.0 / f) * np.exp(-t / 0.35)
+        y = np.sin(TAU * f * t + idx * np.sin(TAU * f * t)) * np.exp(-t / tt)
+        y += 0.3 * np.sin(TAU * f * 1.0009 * t) * np.exp(-t / (tt * 1.2))  # gentle beating
+        if 14 * f < SR * 0.45:
+            y += 0.06 * bright * np.sin(TAU * 14 * f * t) * np.exp(-t / 0.02)
+        y *= smooth_attack(t, 0.003)
+        return fade_tail(y, 0.12) / 1.3
+    return cached(("ep", m, dur, bright, tau), make)
 
 
 def wavetable(amps, size=4096):
@@ -629,12 +662,140 @@ def track_ch5():  # Prism
     return s, y
 
 
+def track_ch6():  # Gate
+    s = Song("ch6", 78, 20, seed=707)
+    A = ["Am7", "Fmaj7", "C", "G6"]
+    B = ["Dm7", "Am7", "Fmaj7", "Csus2"]
+    prog = A + B + A + B + A[:2] + ["Fmaj7", "Csus2"]
+    s.pad_chords("pad", prog, lo=55, hi=71, gain=0.075, attack=1.8, release=2.6,
+                 cutoff=900, trem=0.06)
+    # woody marimba ostinato in eighths: a gentle up-down figure that "turns
+    # the key" (rests open up in the B phrases)
+    figs = [[0, None, 1, 2, None, 1, 3, None], [0, 2, None, 1, 3, None, 2, None]]
+    for b, ch in enumerate(prog):
+        tones = chord_tones(ch, 60, 76)
+        fig = figs[(b // 4) % 2]
+        for i, idx in enumerate(fig):
+            if idx is None or (b < 2 and i % 2):
+                continue
+            acc = 1.0 if i % 4 == 0 else (0.75 if i % 2 == 0 else 0.6)
+            s.add("mar", b * 4 + i * 0.5, marimba(tones[min(idx, len(tones) - 1)], 1.8, bright=0.8),
+                  0.26 * acc, human=0.005)
+        s.add("bass", b * 4, soft_bass(root_in(ch, 36), 4.2, 1.5), 0.48, vel_var=0.03)
+        if b % 4 == 3:
+            s.add("bass", b * 4 + 3, soft_bass(root_in(ch, 36) + 7, 1.6, 0.7), 0.18)
+    density = [0, 0, 1, 0, 1, 1, 0, 1, 1, 2, 1, 0, 1, 1, 2, 1, 1, 0, 1, 0]
+    s.melody("kal", prog, density, 72, 84, lambda m, d: kalimba(m, 3.0, bright=0.7), 0.36, SPARSE, DENSE)
+    # soft "unlock" chime at each phrase start: rising pentatonic 3-note figure
+    for b in range(4, 20, 8):
+        for k, m in enumerate((84, 88, 91)):
+            s.add("bell", b * 4 + 2 + k * 0.5, bell_fm(m, 3.0, ratio=1.0, index=0.5, tau=1.2), 0.06 + 0.01 * k)
+    ir = make_ir(3.6, 2.6, seed=17, bright=0.8)
+    y, k = s.mixdown({"pad": (1.0, 0.45, 0.0), "mar": (1.0, 0.3, 0.2),
+                      "bass": (0.55, 0.1, 0.0), "kal": (1.0, 0.5, 0.35),
+                      "bell": (1.0, 0.7, 0.35)},
+                     ir, delay=(s.beat * 0.75, 0.32, 2800, 0.45), master_lp=8000)
+    return s, y
+
+
+def track_ch7():  # Spark
+    s = Song("ch7", 104, 28, seed=808)
+    A = ["C", "Em", "Am", "F"]
+    B = ["Dm7", "G6", "Cmaj7", "Am7"]
+    prog = A + B + A + B + A + B + ["F", "G6", "C", "Csus2"]
+    s.pad_chords("pad", prog, lo=55, hi=72, gain=0.06, detunes=(-7, 0, 7),
+                 attack=1.2, release=2.0, cutoff=1300, trem=0.07)
+    # twinkling bell arpeggio: 16ths with gaps, rising then falling over 2 bars
+    pat = [0, None, 1, 2, None, 3, 2, None, 4, None, 3, 1, None, 2, None, 1]
+    for b, ch in enumerate(prog):
+        tones = chord_tones(ch, 76, 93)
+        for i, idx in enumerate(pat):
+            if idx is None or (b < 4 and i % 4 not in (0, 2)):
+                continue
+            j = idx if b % 2 == 0 else (4 - idx)
+            acc = 1.0 if i % 4 == 0 else 0.62
+            s.add("bell", b * 4 + i * 0.25, bell_fm(tones[min(j, len(tones) - 1)], 1.6, ratio=3.0,
+                  index=0.7, tau=0.45, tau_i=0.03, shimmer=0.15), 0.12 * acc, human=0.003)
+        # light pulse: muted pluck eighths on chord tones
+        mid = chord_tones(ch, 60, 72)
+        for e in range(8):
+            m = mid[(e * 2) % len(mid)] if e % 2 == 0 else mid[1 % len(mid)]
+            s.add("pulse", b * 4 + e * 0.5, pluck(m, 0.6, bright=0.3, tau1=0.16, nh=8, detune_c=0),
+                  0.14 if e % 2 == 0 else 0.1, human=0.002)
+        s.add("bass", b * 4, soft_bass(root_in(ch, 36), 1.8, 0.8), 0.45, human=0.002)
+        s.add("bass", b * 4 + 1.5, soft_bass(root_in(ch, 36), 1.0, 0.4), 0.22, human=0.002)
+        s.add("bass", b * 4 + 2.5, soft_bass(root_in(ch, 36) + 12, 1.0, 0.35), 0.16, human=0.002)
+        if b >= 4:
+            for q in (0, 2):
+                s.add("kick", b * 4 + q, soft_kick(), 0.32, human=0.002, vel_var=0.04)
+            for e in range(4):
+                s.add("shk", b * 4 + e + 0.5, shaker(e % 2), 0.35, human=0.004)
+    density = [0, 0, 0, 0, 1, 0, 1, 1, 1, 2, 1, 1, 2, 1, 2, 1, 1, 1, 2, 1, 2, 2, 1, 1, 1, 1, 1, 0]
+    s.melody("mel", prog, density, 72, 84, lambda m, d: kalimba(m, 2.6, bright=0.8), 0.3, SPARSE, DENSE)
+    ir = make_ir(3.4, 2.5, seed=18, bright=1.2)
+    y, k = s.mixdown({"pad": (1.0, 0.45, 0.0), "bell": (1.0, 0.4, 0.4),
+                      "pulse": (1.0, 0.15, 0.05), "bass": (0.5, 0.05, 0.0),
+                      "kick": (0.4, 0.02, 0.0), "shk": (0.04, 0.2, 0.0),
+                      "mel": (1.0, 0.5, 0.35)},
+                     ir, delay=(s.beat * 0.75, 0.38, 4500, 0.45), master_lp=11000)
+    return s, y
+
+
+def track_ch8():  # Turn
+    s = Song("ch8", 88, 24, seed=909)
+    A = ["Fmaj7", "G6", "Em", "Am7"]
+    B = ["Dm7", "G", "Cmaj7", "Am7"]
+    C = ["Fmaj7", "G6", "Cmaj7", "Csus2"]
+    prog = A + B + A + C + A + C
+    s.pad_chords("pad", prog, lo=55, hi=74, gain=0.065, detunes=(-9, -3, 3, 9),
+                 attack=1.4, release=2.2, cutoff=1400, trem=0.08)
+    # rotating 3-note cycle on a 16th grid (3-against-4): the cycle phase drifts
+    # against the beat so the accent pattern turns every bar
+    cyc = [0, 2, 1]
+    for b, ch in enumerate(prog):
+        tones = chord_tones(ch, 60, 79)
+        for i in range(16):
+            n = b * 16 + i
+            idx = cyc[n % 3] + (1 if (n // 3) % 4 == 3 else 0)
+            m = tones[min(idx, len(tones) - 1)]
+            acc = 1.0 if n % 3 == 0 else 0.6
+            if i % 4 == 0:
+                acc *= 1.15
+            s.add("ep", b * 4 + i * 0.25, epiano(m, 1.6, bright=0.35, tau=0.6), 0.12 * acc, human=0.003)
+        # counter-cycle: 4-note figure in dotted eighths (another 3:4 layer)
+        if b >= 4:
+            hi_t = chord_tones(ch, 72, 88)
+            for k in range(6):
+                pos = k * 0.75
+                if pos >= 4:
+                    break
+                j = [0, 2, 3, 1][(b * 6 + k) % 4]
+                s.add("ep2", b * 4 + pos, epiano(hi_t[min(j, len(hi_t) - 1)], 2.0, bright=0.5, tau=0.8),
+                      0.1, human=0.003)
+        s.add("bass", b * 4, soft_bass(root_in(ch, 36), 3.0, 1.2), 0.48, vel_var=0.03)
+        s.add("bass", b * 4 + 2.5, soft_bass(root_in(ch, 36) + 7, 1.6, 0.6), 0.2)
+        if b >= 8:
+            s.add("kick", b * 4, soft_kick(), 0.3, human=0.002, vel_var=0.04)
+            s.add("kick", b * 4 + 2.5, soft_kick(), 0.2, human=0.002, vel_var=0.04)
+    density = [0, 0, 0, 0, 1, 1, 1, 0, 1, 2, 1, 1, 2, 1, 2, 1, 1, 2, 1, 1, 2, 1, 1, 0]
+    s.melody("mel", prog, density, 74, 86, lambda m, d: bell_fm(m, 3.4, ratio=1.0, index=0.7, tau=1.3, shimmer=0.18), 0.28, SPARSE, DENSE)
+    ir = make_ir(4.0, 3.0, seed=19, bright=0.95)
+    y, k = s.mixdown({"pad": (1.0, 0.5, 0.0), "ep": (1.0, 0.3, 0.25),
+                      "ep2": (1.0, 0.45, 0.4), "bass": (0.55, 0.08, 0.0),
+                      "kick": (0.4, 0.02, 0.0), "mel": (1.0, 0.55, 0.35)},
+                     ir, delay=(s.beat * 0.75, 0.36, 3500, 0.45), master_lp=9500)
+    return s, y
+
+
 TRACKS = {"menu": (track_menu, 72, "C major (Cmaj7-Am7-Fmaj7-G6)"),
           "ch1": (track_ch1, 84, "C major (C-G-Am-F-Csus2-Em-F-G)"),
           "ch2": (track_ch2, 90, "C major / F lydian colour (Fmaj7-C-Dm7-Am7 | Fmaj7-Em-Dm7-G6)"),
           "ch3": (track_ch3, 70, "A minor (Am-Dm-Em-Am | Am7-F-Dm7-Em)"),
           "ch4": (track_ch4, 96, "A minor (Am-F-C-G)"),
-          "ch5": (track_ch5, 100, "C major / A minor (F-G-Em-Am | C-G-Am-F)")}
+          "ch5": (track_ch5, 100, "C major / A minor (F-G-Em-Am | C-G-Am-F)"),
+          "ch6": (track_ch6, 78, "A minor / C major (Am7-Fmaj7-C-G6 | Dm7-Am7-Fmaj7-Csus2)"),
+          "ch7": (track_ch7, 104, "C major (C-Em-Am-F | Dm7-G6-Cmaj7-Am7)"),
+          "ch8": (track_ch8, 88, "C major (Fmaj7-G6-Em-Am7 | Dm7-G-Cmaj7-Am7 | Fmaj7-G6-Cmaj7-Csus2)")}
 
 
 # =============================================================================

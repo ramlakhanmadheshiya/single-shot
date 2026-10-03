@@ -13,6 +13,7 @@ func _init() -> void:
 	_void_absorbs()
 	_portal_and_prism()
 	_armored()
+	_new_mechanics()
 	_timing()
 	print("SIM SMOKE: ", "FAIL (%d)" % failures if failures > 0 else "PASS")
 	quit(1 if failures > 0 else 0)
@@ -93,3 +94,21 @@ func _timing() -> void:
 	var t0: int = Time.get_ticks_msec()
 	var wins: Array = RicochetSim.solve(level, RicochetSim.initial_state(level), 1440, true)
 	print("  solve(1440) took %d ms, %d windows" % [Time.get_ticks_msec() - t0, wins.size()])
+
+
+func _new_mechanics() -> void:
+	# A gate blocks the target until the orb crosses the switch.
+	var gate: Dictionary = {"launcher": [320, 880], "bounces": 1, "targets": [[320, 200]], "switches": [[320, 700]], "walls": [[320, 450, 300, 16, 0, "gate"]]}
+	_check(RicochetSim.simulate(gate, RicochetSim.initial_state(gate), -PI / 2)["cleared"], "switch opens the gate in the same shot")
+	var closed: Dictionary = gate.duplicate(true)
+	closed.erase("switches")
+	_check(not RicochetSim.simulate(closed, RicochetSim.initial_state(closed), -PI / 2)["cleared"], "a closed gate blocks the shot")
+	# A spark grants the extra bounce needed to come back down to the target.
+	var spark: Dictionary = {"launcher": [320, 880], "bounces": 0, "targets": [[200, 880]], "sparks": [[320, 600]]}
+	var no_spark: Dictionary = spark.duplicate(true)
+	no_spark.erase("sparks")
+	_check(RicochetSim.simulate(spark, RicochetSim.initial_state(spark), -PI / 2 - 0.0)["events"].any(func(e: Dictionary) -> bool: return e["type"] == "spark"), "orb collects a spark")
+	# A pivot wall turns 90 degrees after it is struck.
+	var piv: Dictionary = {"launcher": [320, 880], "bounces": 1, "targets": [[320, 100]], "walls": [[320, 500, 200, 16, 0, "pivot"]]}
+	var res: Dictionary = RicochetSim.simulate(piv, RicochetSim.initial_state(piv), -PI / 2)
+	_check(float(res["state"]["rot"][0]) == 90.0, "pivot wall turns 90 degrees when struck")

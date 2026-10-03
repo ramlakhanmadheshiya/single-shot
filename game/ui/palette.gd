@@ -43,6 +43,30 @@ const CHAPTERS: Dictionary = {
 		"accent": Color("#8BE9FD"), "special": Color("#8BE9FD"), "special2": Color("#C3A6FF"),
 		"card": Color("#FFFFFF", 0.07), "dark": true,
 	},
+	"ch6": {
+		"name": "Gate", "tagline": "Find the switch",
+		"top": Color("#F1F4E6"), "bottom": Color("#C9D7B0"),
+		"ink": Color("#27352A"), "muted": Color("#27352A", 0.5), "faint": Color("#27352A", 0.08),
+		"wall": Color("#27352A"), "target": Color("#E4572E"), "orb": Color("#27352A"),
+		"accent": Color("#5E8C3A"), "special": Color("#D9A21B"), "special2": Color("#5E8C3A"),
+		"card": Color("#FFFFFF", 0.5), "dark": false,
+	},
+	"ch7": {
+		"name": "Spark", "tagline": "Catch a second wind",
+		"top": Color("#2A1B12"), "bottom": Color("#4A2A14"),
+		"ink": Color("#FFF2DD"), "muted": Color("#FFF2DD", 0.55), "faint": Color("#FFF2DD", 0.07),
+		"wall": Color("#FFE7C2"), "target": Color("#FF6F59"), "orb": Color("#FFFFFF"),
+		"accent": Color("#FFB347"), "special": Color("#FFD166"), "special2": Color("#FFB347"),
+		"card": Color("#FFFFFF", 0.08), "dark": true,
+	},
+	"ch8": {
+		"name": "Turn", "tagline": "Every hit turns the room",
+		"top": Color("#FBEDE8"), "bottom": Color("#E8B4A6"),
+		"ink": Color("#3E2430"), "muted": Color("#3E2430", 0.5), "faint": Color("#3E2430", 0.08),
+		"wall": Color("#3E2430"), "target": Color("#D7263D"), "orb": Color("#3E2430"),
+		"accent": Color("#C8553D"), "special": Color("#7D5BA6"), "special2": Color("#C8553D"),
+		"card": Color("#FFFFFF", 0.5), "dark": false,
+	},
 }
 
 const HOME_ID: String = "ch1"

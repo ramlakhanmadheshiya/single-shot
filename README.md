@@ -8,7 +8,7 @@ Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the 
 
 ## The game
 
-- **100 rooms in 5 chapters.** Each chapter has its own palette and music, and adds one new idea:
+- **320 rooms in 8 chapters of 40.** Each chapter has its own palette and music, and adds one new idea:
 
   | Chapter | Mood | New mechanic |
   |---|---|---|
@@ -17,11 +17,19 @@ Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the 
   | Void | indigo night | dark blocks swallow the orb; round bumpers bounce it |
   | Shift | dusk violet | portals carry the orb across the room |
   | Prism | midnight | prisms split one orb into two; ringed targets need two passes |
+  | Gate | sage | a switch dissolves the gate walls |
+  | Spark | amber night | flying through a spark adds one bounce |
+  | Turn | rose | pivot walls turn 90° each time they're hit |
 
 - **Stars:** 1 shot gives ★★★, 2 shots ★★, 3 shots ★. Every room can be cleared in one shot.
 - **The dots over the launcher** show how many bounces each shot may make.
-- **Forgiving progress:** the next three rooms are always open, and a chapter unlocks after 12 clears in the one before it.
-- **Help:** Undo, Restart, and 3 free hints a day. A hint shows the exact solving path. More hints come from an optional rewarded ad, which is mocked; there is no ad SDK.
+- **Progress:** rooms unlock one at a time (clear room N to open room N + 1). A chapter unlocks after 15 clears in the one before it. Difficulty rises steadily from room to room, measured by the solver.
+- **Help:** Undo, Restart, and hints that show the exact solving path. You get 3 free hints, refilled to 3 at local midnight. Each optional rewarded ad gives +1 hint.
+- **Supporter Pack** (the heart on the home screen): a one-time purchase that removes banner and between-level ads and makes every hint free, with a Restore purchase button.
+- **Ads (Android only):**
+  - a bottom banner on every screen, with layout space reserved so it never covers a button;
+  - an interstitial only when leaving a cleared level: never in the first 5 clears, then at most once every 3 clears and 3 minutes;
+  - rewarded ads only when you ask for a hint.
 - **Settings:** music and sound volume sliders, vibration, screen shake, and a longer aim guide.
 
 ### Controls

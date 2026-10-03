@@ -51,7 +51,7 @@ func _run() -> void:
 	b.aim_angle = deg_to_rad(-70.0)
 	await _wait(0.2)
 	await _shot("05_aiming")
-	for spec: Array in [["ch1", 12, "06_dawn_13"], ["ch2", 6, "07_glass_07"], ["ch3", 9, "08_void_10"], ["ch4", 8, "09_shift_09"], ["ch5", 10, "10_prism_11"]]:
+	for spec: Array in [["ch1", 12, "06_dawn_13"], ["ch2", 6, "07_glass_07"], ["ch3", 9, "08_void_10"], ["ch4", 8, "09_shift_09"], ["ch6", 6, "10b_gate_07"], ["ch7", 8, "10c_spark_09"], ["ch8", 12, "10d_turn_13"], ["ch5", 10, "10_prism_11"]]:
 		app.open_game(spec[0], spec[1])
 		await _wait(1.1)
 		b = _board()
@@ -65,9 +65,18 @@ func _run() -> void:
 	_board().show_hint()
 	await _wait(0.4)
 	await _shot("12_hint")
-	app.open_settings()
+	app.open_settings(true)
 	await _wait(0.6)
 	await _shot("13_settings")
+	app.close_settings()
+	app.open_supporter()
+	await _wait(1.0)
+	await _shot("14_supporter")
+	app.open_home()
+	await _wait(0.8)
+	app.go_back()
+	await _wait(0.6)
+	await _shot("15_quit")
 	SaveSystem.data = _backup
 	SaveSystem.save()
 	get_tree().quit()

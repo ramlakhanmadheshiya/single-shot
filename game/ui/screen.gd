@@ -21,13 +21,22 @@ func handle_back() -> bool:
 	return false
 
 
+## True while a room is being played (settings then hide progress reset).
+func in_game() -> bool:
+	return false
+
+
 ## Called after the screen is visible; give keyboard/gamepad focus here.
 func focus_default() -> void:
 	pass
 
 
-## Standard header: back button, centred title and an optional right-hand control.
+## Standard header: back button, centred title and a settings button on the right.
 func make_header(title: String, on_back: Callable, right: Control = null) -> Control:
+	if right == null:
+		right = UIKit.icon_button("settings", pal, 72.0)
+		right.name = "SettingsButton"
+		(right as Button).pressed.connect(func() -> void: app.open_settings(in_game()))
 	var bar: Control = Control.new()
 	bar.custom_minimum_size = Vector2(0, 96)
 	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL

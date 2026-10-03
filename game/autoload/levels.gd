@@ -2,10 +2,8 @@ extends Node
 ## Chapter and level catalogue, plus the unlock rules.
 
 const LEVEL_DIR: String = "res://content/levels/"
-## Levels open in a sliding window so one hard room never blocks progress.
-const OPEN_AHEAD: int = 3
 ## Clears needed in the previous chapter to open the next one.
-const CHAPTER_GATE: int = 12
+const CHAPTER_GATE: int = 15
 
 var chapters: Array[Dictionary] = []
 
@@ -66,6 +64,13 @@ func cleared_in(chapter_id: String) -> int:
 	return n
 
 
+func total_cleared() -> int:
+	var n: int = 0
+	for c: Dictionary in chapters:
+		n += cleared_in(str(c["id"]))
+	return n
+
+
 func stars_in(chapter_id: String) -> int:
 	var n: int = 0
 	for lv: Dictionary in chapter(chapter_id).get("levels", []):
@@ -80,15 +85,16 @@ func chapter_open(chapter_id: String) -> bool:
 	return cleared_in(str(chapters[i - 1]["id"])) >= CHAPTER_GATE
 
 
+## Rooms open strictly one at a time: clear room N to open room N + 1.
 func level_open(chapter_id: String, index: int) -> bool:
 	if not chapter_open(chapter_id):
 		return false
-	var cleared_prefix: int = 0
 	var list: Array = chapter(chapter_id).get("levels", [])
-	for i: int in list.size():
-		if SaveSystem.is_cleared(str(list[i]["id"])):
-			cleared_prefix = i + 1
-	return index < cleared_prefix + OPEN_AHEAD or SaveSystem.is_cleared(str(list[index]["id"]))
+	if index <= 0:
+		return true
+	if index >= list.size():
+		return false
+	return SaveSystem.is_cleared(str(list[index - 1]["id"])) or SaveSystem.is_cleared(str(list[index]["id"]))
 
 
 ## The level "Play" should open: the first unbeaten room near where the player was.

@@ -9,6 +9,9 @@ const TIPS: Dictionary = {
 	"ch3_01": "Dark blocks swallow light  ·  rings bounce it",
 	"ch4_01": "Portals carry your orb across the room",
 	"ch5_01": "A prism splits one orb into two",
+	"ch6_01": "Hit the switch to dissolve the gates",
+	"ch7_01": "Fly through a spark for one extra bounce",
+	"ch8_01": "Pivot walls turn 90° every time you hit them",
 }
 
 var chapter_id: String = "ch1"
@@ -30,6 +33,10 @@ func music_track() -> String:
 	return chapter_id
 
 
+func in_game() -> bool:
+	return true
+
+
 func _ready() -> void:
 	level = Levels.level(chapter_id, index)
 	SaveSystem.set_last_played(chapter_id, index)
@@ -37,10 +44,7 @@ func _ready() -> void:
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	col.add_theme_constant_override("separation", 6)
 	add_child(col)
-	var restart: Button = UIKit.icon_button("rotate-ccw", pal, 72.0)
-	restart.name = "Restart"
-	restart.pressed.connect(_restart)
-	col.add_child(make_header("%s  ·  %d" % [pal["name"], index + 1], func() -> void: app.open_levels(chapter_id), restart))
+	col.add_child(make_header("%s  ·  %d" % [pal["name"], index + 1], func() -> void: app.open_levels(chapter_id)))
 
 	_shots = _ShotDots.new()
 	_shots.pal = pal
@@ -75,6 +79,10 @@ func _ready() -> void:
 	_undo_btn.name = "Undo"
 	_undo_btn.pressed.connect(_undo)
 	bar.add_child(_undo_btn)
+	var restart: Button = UIKit.icon_button("rotate-ccw", pal, 80.0)
+	restart.name = "Restart"
+	restart.pressed.connect(_restart)
+	bar.add_child(restart)
 	_hint_btn = UIKit.icon_button("lightbulb", pal, 80.0)
 	_hint_btn.name = "Hint"
 	_hint_btn.pressed.connect(_hint)
@@ -113,7 +121,10 @@ func _refresh() -> void:
 	_shots.left = board.shots_left()
 	_shots.queue_redraw()
 	_undo_btn.disabled = board.history.is_empty() or board.playing or _done
-	_hint_badge.text = str(SaveSystem.hints_left()) if SaveSystem.hints_left() > 0 else "+"
+	if SaveSystem.is_supporter():
+		_hint_badge.text = "∞"
+	else:
+		_hint_badge.text = str(SaveSystem.hints_left()) if SaveSystem.hints_left() > 0 else "+"
 
 
 func _on_shot_fired() -> void:
@@ -158,7 +169,7 @@ func _undo() -> void:
 func _hint() -> void:
 	if _done or board.playing:
 		return
-	if SaveSystem.hints_left() <= 0:
+	if not SaveSystem.is_supporter() and SaveSystem.hints_left() <= 0:
 		_offer_hints()
 		return
 	if board.show_hint():
@@ -171,15 +182,17 @@ func _hint() -> void:
 func _offer_hints() -> void:
 	var sheet: VBoxContainer = _open_sheet()
 	sheet.add_child(UIKit.label("Out of hints", 40, pal["ink"], 600))
-	sheet.add_child(UIKit.label("You get 3 free hints every day.", 24, pal["muted"], 400))
-	var watch: Button = UIKit.pill("Watch a short ad  ·  +3", pal, "primary", Vector2(420, 88), 28)
+	var note: Label = UIKit.label("3 free hints refill every day at midnight.\nSupporters get every hint free.", 24, pal["muted"], 400)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sheet.add_child(note)
+	var watch: Button = UIKit.pill("Watch a short ad  ·  +1 hint", pal, "primary", Vector2(440, 88), 28)
 	watch.name = "WatchAd"
 	watch.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	watch.disabled = not AdManager.is_rewarded_ready()
+	watch.disabled = not AdManager.rewarded_ready()
 	watch.pressed.connect(func() -> void:
 		AdManager.show_rewarded(func(ok: bool) -> void:
 			if ok:
-				SaveSystem.add_hints(3)
+				SaveSystem.add_hints(1)
 				AudioManager.play("unlock", 1.0)
 			_close_sheet()
 			_refresh()
@@ -218,14 +231,14 @@ func _show_result(won: bool, stars: int, shots_used: int, _first: bool) -> void:
 		next_btn.name = "Next"
 		next_btn.pressed.connect(func() -> void:
 			if nxt.is_empty():
-				app.open_chapters()
+				AdManager.between_levels(func() -> void: app.open_chapters())
 			else:
-				app.open_game(str(nxt["chapter"]), int(nxt["index"]))
+				AdManager.between_levels(func() -> void: app.open_game(str(nxt["chapter"]), int(nxt["index"])))
 		)
 		buttons.add_child(next_btn)
 		var grid: Button = UIKit.icon_button("layout-grid", pal, 88.0)
 		grid.name = "Levels"
-		grid.pressed.connect(func() -> void: app.open_levels(chapter_id))
+		grid.pressed.connect(func() -> void: AdManager.between_levels(func() -> void: app.open_levels(chapter_id)))
 		buttons.add_child(grid)
 		_sheet_focus = next_btn
 	else:

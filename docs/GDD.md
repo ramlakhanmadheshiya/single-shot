@@ -28,12 +28,15 @@ You read the room, find the angle, and watch one perfect shot chain through ever
 | Bumpers | Round reflectors. |
 | Portals | The orb keeps its heading and leaves the twin portal. |
 | Prisms | Split the orb ±32°. Each half keeps the remaining bounces. |
+| Switches and gates | Crossing a switch dissolves every gate wall for the rest of the attempt. |
+| Sparks | Flying through a spark adds one bounce. Sparks come back for every shot. |
+| Pivot walls | Reflect, then turn 90° about their centre. The turn persists between shots. |
 
 ## Progression
-- 5 chapters × 20 rooms. Each chapter introduces one mechanic, then combines it with earlier ones.
-- **Rooms:** the next 3 rooms past your furthest clear are always open.
-- **Chapters:** a chapter opens after 12 clears in the previous one.
-- **Difficulty:** rises in a gentle sawtooth within each chapter. It is measured by the solver rather than guessed.
+- 8 chapters × 40 rooms. Each chapter introduces one mechanic (walls, glass, voids and bumpers, portals, prisms and ringed targets, switches and gates, sparks, pivot walls), then combines it with earlier ones.
+- **Rooms:** unlock one at a time. Clearing room N opens room N + 1.
+- **Chapters:** a chapter opens after 15 clears in the previous one.
+- **Difficulty:** every room asks a little more than the one before. The level generator targets a rising difficulty for each slot, and the solver measures it.
 
 ## Feel
 Feedback is tiered by importance, following the game-feel skill's trauma/tier model:
@@ -50,7 +53,10 @@ Screen shake, vibration and the longer aim guide can all be toggled in Settings.
 - **Arena:** a soft dot-grid card. Walls are capsules, targets are bullseyes, and the orb trails light.
 - **Music:** one synthesised ambient loop per chapter plus a menu theme, all in the C-major / A-minor family so the pentatonic pops always fit.
 
-## Monetisation hooks
-These are prepared but mocked:
-- Optional rewarded ad for +3 hints. There are no banners, to keep the minimal look.
-- `game/ads/` holds the provider seam for a real SDK.
+## Monetisation
+Ads come from AdMob through the Poing plugin, and the one purchase uses Google Play Billing. All rules live in `game/ads/ad_manager.gd`:
+- **Banner:** at the bottom of every screen, with layout space reserved so it never covers a button.
+- **Interstitial:** only when leaving a cleared level. Never in the first 5 clears, then at most once every 3 clears and 3 minutes, and never after a failure.
+- **Rewarded:** +1 hint, only when the player asks.
+- **Hints:** 3 free hints, refilled to 3 at local midnight.
+- **Supporter Pack** (`supporter_pack`, one-time, suggested $2.99): no banners, no interstitials, every hint free, and a Restore purchase button.

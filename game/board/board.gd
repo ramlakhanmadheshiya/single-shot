@@ -44,6 +44,11 @@ var _slowmo: float = 0.0
 var _rate: float = 1.0
 var _hp: Array = []
 var _intact: Array = []
+var _rot_shown: Array = []
+var _rot_goal: Array = []
+var _open: bool = false
+var _gate_alpha: float = 1.0
+var _sparks_taken: Dictionary = {}
 var _combo: int = 0
 var _trails: Dictionary = {}
 
@@ -115,6 +120,11 @@ func targets_left() -> int:
 func _sync_display() -> void:
 	_hp = (state["hp"] as Array).duplicate()
 	_intact = (state["intact"] as Array).duplicate()
+	_rot_goal = (state.get("rot", []) as Array).duplicate()
+	_rot_shown = _rot_goal.duplicate()
+	_open = bool(state.get("open", false))
+	_gate_alpha = 0.0 if _open else 1.0
+	_sparks_taken.clear()
 
 
 func _stop_playback() -> void:
@@ -349,6 +359,29 @@ func _apply_event(e: Dictionary) -> void:
 			_sound("split")
 			_add_trauma(0.12)
 			_haptic(12)
+		"pivot":
+			_rot_goal[idx] = float(_rot_goal[idx]) + 90.0
+			_flash["w%d" % idx] = 1.0
+			_add_ring(pos, 4.0, 30.0, 0.32, pal["special"], 3.0)
+			_sound("bounce")
+			_sound("undo", 1.4, -6.0)
+			_add_trauma(0.08)
+			_haptic(8)
+		"switch":
+			_open = true
+			var sp2: Vector2 = _feature_pos("switches", idx)
+			_add_ring(sp2, 10.0, 70.0, 0.5, pal["special"], 5.0)
+			_burst(sp2, 10, pal["special"], 200.0, 3.5)
+			_sound("unlock", 1.0, -3.0)
+			_add_trauma(0.12)
+			_haptic(12)
+		"spark":
+			_sparks_taken[idx] = true
+			var kp: Vector2 = _feature_pos("sparks", idx)
+			_add_ring(kp, 6.0, 46.0, 0.4, pal["special"], 4.0)
+			_burst(kp, 8, pal["special"], 160.0, 3.0)
+			_sound("star", 1.5, -4.0)
+			_haptic(8)
 		"absorb":
 			_add_ring(pos, 44.0, 2.0, 0.4, pal["accent"], 4.0)
 			_sound("absorb")
@@ -357,6 +390,11 @@ func _apply_event(e: Dictionary) -> void:
 		"fizzle":
 			_burst(pos, 7, Color(pal["orb"], 0.7), 70.0, 2.5)
 			_sound("fizzle", -1.0, -4.0)
+
+
+func _feature_pos(key: String, i: int) -> Vector2:
+	var q: Array = level[key][i]
+	return Vector2(float(q[0]), float(q[1]))
 
 
 func _target_pos(i: int) -> Vector2:
@@ -490,6 +528,10 @@ func _update_fx(delta: float) -> void:
 		if float(_pops[key]) >= 1.0:
 			_pops.erase(key)
 	_screen_flash = maxf(0.0, _screen_flash - delta * 3.0)
+	for i: int in _rot_shown.size():
+		_rot_shown[i] = lerpf(float(_rot_shown[i]), float(_rot_goal[i]), minf(1.0, delta * 12.0))
+	if _open:
+		_gate_alpha = maxf(0.0, _gate_alpha - delta * 3.0)
 	_kick = maxf(0.0, _kick - delta * 5.0)
 	_hint_t = maxf(0.0, _hint_t - delta)
 	_trauma = maxf(0.0, _trauma - delta * 1.4)
@@ -589,7 +631,9 @@ func _draw_walls(appear: float) -> void:
 		var w: Array = walls[i]
 		var kind: String = RicochetSim.wall_kind(w)
 		var flash: float = float(_flash.get("w%d" % i, 0.0))
-		var pts: PackedVector2Array = RicochetSim.wall_corners(w)
+		if kind == RicochetSim.KIND_GATE and _gate_alpha <= 0.0:
+			continue
+		var pts: PackedVector2Array = RicochetSim.wall_corners(w, float(_rot_shown[i]) if i < _rot_shown.size() else 0.0)
 		var centre: Vector2 = Vector2(float(w[0]), float(w[1]))
 		if appear < 1.0:
 			for k: int in 4:
@@ -605,8 +649,13 @@ func _draw_walls(appear: float) -> void:
 				var glint_a: Vector2 = pts[0].lerp(pts[1], 0.15).lerp(pts[3].lerp(pts[2], 0.15), 0.5)
 				var glint_b: Vector2 = pts[0].lerp(pts[1], 0.32).lerp(pts[3].lerp(pts[2], 0.32), 0.5)
 				draw_line(glint_a, glint_b, Color(1, 1, 1, 0.8), 3.0, true)
+			RicochetSim.KIND_GATE:
+				var ga: float = _gate_alpha
+				draw_colored_polygon(pts, Color(pal["special"], 0.3 * ga))
+				for k: int in 4:
+					_dashed(pts[k], pts[(k + 1) % 4], Color(pal["special"], 0.95 * ga), 3.0)
 			RicochetSim.KIND_VOID:
-				draw_colored_polygon(pts, pal["special"])
+				draw_colored_polygon(pts, Color("#0B0A14"))
 				var o: PackedVector2Array = pts.duplicate()
 				o.append(pts[0])
 				draw_polyline(o, Color(pal["accent"], 0.45 + 0.2 * sin(_clock * 3.0 + float(i))), 2.0, true)
@@ -626,6 +675,11 @@ func _draw_walls(appear: float) -> void:
 					draw_line(a, b, col, t, true)
 					draw_circle(a, t * 0.5, col, true, -1.0, true)
 					draw_circle(b, t * 0.5, col, true, -1.0, true)
+					if kind == RicochetSim.KIND_PIVOT:
+						draw_circle(centre, t * 0.95, pal["special"], true, -1.0, true)
+						draw_circle(centre, t * 0.35, pal["top"], true, -1.0, true)
+						var spin: float = deg_to_rad(float(_rot_shown[i]))
+						draw_arc(centre, t * 1.9, spin + 0.4, spin + 1.9, 12, Color(pal["special"], 0.7), 2.5, true)
 				else:
 					draw_colored_polygon(pts, col)
 					var o2: PackedVector2Array = pts.duplicate()
@@ -633,7 +687,43 @@ func _draw_walls(appear: float) -> void:
 					draw_polyline(o2, col, 3.0, true)
 
 
+func _dashed(a: Vector2, b: Vector2, col: Color, width: float) -> void:
+	var length: float = a.distance_to(b)
+	if length < 1.0:
+		return
+	var dir: Vector2 = (b - a) / length
+	var s: float = 0.0
+	while s < length:
+		draw_line(a + dir * s, a + dir * minf(s + 10.0, length), col, width, true)
+		s += 18.0
+
+
 func _draw_features() -> void:
+	for i: int in (level.get("switches", []) as Array).size():
+		var c: Vector2 = _feature_pos("switches", i)
+		var col: Color = pal["special"]
+		var rr: float = RicochetSim.SWITCH_R
+		var pts: PackedVector2Array = PackedVector2Array([c + Vector2(0, -rr), c + Vector2(rr, 0), c + Vector2(0, rr), c + Vector2(-rr, 0)])
+		if _open:
+			var o: PackedVector2Array = pts.duplicate()
+			o.append(pts[0])
+			draw_polyline(o, Color(col, 0.35), 2.0, true)
+		else:
+			draw_colored_polygon(pts, col)
+			var pulse: float = 0.5 + 0.5 * sin(_clock * 3.0)
+			draw_arc(c, rr + 6.0 + 4.0 * pulse, 0.0, TAU, 32, Color(col, 0.5 - 0.3 * pulse), 2.5, true)
+			draw_circle(c, 4.0, pal["top"], true, -1.0, true)
+	for i: int in (level.get("sparks", []) as Array).size():
+		if _sparks_taken.has(i):
+			continue
+		var c2: Vector2 = _feature_pos("sparks", i)
+		var tw: float = 1.0 + 0.12 * sin(_clock * 5.0 + float(i))
+		var star: PackedVector2Array = PackedVector2Array()
+		for k: int in 8:
+			var rad: float = (RicochetSim.SPARK_R * tw) if k % 2 == 0 else RicochetSim.SPARK_R * 0.38
+			star.append(c2 + Vector2.from_angle(-PI / 2.0 + TAU * float(k) / 8.0 + _clock * 0.6) * rad)
+		draw_circle(c2, RicochetSim.SPARK_R * 1.5, Color(pal["special"], 0.15), true, -1.0, true)
+		draw_colored_polygon(star, pal["special"])
 	for i: int in (level.get("bumpers", []) as Array).size():
 		var b: Array = level["bumpers"][i]
 		var c: Vector2 = Vector2(float(b[0]), float(b[1]))

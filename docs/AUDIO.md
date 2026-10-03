@@ -49,8 +49,11 @@ consonant over any track. Mixes peak at -6 dBFS, with RMS around -16 to -18 dBFS
 | `ch3.wav` | Void | 70 | 20 | **68.5714 s** | 3 024 000 | A minor: Am · Dm · Em · Am / Am7 · F · Dm7 · Em | Sub-bass drone, dark low-passed pad, distant reverb-heavy plucks, low bells |
 | `ch4.wav` | Shift | 96 | 24 | **60.0000 s** | 2 646 000 | A minor: Am · F · C · G | 16th-note pluck arpeggiator with 8-bar brightness LFO, very soft kick + shaker, pad |
 | `ch5.wav` | Prism | 100 | 28 | **67.2000 s** | 2 963 520 | C major / A minor: F · G · Em · Am / C · G · Am · F | Finale: layered 16th plucks + 8th bell arps, soft four-on-the-floor kick, pulsing bass, wide pad |
+| `ch6.wav` | Gate | 78 | 20 | **61.5385 s** | 2 713 846 | A minor / C major: Am7 · Fmaj7 · C · G6 / Dm7 · Am7 · Fmaj7 · Csus2 (last phrase ends Am7 · Fmaj7 · Fmaj7 · Csus2) | Chapter 6, warm and earthy (sage green). Soft woody marimba eighth-note ostinato, low-passed warm pad, kalimba melody, soft bass, and a quiet rising C6-E6-G6 "unlock" chime every 8 bars |
+| `ch7.wav` | Spark | 104 | 28 | **64.6154 s** | 2 849 538 | C major: C · Em · Am · F / Dm7 · G6 · Cmaj7 · Am7 (last phrase F · G6 · C · Csus2) | Chapter 7, golden-hour amber at night. Twinkling 16th-note FM bell arpeggios with gaps, a muted-pluck eighth pulse, light syncopated bass, very soft kick and shaker (from bar 5), kalimba melody |
+| `ch8.wav` | Turn | 88 | 24 | **65.4545 s** | 2 886 545 | C major, phrases A B A C A C: A = Fmaj7 · G6 · Em · Am7, B = Dm7 · G · Cmaj7 · Am7, C = Fmaj7 · G6 · Cmaj7 · Csus2 | Grand final chapter (rose/terracotta). Electric-piano 3-note cycle on a 16th grid (3-against-4, so the accents rotate each bar), a dotted-eighth e-piano counter-cycle from bar 5, wide pad, bell melody, very soft kick from bar 9 |
 
-File sizes are 5.3 to 6.0 MB each (mono 44.1 kHz). Stereo would have doubled that, so the tracks are mono.
+File sizes are 5.2 to 6.0 MB each (mono 44.1 kHz). Stereo would have doubled that, so the tracks are mono.
 
 ## Sound effects (`assets/audio/sfx/`)
 
@@ -83,7 +86,8 @@ fade-in and ends with a 6 ms fade-out.
 
 ## Synthesis summary
 
-- **Instruments:** additive kalimba and marimba, 2-operator FM bells, an
+- **Instruments:** additive kalimba and marimba, 2-operator FM bells, an FM
+  electric piano with a short tine partial, an
   additive piano/pluck whose upper harmonics decay faster (sounds like a
   closing low-pass), detuned wavetable pads, sine sub-drone, pitch-swept sine
   kick and high-passed noise shaker.

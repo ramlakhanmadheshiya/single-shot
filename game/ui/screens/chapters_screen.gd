@@ -10,6 +10,9 @@ func _ready() -> void:
 	col.add_theme_constant_override("separation", 12)
 	add_child(col)
 	col.add_child(make_header("Chapters", func() -> void: app.open_home()))
+	var total_stars: Label = UIKit.label("★ %d / %d" % [SaveSystem.total_stars(), Levels.total_levels() * 3], 24, pal["muted"], 600)
+	total_stars.name = "TotalStars"
+	col.add_child(total_stars)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED

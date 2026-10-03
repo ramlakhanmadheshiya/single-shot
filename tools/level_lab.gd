@@ -10,7 +10,7 @@ extends SceneTree
 
 const OUT_DIR: String = "res://content/levels/"
 const GRID: float = 40.0
-const LEVELS_PER_CHAPTER: int = 20
+const LEVELS_PER_CHAPTER: int = 40
 
 ## Per-chapter generation rules. Ranges are [easy, hard] across the chapter.
 const CHAPTERS: Array = [
@@ -19,6 +19,9 @@ const CHAPTERS: Array = [
 	{"id": "ch3", "name": "Void", "targets": [2, 5], "bounces": [2, 5], "walls": [1, 4], "glass": [0, 1], "void": [1, 3], "bumpers": [1, 2], "portals": 0, "prisms": 0, "armored": 0, "min_width": [1.0, 0.55], "seed": 303, "require": "bumper"},
 	{"id": "ch4", "name": "Shift", "targets": [2, 5], "bounces": [2, 5], "walls": [1, 4], "glass": [0, 1], "void": [0, 2], "bumpers": [0, 1], "portals": 1, "prisms": 0, "armored": 0, "min_width": [1.0, 0.5], "seed": 404, "require": "portal"},
 	{"id": "ch5", "name": "Prism", "targets": [3, 6], "bounces": [2, 5], "walls": [1, 4], "glass": [0, 2], "void": [0, 2], "bumpers": [0, 1], "portals": 0, "prisms": 1, "armored": 1, "min_width": [0.9, 0.45], "seed": 505, "require": "split"},
+	{"id": "ch6", "name": "Gate", "targets": [2, 5], "bounces": [2, 5], "walls": [2, 5], "glass": [0, 1], "void": [0, 1], "bumpers": [0, 1], "portals": 0, "prisms": 0, "armored": 0, "gates": [1, 2], "switches": 1, "min_width": [1.0, 0.5], "seed": 606, "require": "switch"},
+	{"id": "ch7", "name": "Spark", "targets": [2, 5], "bounces": [0, 3], "walls": [1, 4], "glass": [0, 1], "void": [0, 1], "bumpers": [0, 1], "portals": 0, "prisms": 0, "armored": 0, "sparks": [1, 3], "min_width": [1.0, 0.5], "seed": 707, "require": "spark"},
+	{"id": "ch8", "name": "Turn", "targets": [2, 6], "bounces": [2, 5], "walls": [2, 5], "glass": [0, 1], "void": [0, 1], "bumpers": [0, 1], "portals": 0, "prisms": 0, "armored": 1, "pivots": [1, 2], "min_width": [0.9, 0.45], "seed": 808, "require": "pivot"},
 ]
 
 ## Hand-made opening rooms that teach aiming and the first bank shot.
@@ -62,16 +65,18 @@ func _build_chapter(chapter: Dictionary) -> Array:
 		var picked: Dictionary = {}
 		var pool: Array = []
 		var attempts: int = 0
-		while pool.size() < 6 and attempts < 900:
+		while pool.size() < 4 and attempts < 2400:
 			attempts += 1
-			var cand: Dictionary = _candidate(chapter, k)
+			# If a slot is stubborn, ease its parameters a little rather than leave a gap.
+			var cand: Dictionary = _candidate(chapter, k if attempts < 1200 else k * 0.85)
 			if not cand.is_empty():
 				pool.append(cand)
 		if pool.is_empty():
 			push_error("No candidate for %s slot %d" % [chapter["id"], slot])
 			continue
 		# Pick the candidate whose difficulty best matches the slot's target.
-		var want: float = lerpf(1.2, 3.4, k) + 0.2 * float(CHAPTERS.find(chapter))
+		# A steady ramp: each slot asks for a little more than the one before.
+		var want: float = lerpf(1.3, 3.7, k) + 0.12 * float(CHAPTERS.find(chapter))
 		pool.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return _fit(a, want) < _fit(b, want))
 		picked = pool[0]
 		result.append(picked)
@@ -124,6 +129,8 @@ func _candidate(chapter: Dictionary, k: float) -> Dictionary:
 			walls.append(m)
 	_convert_kind(walls, _range_i(chapter["glass"], k), "glass")
 	_convert_kind(walls, _range_i(chapter["void"], k), "void")
+	_convert_kind(walls, _range_i(chapter.get("gates", [0, 0]), k), "gate")
+	_convert_kind(walls, _range_i(chapter.get("pivots", [0, 0]), k), "pivot")
 	level["walls"] = walls
 	var bumpers: Array = []
 	for i: int in _range_i(chapter["bumpers"], k):
@@ -137,6 +144,17 @@ func _candidate(chapter: Dictionary, k: float) -> Dictionary:
 		if a == Vector2.INF or b == Vector2.INF or a.distance_to(b) < 260.0:
 			return {}
 		level["portals"] = [[a.x, a.y, b.x, b.y]]
+	if int(chapter.get("switches", 0)) > 0:
+		var sw: Vector2 = _free_point(level, 80.0)
+		if sw == Vector2.INF:
+			return {}
+		level["switches"] = [[sw.x, sw.y]]
+	var sparks: Array = []
+	for i: int in _range_i(chapter.get("sparks", [0, 0]), k):
+		var sp: Vector2 = _free_point(level, 70.0)
+		if sp != Vector2.INF:
+			sparks.append([sp.x, sp.y])
+			level["sparks"] = sparks
 	if int(chapter["prisms"]) > 0:
 		var pr: Vector2 = _free_point(level, 90.0)
 		if pr == Vector2.INF:
@@ -247,6 +265,9 @@ func _clearance(level: Dictionary, p: Vector2) -> float:
 	for pt: Array in level.get("portals", []):
 		best = minf(best, p.distance_to(Vector2(float(pt[0]), float(pt[1]))) - 20.0)
 		best = minf(best, p.distance_to(Vector2(float(pt[2]), float(pt[3]))) - 20.0)
+	for key: String in ["switches", "sparks"]:
+		for q: Array in level.get(key, []):
+			best = minf(best, p.distance_to(Vector2(float(q[0]), float(q[1]))) - 20.0)
 	for pr: Array in level.get("prisms", []):
 		best = minf(best, p.distance_to(Vector2(float(pr[0]), float(pr[1]))) - 20.0)
 	for t: Array in level.get("targets", []):
@@ -363,7 +384,7 @@ func _write(chapter: Dictionary, levels: Array) -> void:
 		var lv: Dictionary = levels[i]
 		lv["id"] = "%s_%02d" % [chapter["id"], i + 1]
 		lv["number"] = i + 1
-		for key: String in ["walls", "bumpers", "portals", "prisms"]:
+		for key: String in ["walls", "bumpers", "portals", "prisms", "switches", "sparks"]:
 			if lv.has(key) and (lv[key] as Array).is_empty():
 				lv.erase(key)
 		out.append(lv)

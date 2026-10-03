@@ -94,36 +94,53 @@ func set_flag(key: String, value: bool = true) -> void:
 
 # --- Hints -------------------------------------------------------------------
 
+## Free hints refill to exactly DAILY_HINTS at local midnight.
 func refresh_daily_hints() -> void:
 	var today: String = Time.get_date_string_from_system()
-	if str(data.get("hint_day", "")) < today:
+	if str(data.get("hint_day", "")) != today:
 		data["hint_day"] = today
-		data["hints"] = maxi(int(data.get("hints", 0)), DAILY_HINTS)
+		data["hints"] = DAILY_HINTS
 		save()
+		Events.hints_changed.emit(DAILY_HINTS)
 
 
 func hints_left() -> int:
+	refresh_daily_hints()
 	return int(data.get("hints", 0))
 
 
+## Supporters have unlimited hints; everyone else spends from the daily pool.
 func spend_hint() -> bool:
-	refresh_daily_hints()
+	if is_supporter():
+		return true
 	if hints_left() <= 0:
 		return false
 	data["hints"] = hints_left() - 1
 	save()
+	Events.hints_changed.emit(int(data["hints"]))
 	return true
+
+
+func is_supporter() -> bool:
+	return flag("supporter")
+
+
+func set_supporter(on: bool) -> void:
+	set_flag("supporter", on)
+	Events.supporter_changed.emit(on)
 
 
 func add_hints(count: int) -> void:
 	data["hints"] = hints_left() + maxi(0, count)
 	save()
+	Events.hints_changed.emit(int(data["hints"]))
 
 
 func reset_progress() -> void:
 	data["levels"] = {}
 	data["last"] = {"chapter": "ch1", "index": 0}
-	data["flags"] = {}
+	# Keep the purchase; only clear tutorial tips.
+	data["flags"] = {"supporter": is_supporter()}
 	save()
 
 

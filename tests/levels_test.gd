@@ -33,8 +33,8 @@ func _init() -> void:
 					_fail("%s: target outside the arena" % id)
 			if int(lv.get("shots", 0)) < 1:
 				_fail("%s: no shots" % id)
-	if count != 100:
-		_fail("expected 100 levels, found %d" % count)
+	if count != 320:
+		_fail("expected 320 levels (8 chapters x 40), found %d" % count)
 	print("LEVELS: %d checked, %s" % [count, "FAIL (%d)" % failures if failures > 0 else "PASS"])
 	quit(1 if failures > 0 else 0)
 

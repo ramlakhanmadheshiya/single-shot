@@ -6,13 +6,19 @@ const HomeScreen: GDScript = preload("res://game/ui/screens/home_screen.gd")
 const ChaptersScreen: GDScript = preload("res://game/ui/screens/chapters_screen.gd")
 const LevelsScreen: GDScript = preload("res://game/ui/screens/levels_screen.gd")
 const GameScreen: GDScript = preload("res://game/ui/screens/game_screen.gd")
+const SupporterScreen: GDScript = preload("res://game/ui/screens/supporter_screen.gd")
 const SettingsSheet: GDScript = preload("res://game/ui/settings_sheet.gd")
+const CreditsSheet: GDScript = preload("res://game/ui/credits_sheet.gd")
+const ConfirmSheet: GDScript = preload("res://game/ui/confirm_sheet.gd")
 
 var backdrop: Backdrop
 var host: MarginContainer
 var current: Screen
+## The one overlay that can sit above a screen: settings, credits or a confirm prompt.
 var settings: Control
 var _busy: bool = false
+var _banner_h: float = 0.0
+var _last_back_msec: int = -1000
 
 
 func _ready() -> void:
@@ -26,7 +32,12 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_apply_safe_area)
 	_apply_safe_area()
 	backdrop.set_palette(Palette.get_palette("ch1"), false)
+	Events.banner_changed.connect(func(h: float) -> void:
+		_banner_h = h
+		_apply_safe_area()
+	)
 	open_home()
+	AdManager.refresh_banner()
 
 
 ## Keeps content inside notches and rounded corners; also caps width on desktop.
@@ -42,6 +53,8 @@ func _apply_safe_area() -> void:
 			margins["top"] += safe.position.y * k
 			margins["right"] += (win.x - safe.end.x) * k
 			margins["bottom"] += (win.y - safe.end.y) * k
+	# Reserve room for the bottom banner so it never covers a button.
+	margins["bottom"] += _banner_h
 	var max_w: float = 760.0
 	if vp.x - margins["left"] - margins["right"] > max_w:
 		var extra: float = (vp.x - max_w) * 0.5
@@ -63,6 +76,10 @@ func open_levels(chapter_id: String) -> void:
 	var s: Screen = LevelsScreen.new()
 	s.set("chapter_id", chapter_id)
 	_go(s, chapter_id)
+
+
+func open_supporter() -> void:
+	_go(SupporterScreen.new(), "ch1")
 
 
 func open_game(chapter_id: String, index: int) -> void:
@@ -102,13 +119,32 @@ func _go(next: Screen, palette_id: String) -> void:
 	_busy = false
 
 
-func open_settings() -> void:
-	if settings != null:
-		return
-	settings = SettingsSheet.new()
+## in_game hides "Reset progress" so stars can't be wiped mid-level.
+func open_settings(in_game: bool = false) -> void:
+	var sheet: Control = SettingsSheet.new()
+	sheet.set("in_game", in_game)
+	_open_overlay(sheet)
+
+
+func open_credits() -> void:
+	_open_overlay(CreditsSheet.new())
+
+
+func _open_overlay(sheet: Control) -> void:
+	close_settings()
+	settings = sheet
 	settings.set("app", self)
 	settings.set("pal", current.pal if current != null else Palette.get_palette("ch1"))
 	add_child(settings)
+
+
+func _confirm_quit() -> void:
+	var sheet: Control = ConfirmSheet.new()
+	sheet.set("message", "Leave Carom?")
+	sheet.set("yes_text", "Quit")
+	sheet.set("no_text", "Keep playing")
+	sheet.set("on_yes", func() -> void: get_tree().quit())
+	_open_overlay(sheet)
 
 
 func close_settings() -> void:
@@ -139,12 +175,21 @@ func _notification(what: int) -> void:
 		go_back()
 
 
+## Phone back / Escape: one step back through overlay -> level -> levels ->
+## chapters -> home, and on home ask before quitting.
 func go_back() -> void:
+	# Android can deliver both the notification and a key event for one press.
+	var now: int = Time.get_ticks_msec()
+	if now - _last_back_msec < 250:
+		return
+	_last_back_msec = now
 	AudioManager.play_ui("ui_back")
 	if settings != null:
 		close_settings()
 		return
+	if _busy:
+		return
 	if current != null and current.handle_back():
 		return
 	if current != null and current.get_script() == HomeScreen and not OS.has_feature("web"):
-		get_tree().quit()
+		_confirm_quit()

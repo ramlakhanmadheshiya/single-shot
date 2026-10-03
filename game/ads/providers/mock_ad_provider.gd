@@ -1,108 +1,85 @@
 extends Node
-## Fake banner and rewarded placements. No network or ad SDK is used.
-signal rewarded_completed
-signal rewarded_failed
+## Stand-in ads for debug desktop builds, so layouts and flows can be checked
+## without a phone. No network, no SDK.
 
-var next_result: String = "completed"
-var test_delay_seconds: float = -1.0
-var _ad_layer: CanvasLayer
+signal banner_resized(height_px: float)
 
-func is_rewarded_ready() -> bool:
+const BANNER_PX: float = 100.0
+
+var _layer: CanvasLayer
+var _banner: Control
+
+
+func _ready() -> void:
+	_layer = CanvasLayer.new()
+	_layer.layer = 90
+	add_child(_layer)
+
+
+func show_banner() -> void:
+	if _banner != null:
+		return
+	_banner = ColorRect.new()
+	(_banner as ColorRect).color = Color(0.1, 0.1, 0.12, 0.88)
+	_banner.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	var win_h: float = float(DisplayServer.window_get_size().y)
+	var vp_h: float = get_viewport().get_visible_rect().size.y
+	_banner.offset_top = -BANNER_PX * vp_h / maxf(1.0, win_h)
+	_banner.mouse_filter = Control.MOUSE_FILTER_STOP
+	var l: Label = Label.new()
+	l.text = "Ad banner (test)"
+	l.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
+	l.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_banner.add_child(l)
+	_layer.add_child(_banner)
+	banner_resized.emit(BANNER_PX)
+
+
+func hide_banner() -> void:
+	if _banner != null:
+		_banner.queue_free()
+		_banner = null
+
+
+func interstitial_ready() -> bool:
 	return true
 
-func create_banner(parent: Control, label_text: String, surface: Color, border: Color, ink: Color) -> PanelContainer:
-	var strip: PanelContainer = PanelContainer.new()
-	strip.name = "MockBanner"
-	strip.anchor_left = 0.0
-	strip.anchor_right = 1.0
-	strip.anchor_top = 1.0
-	strip.anchor_bottom = 1.0
-	strip.offset_top = -70.0
-	strip.offset_bottom = 0.0
-	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	strip.z_index = 20
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = surface
-	style.border_color = border
-	style.set_border_width_all(2)
-	strip.add_theme_stylebox_override("panel", style)
-	var label: Label = Label.new()
-	label.text = label_text
-	label.name = "BannerLabel"
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_color_override("font_color", ink)
-	label.add_theme_font_size_override("font_size", 20)
-	strip.add_child(label)
-	parent.add_child(strip)
-	return strip
 
-func show_rewarded() -> void:
-	if _ad_layer != null:
-		return
-	_ad_layer = CanvasLayer.new()
-	_ad_layer.name = "MockRewardedAd"
-	_ad_layer.layer = 100
-	get_tree().root.add_child(_ad_layer)
-	var root: Control = Control.new()
+func rewarded_ready() -> bool:
+	return true
+
+
+func show_interstitial(on_closed: Callable) -> void:
+	_fullscreen("Interstitial ad (test)", func(_ok: bool) -> void: on_closed.call())
+
+
+func show_rewarded(on_done: Callable) -> void:
+	_fullscreen("Rewarded ad (test)", on_done)
+
+
+func _fullscreen(text: String, on_done: Callable) -> void:
+	var root: ColorRect = ColorRect.new()
+	root.color = Color(0.05, 0.05, 0.08, 0.94)
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_ad_layer.add_child(root)
-	var shade: ColorRect = ColorRect.new()
-	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shade.color = Color(0.03, 0.02, 0.07, 0.88)
-	root.add_child(shade)
-	var center: CenterContainer = CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root.add_child(center)
-	var card: PanelContainer = PanelContainer.new()
-	card.custom_minimum_size = Vector2(500, 300)
-	var card_style: StyleBoxFlat = StyleBoxFlat.new()
-	card_style.bg_color = Color("#211A33")
-	card_style.border_color = Color("#F2EEFF")
-	card_style.set_border_width_all(3)
-	card_style.set_corner_radius_all(24)
-	card_style.content_margin_left = 28.0
-	card_style.content_margin_right = 28.0
-	card_style.content_margin_top = 24.0
-	card_style.content_margin_bottom = 24.0
-	card.add_theme_stylebox_override("panel", card_style)
-	center.add_child(card)
-	var box: VBoxContainer = VBoxContainer.new()
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 22)
-	card.add_child(box)
-	var message: Label = Label.new()
-	message.text = "Playing a short ad…"
-	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	message.add_theme_font_size_override("font_size", 34)
-	message.add_theme_color_override("font_color", Color("#F2EEFF"))
-	box.add_child(message)
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
+	var col: VBoxContainer = VBoxContainer.new()
+	col.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	root.add_child(col)
+	var l: Label = Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 32)
+	col.add_child(l)
 	var close: Button = Button.new()
-	close.name = "MockAdClose"
 	close.text = "Close"
-	close.custom_minimum_size = Vector2(180, 72)
-	close.add_theme_font_size_override("font_size", 25)
-	close.visible = false
-	close.pressed.connect(_finish_ad)
-	box.add_child(close)
-	var delay: float = 3.0 if test_delay_seconds < 0.0 else test_delay_seconds
-	await get_tree().create_timer(delay).timeout
-	if is_instance_valid(close):
-		if next_result == "completed":
-			close.visible = true
-		else:
-			_finish_ad()
-
-func fail_for_test() -> void:
-	next_result = "failed"
-
-func _finish_ad() -> void:
-	var result: String = next_result
-	next_result = "completed"
-	if _ad_layer != null:
-		_ad_layer.queue_free()
-	_ad_layer = null
-	if result == "completed":
-		rewarded_completed.emit()
-	else:
-		rewarded_failed.emit()
+	close.custom_minimum_size = Vector2(200, 72)
+	col.add_child(close)
+	_layer.add_child(root)
+	close.disabled = true
+	get_tree().create_timer(1.0).timeout.connect(func() -> void: close.disabled = false)
+	close.pressed.connect(func() -> void:
+		root.queue_free()
+		on_done.call(true)
+	)
