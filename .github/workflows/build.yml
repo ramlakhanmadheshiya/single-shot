@@ -134,6 +134,7 @@ jobs:
         run: |
           mkdir -p site/play
           cp -r build/web/* site/play/
+          cp build/android/carom.apk site/carom.apk
           cp web/index.html site/index.html
           cp assets/icon.svg site/icon.svg
           size=$(du -h build/android/carom.apk | cut -f1)
