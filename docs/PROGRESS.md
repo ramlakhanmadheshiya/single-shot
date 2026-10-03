@@ -1,23 +1,21 @@
 # Progress
 
-## Milestone 1 — Foundation (2026-10-03)
+## Foundation UX revision (2026-10-03)
 
-**Status: complete.** Created the Godot 4.7.2 project, folder layout, input/display/render settings, four-bus audio layout, Events, GameState, versioned SaveSystem, AudioManager, SceneRouter, LevelRegistry, ThemeManager, semantic palette tokens, dark/light themes, and a responsive main menu with Play, Settings, Credits, and Quit. Settings persist audio levels, shake, aim assist, fullscreen, and theme choice. Generated original UI sounds and a 48-second synthesized menu loop. Added architecture, GDD, asset inventory, and reproducible tools.
+**Status: complete after automated UI checks.** Replaced the extra chapter screen with a direct Level Select. Added five chapter pages, each with twenty numbered levels, star marks, locks, and a highlighted next level. Pages support arrows, touch swipes, a five-dot window, and a chapter jump box. The last played chapter opens first.
 
-**Verification:** `godot --headless --path . --editor --quit` completed; `godot --headless --path . --quit-after 3` completed with no errors or warnings after correcting theme resource declaration order.
+Settings now slides up from the Main Menu or level screen. It has sound and music switches, mobile vibration, three themes, aim guide, screen shake, sound sliders, How to play, Credits, About, and Reset progress. Help pages open above Settings. Reset asks before clearing stars.
 
-**Assumptions:** This milestone concentrates on a stable foundation and menu flow; Play currently opens a chapter landing page and points to the gameplay slice in Milestone 2. Google Fonts were not needed because the default Godot font is used for now. User save files use Godot's normal per-project `user://` location.
+Added the pre-game screen with shots used, a three-star goal, Hint, Undo, Restart, and Settings. Early levels show a four-step guide once. The English words live in `game/ui/strings.gd` and use Godot's TranslationServer.
 
-## Next
-Milestone 2 will add Hazel, aim/trajectory, pellet physics, enemy/crate interactions, a HUD, and three playable test rooms.
+Added five chapter JSON files with exactly twenty level records each. Level metadata loads only when its page appears. Added a 30-chapter test with 600 level records. Added `tools/validate_levels.gd` for the twenty-level rule.
 
+**Checks passed:**
 
-## Milestone 1 navigation fix (2026-10-03)
+- `python3 tests/run_ui_navigation.py` — Main Menu, pages, settings, themes, reset, help, and in-level controls.
+- `python3 tests/run_ui_navigation.py --gui` — same flow through the OpenGL Compatibility renderer.
+- Both runs build a temporary 30-chapter registry, check 600 levels, jump to page 30, and confirm only visible levels are built.
+- The GUI check resizes through 1280×720, 1920×1080, 720×1280, and 2560×1440.
+- `godot --headless --path . --script tools/validate_levels.gd` — all five chapter files pass.
 
-The first Foundation report missed a runtime issue: the title node was a child of the container cleared during screen changes. Moved it into the persistent panel shell, kept only temporary widgets in the cleared VBox, and explicitly null transient Settings references before freeing their nodes. Increased panel/control dimensions and title typography, added viewport-aware panel sizing, and set stretch aspect to `expand`.
-
-Added an automated click-through at `tests/ui_navigation.gd` with a log-checking runner at `tests/run_ui_navigation.py`. It covers Main Menu, Chapters, Settings, Credits and Chapter I, exercises all sliders and toggles, cycles Dark/Light/System, checks the persistent title and reference lifetimes, and visits every screen in Dark and Light modes.
-
-**Verification:** `python3 tests/run_ui_navigation.py` passed headlessly. `python3 tests/run_ui_navigation.py --gui` passed through the normal OpenGL Compatibility renderer. Both runs completed without script errors, debugger errors or warnings. Milestone 2 has not started.
-
-**Process update:** Future milestones must include a screen click-through test and remain incomplete until it passes.
+No errors or warnings appeared in the checked Godot output. The 20 level scenes and game physics are not part of this UX update. The next work waits for the user's approval.

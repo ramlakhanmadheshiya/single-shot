@@ -21,6 +21,7 @@ default_bus_layout="res://default_bus_layout.tres"
 [autoload]
 
 Events="*res://game/autoload/events.gd"
+Strings="*res://game/ui/strings.gd"
 GameState="*res://game/autoload/game_state.gd"
 SaveSystem="*res://game/autoload/save_system.gd"
 AudioManager="*res://game/autoload/audio_manager.gd"

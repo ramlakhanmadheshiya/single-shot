@@ -1,12 +1,14 @@
 # Architecture
 
-- `game/autoload/Events`: typed signal bus to keep screen and gameplay references loose.
-- `GameState`: transient level selection and state machine data.
-- `SaveSystem`: versioned `user://save.json`; progress is keyed by string level ids and has a migration entry point.
-- `LevelRegistry`: reads a tiny ordered registry, loads chapter JSON on demand, and exposes threaded scene requests.
-- `AudioManager`: named Music/SFX/UI buses, an 8-player SFX pool and independent music player.
-- `SceneRouter`: fades before replacing a scene, releasing the old scene tree.
-- `ThemeManager`: DARK/LIGHT/SYSTEM choice, persisted through SaveSystem, with semantic palettes generated from one token source.
-- `game/ui/app.gd`: responsive Control-based menu/settings shell. Level content is metadata-driven and should be kept out of the screen code.
+- `Events` carries typed signals between screens and game systems.
+- `Strings` registers the shared English text with Godot's TranslationServer.
+- `GameState` holds temporary level data.
+- `SaveSystem` stores settings, stars, and tutorial progress in `user://save.json`.
+- `LevelRegistry` reads the small ordered chapter list and loads chapter details on demand.
+- `AudioManager` owns the Music, SFX, and UI buses.
+- `SceneRouter` handles faded scene changes.
+- `ThemeManager` stores Auto, Light, or Dark mode and updates the root theme.
+- `game/ui/app.gd` builds the menu, chapter pages, sheets, tutorial, and pre-game screen.
+- `VolumeSlider`, `LockIcon`, `LightBulbIcon`, and `AimHint` draw small controls in Godot.
 
-The 1920×1080 canvas uses `canvas_items` scaling and GL Compatibility for broad desktop/mobile support. Levels are loaded lazily; registry size does not imply that scenes are resident in memory.
+Each chapter has twenty metadata records. The Level Select screen builds only the current page. Scene paths are loaded later by the game flow when gameplay scenes are added.

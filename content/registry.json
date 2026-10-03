@@ -1,1 +1,34 @@
-{"chapters": []}
+{
+  "chapters": [
+    {
+      "id": "ch01",
+      "path": "content/chapters/ch01_graveyard_gate",
+      "name_key": "chapter_graveyard_gate",
+      "level_count": 20
+    },
+    {
+      "id": "ch02",
+      "path": "content/chapters/ch02_old_chapel",
+      "name_key": "chapter_old_chapel",
+      "level_count": 20
+    },
+    {
+      "id": "ch03",
+      "path": "content/chapters/ch03_crypts",
+      "name_key": "chapter_crypts",
+      "level_count": 20
+    },
+    {
+      "id": "ch04",
+      "path": "content/chapters/ch04_pumpkin_patch",
+      "name_key": "chapter_pumpkin_patch",
+      "level_count": 20
+    },
+    {
+      "id": "ch05",
+      "path": "content/chapters/ch05_haunted_manor",
+      "name_key": "chapter_haunted_manor",
+      "level_count": 20
+    }
+  ]
+}

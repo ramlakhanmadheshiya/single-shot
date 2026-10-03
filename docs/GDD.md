@@ -12,8 +12,10 @@ Inspect the room and hint → aim by dragging backward or pointing → preview t
 ## Progression
 Five themed chapters, ten rooms per chapter, gradually introducing crates, barrels, mirrors, wisps, portals, magnets and moving hazards. Three stars reward efficient ammo use; a hidden gold skull marks an optional objective.
 
-## Controls
-Mouse/touch drag or point to aim and release to fire. Keyboard/gamepad aim and Space/A fire. R restarts and Escape pauses. Controls and aim assist are configurable.
+## Screens and controls
+Play goes straight from the Main Menu to Level Select. Each page shows one chapter and twenty level tiles. Use arrows, swipe, or page dots to change chapter. Tap the page count to jump.
+
+Settings opens as a sheet. Sound, Music, vibration, Theme, Aim guide, and Screen shake use simple switches. Early rooms show a short guide once. The pre-game screen has Hint, Undo, Restart, and Settings buttons.
 
 ## Presentation
 Moonlit purple/teal with moon-yellow and orange accents, expressive thick outlines, layered graveyard art, gentle hit-stop, screen shake, squash-and-stretch, and a quiet spooky waltz under clear sound effects.

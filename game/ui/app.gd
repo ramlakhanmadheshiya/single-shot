@@ -1,247 +1,1098 @@
 extends Control
-## Responsive single-scene shell for foundation screens; content screens arrive next milestone.
+## Main menu, one-chapter level pages, sheets and the ready-for-play screen.
 const DARK: Dictionary = preload("res://game/ui/themes/theme_tokens.gd").DARK
 const LIGHT: Dictionary = preload("res://game/ui/themes/theme_tokens.gd").LIGHT
+const PAGE_DOT_WINDOW: int = 5
+const HINTS_PER_LEVEL: int = 3
+const TUTORIAL_STEPS: Array[String] = ["tutorial_aim", "tutorial_bounce", "tutorial_ghouls", "tutorial_tools"]
 var palette: Dictionary = {}
 var screen: String = "menu"
-var screen_body: VBoxContainer
-var menu_panel: PanelContainer
+var content_layer: Control
+var screen_body: Control
 var title_label: Label
-var sound_slider: HSlider
-var music_slider: HSlider
-var shake_check: CheckButton
-var aim_check: CheckButton
-var fullscreen_check: CheckButton
-var theme_option: OptionButton
+var settings_layer: Control
+var settings_panel: PanelContainer
+var settings_scroll: ScrollContainer
+var settings_content: VBoxContainer
+var info_layer: Control
+var info_panel: PanelContainer
+var info_id: String = ""
+var info_step: int = 0
+var modal_kind: String = ""
+var more_sound_rows: VBoxContainer
+var more_sound_button: Button
+var settings_status: Label
+var switch_controls: Dictionary = {}
+var volume_controls: Dictionary = {}
+var theme_buttons: Dictionary = {}
+var chapter_index: int = 0
+var chapter_data: Dictionary = {}
+var page_dots: Array[Button] = []
+var page_indicator: Button
+var jump_overlay: Control
+var jump_input: SpinBox
+var current_level_number: int = 1
+var shots_used: int = 0
+var hints_left: int = HINTS_PER_LEVEL
+var hint_line: Control
+var tutorial_overlay: Control
+var tutorial_step: int = 0
+var tutorial_replay: bool = false
+var force_mobile_controls: bool = false
+var _pointer_start: Vector2 = Vector2.ZERO
+var _pointer_down: bool = false
+var _touching_sheet: bool = false
+var _next_playable_level: int = 1
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ThemeManager.apply_theme(false)
 	Events.theme_changed.connect(_on_theme_changed)
-	_build_shell()
-	get_viewport().size_changed.connect(_fit_panel)
-	_fit_panel()
+	_build_world()
+	get_viewport().size_changed.connect(_on_viewport_resized)
 	_show_menu()
 
-func _build_shell() -> void:
+func _build_world() -> void:
 	var backdrop: ColorRect = ColorRect.new()
 	backdrop.name = "Backdrop"
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(backdrop)
-	var sky: Control = Control.new()
-	sky.name = "GraveyardArt"
-	sky.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sky.draw.connect(_draw_graveyard.bind(sky))
-	add_child(sky)
-	var vignette: ColorRect = ColorRect.new()
-	vignette.name = "Vignette"
-	vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(vignette)
-	var center: CenterContainer = CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	menu_panel = PanelContainer.new()
-	menu_panel.custom_minimum_size = Vector2(920, 900)
-	center.add_child(menu_panel)
-	var panel_content: VBoxContainer = VBoxContainer.new()
-	panel_content.add_theme_constant_override("separation", 22)
-	menu_panel.add_child(panel_content)
-	title_label = Label.new()
-	title_label.name = "ScreenTitle"
-	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.custom_minimum_size.y = 105
-	title_label.add_theme_font_size_override("font_size", 80)
-	panel_content.add_child(title_label)
-	screen_body = VBoxContainer.new()
-	screen_body.add_theme_constant_override("separation", 20)
-	screen_body.alignment = BoxContainer.ALIGNMENT_CENTER
-	panel_content.add_child(screen_body)
+	var art: Control = Control.new()
+	art.name = "GraveyardArt"
+	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art.draw.connect(_draw_graveyard.bind(art))
+	add_child(art)
+	content_layer = Control.new()
+	content_layer.name = "ScreenContent"
+	content_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(content_layer)
 	_refresh_palette()
 
-func _fit_panel() -> void:
-	if menu_panel == null:
-		return
-	var viewport_size: Vector2 = get_viewport_rect().size
-	menu_panel.custom_minimum_size = Vector2(minf(1040.0, viewport_size.x * 0.82), minf(960.0, viewport_size.y * 0.94))
+func _tile_dimensions(width: float, height: float) -> Vector2:
+	return Vector2(clampf((width - 150.0) / 4.0, 112.0, 260.0), clampf((height - 370.0) / 5.0, 72.0, 122.0))
+
+func _on_viewport_resized() -> void:
+	if screen == "levels" and settings_layer == null and jump_overlay == null:
+		_build_level_page()
+	elif screen == "menu" and settings_layer == null:
+		_show_menu()
+	if settings_panel != null:
+		var height: float = minf(900.0, get_viewport_rect().size.y * 0.9)
+		settings_panel.custom_minimum_size.y = height
+		settings_panel.offset_top = -height
+		settings_panel.offset_bottom = 0.0
+		var actions: GridContainer = settings_panel.find_child("SettingsActions", true, false) as GridContainer
+		if actions != null:
+			actions.columns = 1 if get_viewport_rect().size.x < 900.0 else 2
+		for slider_value: Variant in volume_controls.values():
+			var slider: VolumeSlider = slider_value as VolumeSlider
+			if is_instance_valid(slider):
+				slider.custom_minimum_size.x = minf(320.0, get_viewport_rect().size.x * 0.46)
 
 func _draw_graveyard(canvas: Control) -> void:
-	var s: Vector2 = canvas.size
-	if s.x <= 0.0 or s.y <= 0.0:
+	var size: Vector2 = canvas.size
+	if size.x <= 0.0 or size.y <= 0.0:
 		return
-	canvas.draw_circle(Vector2(s.x * 0.79, s.y * 0.17), s.y * 0.09, Color(palette.get("accent", "#FFB347")), true, -1.0, true)
-	canvas.draw_rect(Rect2(0, s.y * 0.77, s.x, s.y * 0.23), Color(palette.get("surface_alt", "#302641")), true)
+	canvas.draw_circle(Vector2(size.x * 0.82, size.y * 0.16), size.y * 0.075, Color(palette["moon"]), true, -1.0, true)
+	canvas.draw_rect(Rect2(0.0, size.y * 0.78, size.x, size.y * 0.22), Color(palette["surface_alt"]), true)
 	for index: int in 12:
-		var x: float = fmod(float(index) * 197.0 + 35.0, s.x)
+		var x: float = fmod(float(index) * 197.0 + 35.0, size.x)
 		var height: float = 60.0 + fmod(float(index * 61), 110.0)
 		var width: float = 34.0 + fmod(float(index * 17), 28.0)
-		var rect: Rect2 = Rect2(x, s.y * 0.78 - height, width, height)
-		canvas.draw_rect(rect, Color(palette.get("surface", "#211A33")), true)
-		canvas.draw_rect(Rect2(rect.position, Vector2(width, 8)), Color(palette.get("primary", "#7C5CFF")), true)
+		var rect: Rect2 = Rect2(x, size.y * 0.78 - height, width, height)
+		canvas.draw_rect(rect, Color(palette["surface"]), true)
+		canvas.draw_rect(Rect2(rect.position, Vector2(width, 8.0)), Color(palette["primary"]), true)
 	for index: int in 9:
-		var x: float = fmod(float(index) * 271.0 + 50.0, s.x)
-		var base_y: float = s.y * 0.79
-		canvas.draw_line(Vector2(x, base_y), Vector2(x + 7, base_y - 115), Color(palette.get("outline", "#0B0812")), 16.0, true)
-		canvas.draw_line(Vector2(x - 28, base_y - 45), Vector2(x + 38, base_y - 45), Color(palette.get("outline", "#0B0812")), 12.0, true)
+		var x: float = fmod(float(index) * 271.0 + 50.0, size.x)
+		var base_y: float = size.y * 0.79
+		canvas.draw_line(Vector2(x, base_y), Vector2(x + 7.0, base_y - 115.0), Color(palette["outline"]), 16.0, true)
+		canvas.draw_line(Vector2(x - 28.0, base_y - 45.0), Vector2(x + 38.0, base_y - 45.0), Color(palette["outline"]), 12.0, true)
 
 func _refresh_palette() -> void:
 	palette = LIGHT if ThemeManager._effective_light() else DARK
 	var backdrop: ColorRect = get_node_or_null("Backdrop") as ColorRect
 	if backdrop != null:
 		backdrop.color = Color(palette["bg"])
-	var vignette: ColorRect = get_node_or_null("Vignette") as ColorRect
-	if vignette != null:
-		vignette.color = Color(palette["overlay"])
-		vignette.modulate.a = 0.23
-	if title_label != null:
-		title_label.add_theme_color_override("font_color", Color(palette["accent"]))
 	var art: Control = get_node_or_null("GraveyardArt") as Control
 	if art != null:
 		art.queue_redraw()
+	if content_layer != null:
+		_restyle_tree(content_layer)
+	if settings_layer != null:
+		_restyle_tree(settings_layer)
+	if info_layer != null:
+		_restyle_tree(info_layer)
+	for mode_value: Variant in theme_buttons.keys():
+		var theme_button: Button = theme_buttons[mode_value] as Button
+		if is_instance_valid(theme_button):
+			var button_style: String = "theme_active" if int(mode_value) == int(ThemeManager.mode) else "secondary"
+			theme_button.set_meta("bb_style", button_style)
+			_style_button(theme_button, button_style)
+	for slider_value: Variant in volume_controls.values():
+		var slider: VolumeSlider = slider_value as VolumeSlider
+		if is_instance_valid(slider):
+			slider.set_palette(Color(palette["surface_alt"]), Color(palette["primary"]), Color(palette["surface"]), Color(palette["outline"]))
 
-func _clear_body() -> void:
-	# Screen controls are transient; invalidate every convenience reference before freeing.
-	music_slider = null
-	sound_slider = null
-	shake_check = null
-	aim_check = null
-	fullscreen_check = null
-	theme_option = null
-	for child: Node in screen_body.get_children():
+func _restyle_tree(node: Node) -> void:
+	if node is PanelContainer:
+		(node as PanelContainer).add_theme_stylebox_override("panel", _panel_style())
+	elif node is Button:
+		var button: Button = node as Button
+		_style_button(button, str(button.get_meta("bb_style", "secondary")))
+	elif node is Label and node.has_meta("bb_token"):
+		(node as Label).add_theme_color_override("font_color", Color(palette[str(node.get_meta("bb_token"))]))
+	for child: Node in node.get_children():
+		_restyle_tree(child)
+
+func _clear_screen() -> void:
+	title_label = null
+	screen_body = null
+	page_dots.clear()
+	page_indicator = null
+	if settings_layer == null:
+		switch_controls.clear()
+		volume_controls.clear()
+		theme_buttons.clear()
+	tutorial_overlay = null
+	hint_line = null
+	for child: Node in content_layer.get_children():
 		child.queue_free()
 
 func _show_menu() -> void:
+	_close_jump_overlay()
+	_close_settings(false)
+	_clear_screen()
 	screen = "menu"
-	_clear_body()
-	title_label.text = "BONEYARD
-BOUNCE"
-	title_label.add_theme_font_size_override("font_size", 80)
-	_add_label("A moonlit ricochet puzzle", 26, "text_muted")
-	_add_button("Play", _on_play)
-	_add_button("Settings", _show_settings)
-	_add_button("Credits", _show_credits)
-	_add_button("Quit", _quit)
-	_add_label("HAZEL GRIMM AND BETSY AWAIT", 17, "text_muted")
+	var gear: Button = _make_button(content_layer, _t("settings_icon"), _show_settings, Vector2(76.0, 76.0), "secondary")
+	gear.name = "SettingsIcon"
+	gear.set_meta("bb_action", "settings")
+	gear.anchor_left = 1.0
+	gear.anchor_right = 1.0
+	gear.offset_left = -106.0
+	gear.offset_right = -30.0
+	gear.offset_top = 26.0
+	gear.offset_bottom = 102.0
+	var center: CenterContainer = CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	content_layer.add_child(center)
+	var panel: PanelContainer = _make_panel()
+	panel.custom_minimum_size = Vector2(minf(940.0, get_viewport_rect().size.x * 0.88), minf(820.0, get_viewport_rect().size.y * 0.9))
+	center.add_child(panel)
+	var menu: VBoxContainer = VBoxContainer.new()
+	menu.alignment = BoxContainer.ALIGNMENT_CENTER
+	menu.add_theme_constant_override("separation", 28)
+	panel.add_child(menu)
+	var title: Label = _make_label(menu, "game_title", minf(92.0, get_viewport_rect().size.x * 0.105), "accent")
+	title.name = "GameTitle"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var tagline: Label = _make_label(menu, "tagline", 30, "text_muted")
+	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var play: Button = _make_button(menu, _t("play"), _show_level_select, Vector2(minf(610.0, get_viewport_rect().size.x * 0.78), 112.0), "primary")
+	play.name = "PlayButton"
+	play.set_meta("bb_action", "play")
 
-func _show_chapters() -> void:
-	screen = "chapters"
-	_clear_body()
-	title_label.text = "CHAPTERS"
-	title_label.add_theme_font_size_override("font_size", 52)
-	_add_label("The graveyard is stirring...", 24, "text_muted")
-	_add_button("Chapter I  ·  Graveyard Gate", _start_demo)
-	_add_button("Chapter II  ·  Old Chapel   (soon)", func(): _toast("More chapters are being prepared."))
-	_add_button("Chapter III  ·  Crypts   (soon)", func(): _toast("More chapters are being prepared."))
-	_add_button("Back", _show_menu)
+func _show_level_select() -> void:
+	_close_jump_overlay()
+	_clear_screen()
+	screen = "levels"
+	chapter_index = clampi(int(SaveSystem.get_setting("last_played_chapter", 0)), 0, maxi(0, LevelRegistry.chapters.size() - 1))
+	_build_level_page()
+
+func _build_level_page() -> void:
+	_clear_screen()
+	if LevelRegistry.chapters.is_empty():
+		return
+	chapter_index = clampi(chapter_index, 0, LevelRegistry.chapters.size() - 1)
+	var entry: Dictionary = LevelRegistry.chapters[chapter_index]
+	var chapter_id: String = str(entry.get("id", ""))
+	chapter_data = LevelRegistry.load_chapter(chapter_id)
+	_next_playable_level = _find_next_playable(chapter_data)
+	var root: VBoxContainer = VBoxContainer.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_theme_constant_override("separation", 18)
+	content_layer.add_child(root)
+	var margin: MarginContainer = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 34)
+	margin.add_theme_constant_override("margin_right", 34)
+	margin.add_theme_constant_override("margin_top", 24)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(margin)
+	var page: VBoxContainer = VBoxContainer.new()
+	page.add_theme_constant_override("separation", 16)
+	margin.add_child(page)
+	var top: HBoxContainer = HBoxContainer.new()
+	top.add_theme_constant_override("separation", 18)
+	page.add_child(top)
+	var back: Button = _make_button(top, _t("back"), _show_menu, Vector2(120.0, 72.0), "secondary")
+	back.set_meta("bb_action", "back")
+	var levels_title: Label = _make_label(top, "levels", 52, "text")
+	levels_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	levels_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var star_label: Label = _make_label(top, "stars_total", 25, "text", {"earned": SaveSystem.total_stars(), "total": LevelRegistry.total_level_count() * 3})
+	star_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	star_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	var gear: Button = _make_button(top, _t("settings_icon"), _show_settings, Vector2(72.0, 72.0), "secondary")
+	if get_viewport_rect().size.x < 900.0:
+		star_label.visible = false
+	gear.set_meta("bb_action", "settings")
+	var chapter_row: VBoxContainer = VBoxContainer.new()
+	chapter_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	chapter_row.add_theme_constant_override("separation", 2)
+	page.add_child(chapter_row)
+	var chapter_number: Label = _make_label(chapter_row, "chapter_number", 32, "text", {"number": chapter_index + 1})
+	chapter_number.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if get_viewport_rect().size.x < 900.0:
+		var compact_stars: Label = _make_label(chapter_row, "stars_total", 21, "text", {"earned": SaveSystem.total_stars(), "total": LevelRegistry.total_level_count() * 3})
+		compact_stars.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var chapter_name: String = _chapter_name_key(entry)
+	var chapter_title: Label = _make_label(chapter_row, chapter_name, minf(39.0, get_viewport_rect().size.x * 0.06), "accent")
+	chapter_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var grid_area: CenterContainer = CenterContainer.new()
+	grid_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	page.add_child(grid_area)
+	if _chapter_is_open(chapter_index):
+		_build_level_grid(grid_area, chapter_data)
+	else:
+		_build_locked_chapter(grid_area)
+	LevelRegistry.last_loaded_chapter_id = chapter_id
+	_build_pager(page, LevelRegistry.chapters.size())
+	if not chapter_index == int(SaveSystem.get_setting("last_played_chapter", 0)):
+		# Browsing does not change the remembered place until a level starts.
+		pass
+
+func _build_level_grid(parent: Control, chapter: Dictionary) -> void:
+	var grid: GridContainer = GridContainer.new()
+	grid.name = "LevelGrid"
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 12)
+	parent.add_child(grid)
+	var levels: Array = chapter.get("levels", [])
+	var width: float = get_viewport_rect().size.x
+	var height: float = get_viewport_rect().size.y
+	var tile_size: Vector2 = _tile_dimensions(width, height)
+	var tile_width: float = tile_size.x
+	var tile_height: float = tile_size.y
+	for index: int in 20:
+		var info: Dictionary = levels[index] if index < levels.size() else {"id": "", "number": index + 1}
+		var number: int = int(info.get("number", index + 1))
+		var id: String = str(info.get("id", ""))
+		var record: Dictionary = SaveSystem.get_level(id)
+		var open: bool = _is_level_open(chapter, index)
+		var stars: int = int(record.get("stars", 0))
+		var tile_text: String = str(number) + "\n" + _t("stars_%d" % clampi(stars, 0, 3))
+		if not open:
+			tile_text += "\n" + _t("locked")
+		var action: Callable = _open_level.bind(number) if open else _ignore_locked_level
+		var style: String = "highlight" if number == _next_playable_level and open else ("completed" if record.size() > 0 else "tile")
+		var tile: Button = _make_button(grid, tile_text, action, Vector2(tile_width, tile_height), style)
+		tile.name = "LevelTile_%02d" % number
+		tile.set_meta("level_number", number)
+		tile.set_meta("level_id", id)
+		tile.set_meta("bb_action", "level_%02d" % number)
+		tile.disabled = not open
+		if not open:
+			_add_lock_icon(tile, 34.0)
+
+func _add_lock_icon(parent: Control, icon_size: float) -> void:
+	var icon: LockIcon = LockIcon.new()
+	icon.custom_minimum_size = Vector2(icon_size, icon_size)
+	icon.size = icon.custom_minimum_size
+	icon.anchor_left = 1.0
+	icon.anchor_right = 1.0
+	icon.offset_left = -icon_size - 10.0
+	icon.offset_right = -10.0
+	icon.offset_top = 8.0
+	icon.offset_bottom = icon_size + 8.0
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.set_colors(Color(palette["outline"]), Color(palette["accent"]))
+	parent.add_child(icon)
+
+func _build_locked_chapter(parent: Control) -> void:
+	var panel: Button = _make_button(parent, "", _ignore_locked_chapter, Vector2(minf(760.0, get_viewport_rect().size.x * 0.75), 390.0), "tile")
+	panel.name = "LockedChapterButton"
+	panel.set_meta("bb_action", "locked_chapter")
+	var box: VBoxContainer = VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 20)
+	panel.add_child(box)
+	var locked_title: Label = _make_label(box, "locked", 78, "accent")
+	locked_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_add_lock_icon(panel, 72.0)
+	var locked_line: Label = _make_label(box, "chapter_locked", 30, "text", {"number": chapter_index})
+	locked_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+func _build_pager(parent: Control, total_pages: int) -> void:
+	var row: HBoxContainer = HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 18)
+	parent.add_child(row)
+	var compact: bool = get_viewport_rect().size.x < 900.0
+	var arrow_size: float = 64.0 if compact else 78.0
+	var dot_size: float = 32.0 if compact else 42.0
+	var row_gap: int = 7 if compact else 18
+	row.add_theme_constant_override("separation", row_gap)
+	var left: Button = _make_button(row, _t("arrow_left"), func(): _change_chapter(-1), Vector2(arrow_size, 72.0), "secondary")
+	left.name = "PreviousChapter"
+	left.set_meta("bb_action", "previous")
+	var dot_box: HBoxContainer = HBoxContainer.new()
+	dot_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	dot_box.add_theme_constant_override("separation", 6 if compact else 10)
+	row.add_child(dot_box)
+	page_dots.clear()
+	var first_dot: int = maxi(0, chapter_index - PAGE_DOT_WINDOW / 2)
+	first_dot = mini(first_dot, maxi(0, total_pages - PAGE_DOT_WINDOW))
+	var end_dot: int = mini(total_pages, first_dot + PAGE_DOT_WINDOW)
+	for index: int in range(first_dot, end_dot):
+		var dot_text: String = _t("page_dot_on") if index == chapter_index else _t("page_dot_off")
+		var dot: Button = _make_button(dot_box, dot_text, _set_chapter.bind(index), Vector2(dot_size, 62.0), "dot_active" if index == chapter_index else "dot")
+		dot.set_meta("page_index", index)
+		page_dots.append(dot)
+	page_indicator = _make_button(row, "", _open_jump_sheet, Vector2(100.0 if compact else 112.0, 72.0), "secondary")
+	page_indicator.name = "PageIndicator"
+	page_indicator.text = _t("page_number", {"current": chapter_index + 1, "total": total_pages})
+	page_indicator.set_meta("bb_action", "page_indicator")
+	var right: Button = _make_button(row, _t("arrow_right"), func(): _change_chapter(1), Vector2(arrow_size, 72.0), "secondary")
+	right.name = "NextChapter"
+	right.set_meta("bb_action", "next")
+
+func _change_chapter(amount: int) -> void:
+	_set_chapter(chapter_index + amount)
+
+func _set_chapter(index: int) -> void:
+	if LevelRegistry.chapters.is_empty():
+		return
+	chapter_index = clampi(index, 0, LevelRegistry.chapters.size() - 1)
+	_build_level_page()
+
+func _open_jump_sheet() -> void:
+	if jump_overlay != null:
+		return
+	jump_overlay = Control.new()
+	jump_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	jump_overlay.z_index = 20
+	content_layer.add_child(jump_overlay)
+	var dim: ColorRect = ColorRect.new()
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(palette["overlay"], 0.6)
+	dim.gui_input.connect(func(event: InputEvent):
+		if event is InputEventMouseButton and event.pressed:
+			_close_jump_overlay()
+	)
+	jump_overlay.add_child(dim)
+	var center: CenterContainer = CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	jump_overlay.add_child(center)
+	var panel: PanelContainer = _make_panel()
+	panel.custom_minimum_size = Vector2(420.0, 240.0)
+	center.add_child(panel)
+	var box: VBoxContainer = VBoxContainer.new()
+	box.add_theme_constant_override("separation", 18)
+	panel.add_child(box)
+	_make_label(box, "jump_to_chapter", 30, "text")
+	jump_input = SpinBox.new()
+	jump_input.min_value = 1
+	jump_input.max_value = LevelRegistry.chapters.size()
+	jump_input.value = chapter_index + 1
+	jump_input.custom_minimum_size = Vector2(240.0, 60.0)
+	box.add_child(jump_input)
+	var go: Button = _make_button(box, _t("go"), func():
+		var target: int = int(jump_input.value) - 1
+		_close_jump_overlay()
+		_set_chapter(target)
+	, Vector2(180.0, 72.0), "primary")
+	go.name = "JumpGo"
+	go.set_meta("bb_action", "jump_go")
+
+func _close_jump_overlay() -> void:
+	if jump_overlay != null:
+		jump_overlay.queue_free()
+	jump_overlay = null
+	jump_input = null
 
 func _show_settings() -> void:
-	screen = "settings"
-	_clear_body()
-	title_label.text = "SETTINGS"
-	title_label.add_theme_font_size_override("font_size", 52)
-	music_slider = _add_slider("Music", "music", 0.65)
-	sound_slider = _add_slider("Sound effects", "sfx", 0.8)
-	_add_slider("Interface", "ui", 0.85)
-	shake_check = _add_check("Screen shake", "screen_shake", true)
-	aim_check = _add_check("Aim assist", "aim_assist", true)
-	fullscreen_check = _add_check("Fullscreen", "fullscreen", false)
+	if settings_layer != null:
+		return
+	settings_layer = Control.new()
+	settings_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	settings_layer.z_index = 40
+	add_child(settings_layer)
+	var dim: ColorRect = ColorRect.new()
+	dim.name = "SettingsOutside"
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(palette["overlay"], 0.63)
+	dim.gui_input.connect(_on_settings_outside)
+	settings_layer.add_child(dim)
+	var height: float = minf(900.0, get_viewport_rect().size.y * 0.9)
+	settings_panel = _make_panel()
+	settings_panel.name = "SettingsSheet"
+	settings_panel.anchor_left = 0.035
+	settings_panel.anchor_right = 0.965
+	settings_panel.anchor_top = 1.0
+	settings_panel.anchor_bottom = 1.0
+	settings_panel.offset_left = 0.0
+	settings_panel.offset_right = 0.0
+	settings_panel.offset_top = -height
+	settings_panel.offset_bottom = 0.0
+	settings_panel.custom_minimum_size.y = height
+	settings_layer.add_child(settings_panel)
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "SettingsScroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	settings_panel.add_child(scroll)
+	settings_scroll = scroll
+	settings_content = VBoxContainer.new()
+	settings_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	settings_content.add_theme_constant_override("separation", 12)
+	scroll.add_child(settings_content)
+	_build_settings_contents()
+	var tween: Tween = create_tween()
+	settings_panel.offset_top = 0.0
+	settings_panel.offset_bottom = height
+	tween.tween_property(settings_panel, "offset_top", -height, 0.23).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(settings_panel, "offset_bottom", 0.0, 0.23).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+func _build_settings_contents() -> void:
+	switch_controls.clear()
+	volume_controls.clear()
+	var header: HBoxContainer = HBoxContainer.new()
+	settings_content.add_child(header)
+	var settings_title: Label = _make_label(header, "settings", 38, "text")
+	settings_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var close_button: Button = _make_button(header, _t("close"), _close_settings, Vector2(132.0, 72.0), "secondary")
+	close_button.set_meta("bb_action", "close_settings")
+	_add_switch_row("sound", "sound_enabled", true)
+	_add_switch_row("music", "music_enabled", true)
+	if _is_mobile():
+		_add_switch_row("vibration", "vibration", true)
+	_add_switch_row("aim_guide", "show_aim_guide", true, true)
+	_add_switch_row("screen_shake", "screen_shake", true)
+	var theme_row: HBoxContainer = HBoxContainer.new()
+	theme_row.add_theme_constant_override("separation", 10)
+	settings_content.add_child(theme_row)
+	var theme_label: Label = _make_label(theme_row, "theme", 26, "text")
+	theme_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var choices: HBoxContainer = HBoxContainer.new()
+	choices.add_theme_constant_override("separation", 5)
+	theme_row.add_child(choices)
+	theme_buttons.clear()
+	var values: Array[int] = [ThemeManager.Mode.SYSTEM, ThemeManager.Mode.LIGHT, ThemeManager.Mode.DARK]
+	var keys: Array[String] = ["auto", "light", "dark"]
+	for index: int in values.size():
+		var theme_button: Button = _make_button(choices, _t(keys[index]), _set_theme_mode.bind(values[index]), Vector2(116.0, 72.0), "theme_active" if int(ThemeManager.mode) == values[index] else "secondary")
+		theme_button.set_meta("theme_mode", values[index])
+		theme_button.set_meta("bb_action", "theme_%d" % values[index])
+		theme_buttons[values[index]] = theme_button
+	more_sound_button = _make_button(settings_content, _t("more_sound"), _toggle_sound_rows, Vector2(330.0, 72.0), "secondary")
+	more_sound_button.set_meta("bb_action", "more_sound")
+	more_sound_rows = VBoxContainer.new()
+	more_sound_rows.add_theme_constant_override("separation", 8)
+	more_sound_rows.visible = false
+	settings_content.add_child(more_sound_rows)
+	_add_volume_row(more_sound_rows, "music_volume", "music_volume", 0.65)
+	_add_volume_row(more_sound_rows, "sound_volume", "sound_volume", 0.8)
+	_add_volume_row(more_sound_rows, "ui_volume", "ui_volume", 0.85)
+	var actions: GridContainer = GridContainer.new()
+	actions.name = "SettingsActions"
+	actions.columns = 1 if get_viewport_rect().size.x < 900.0 else 2
+	actions.add_theme_constant_override("h_separation", 10)
+	actions.add_theme_constant_override("v_separation", 8)
+	settings_content.add_child(actions)
+	var how_button: Button = _make_button(actions, _t("how_to_play"), _open_how_to, Vector2(minf(300.0, get_viewport_rect().size.x * 0.62), 72.0), "secondary")
+	how_button.set_meta("bb_action", "how_to_play")
+	var credits_button: Button = _make_button(actions, _t("credits"), _open_credits, Vector2(minf(300.0, get_viewport_rect().size.x * 0.62), 72.0), "secondary")
+	credits_button.set_meta("bb_action", "credits")
+	var about_button: Button = _make_button(actions, _t("about"), _open_about, Vector2(minf(300.0, get_viewport_rect().size.x * 0.62), 72.0), "secondary")
+	about_button.set_meta("bb_action", "about")
+	var reset_button: Button = _make_button(actions, _t("reset_progress"), _open_reset_confirm, Vector2(minf(300.0, get_viewport_rect().size.x * 0.62), 72.0), "danger")
+	reset_button.set_meta("bb_action", "reset_progress")
+	settings_status = _make_label(settings_content, "reset_done", 20, "success")
+	settings_status.name = "SettingsStatus"
+	settings_status.visible = false
+	settings_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var version: Label = _make_label(settings_content, "version", 18, "text_muted")
+	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+func _add_switch_row(label_key: String, setting_key: String, fallback: bool, help_text: bool = false) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	screen_body.add_child(row)
-	var theme_label: Label = Label.new()
-	theme_label.text = "Appearance"
-	row.add_child(theme_label)
-	theme_option = OptionButton.new()
-	theme_option.add_item("Moonlit · Dark", 0)
-	theme_option.add_item("Daylight · Light", 1)
-	theme_option.add_item("System", 2)
-	theme_option.item_selected.connect(_on_theme_option)
-	row.add_child(theme_option)
-	theme_option.select(int(ThemeManager.mode))
-	_add_button("Back", _show_menu)
+	row.add_theme_constant_override("separation", 14)
+	settings_content.add_child(row)
+	var caption: Label = _make_label(row, label_key, 26, "text")
+	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if help_text:
+		caption.tooltip_text = _t("aim_guide_help")
+	var value: bool = bool(SaveSystem.get_setting(setting_key, fallback))
+	var toggle: Button = _make_button(row, _t("on") if value else _t("off"), func(): _toggle_setting(setting_key), Vector2(112.0, 72.0), "switch_on" if value else "switch_off")
+	toggle.name = "Switch_" + setting_key
+	toggle.set_meta("setting_key", setting_key)
+	toggle.set_meta("switch_value", value)
+	toggle.set_meta("bb_action", "switch_" + setting_key)
+	switch_controls[setting_key] = toggle
 
-func _show_credits() -> void:
-	screen = "credits"
-	_clear_body()
-	title_label.text = "CREDITS"
-	title_label.add_theme_font_size_override("font_size", 52)
-	_add_label("Boneyard Bounce", 32, "accent")
-	_add_label("An original graveyard adventure
-Created with Godot and GDScript
-Procedural art and synthesized sounds
-No third-party assets", 23, "text")
-	_add_button("Back", _show_menu)
-
-func _add_label(text_value: String, font_size: int = 22, token: String = "text") -> Label:
-	var label: Label = Label.new()
-	label.text = text_value
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", Color(palette[token]))
-	screen_body.add_child(label)
-	return label
-
-func _add_button(text_value: String, action: Callable) -> Button:
-	var button: Button = Button.new()
-	button.text = text_value
-	button.custom_minimum_size = Vector2(520, 78)
-	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	button.mouse_entered.connect(func(): AudioManager.play_ui("ui_hover"))
-	button.pressed.connect(func(): AudioManager.play_ui("ui_click"); action.call())
-	screen_body.add_child(button)
-	return button
-
-func _add_slider(caption: String, key: String, fallback: float) -> HSlider:
+func _add_volume_row(parent: Control, label_key: String, setting_key: String, fallback: float) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	screen_body.add_child(row)
-	var label: Label = Label.new()
-	label.text = caption
-	label.custom_minimum_size.x = 220
-	row.add_child(label)
-	var slider: HSlider = HSlider.new()
-	slider.min_value = 0.0
-	slider.max_value = 1.0
-	slider.step = 0.01
-	slider.custom_minimum_size = Vector2(330, 36)
-	slider.value = float(SaveSystem.get_setting(key, fallback))
-	slider.value_changed.connect(func(value: float): SaveSystem.set_setting(key, value); AudioManager.set_bus_linear("Music" if key == "music" else ("UI" if key == "ui" else "SFX"), value))
+	row.add_theme_constant_override("separation", 16)
+	parent.add_child(row)
+	var label: Label = _make_label(row, label_key, 22, "text")
+	label.custom_minimum_size.x = minf(220.0, get_viewport_rect().size.x * 0.3)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var slider: VolumeSlider = _make_volume_slider(setting_key, float(SaveSystem.get_setting(setting_key, fallback)))
+	slider.custom_minimum_size = Vector2(minf(320.0, get_viewport_rect().size.x * 0.46), 56.0)
 	row.add_child(slider)
+	volume_controls[setting_key] = slider
+
+func _make_volume_slider(setting_key: String, initial_value: float) -> VolumeSlider:
+	var slider: VolumeSlider = VolumeSlider.new()
+	slider.value = initial_value
+	slider.value_changed.connect(func(value: float): _set_volume(setting_key, value))
+	slider.set_palette(Color(palette["surface_alt"]), Color(palette["primary"]), Color(palette["surface"]), Color(palette["outline"]))
 	return slider
 
-func _add_check(caption: String, key: String, fallback: bool) -> CheckButton:
-	var check: CheckButton = CheckButton.new()
-	check.text = caption
-	check.button_pressed = bool(SaveSystem.get_setting(key, fallback))
-	check.toggled.connect(func(value: bool):
-		SaveSystem.set_setting(key, value)
-		if key == "fullscreen" and DisplayServer.get_name() != "headless":
-			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if value else DisplayServer.WINDOW_MODE_WINDOWED)
+func _set_volume(key: String, value: float) -> void:
+	SaveSystem.set_setting(key, value)
+	var bus: String = "Music" if key == "music_volume" else ("SFX" if key == "sound_volume" else "UI")
+	AudioManager.set_bus_linear(bus, value)
+
+func _toggle_setting(key: String) -> void:
+	var control: Button = switch_controls.get(key) as Button
+	if control == null:
+		return
+	var value: bool = not bool(control.get_meta("switch_value", false))
+	SaveSystem.set_setting(key, value)
+	control.set_meta("switch_value", value)
+	control.set_meta("bb_style", "switch_on" if value else "switch_off")
+	control.text = _t("on") if value else _t("off")
+	_style_button(control, "switch_on" if value else "switch_off")
+	if key == "sound_enabled":
+		AudioServer.set_bus_mute(AudioServer.get_bus_index("SFX"), not value)
+		AudioServer.set_bus_mute(AudioServer.get_bus_index("UI"), not value)
+	elif key == "music_enabled":
+		AudioServer.set_bus_mute(AudioServer.get_bus_index("Music"), not value)
+
+func _set_theme_mode(mode: int) -> void:
+	ThemeManager.set_mode(mode as ThemeManager.Mode)
+
+func _toggle_sound_rows() -> void:
+	if more_sound_rows == null:
+		return
+	more_sound_rows.visible = not more_sound_rows.visible
+
+func _is_mobile() -> bool:
+	return force_mobile_controls or OS.has_feature("mobile")
+
+func _open_how_to() -> void:
+	_open_info_sheet("how_to")
+
+func _open_credits() -> void:
+	_open_info_sheet("credits")
+
+func _open_about() -> void:
+	_open_info_sheet("about")
+
+func _open_reset_confirm() -> void:
+	_open_info_sheet("reset_confirm")
+
+func _open_info_sheet(kind: String) -> void:
+	if info_layer != null:
+		return
+	info_id = kind
+	info_step = 0
+	info_layer = Control.new()
+	info_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	info_layer.z_index = 60
+	add_child(info_layer)
+	var dim: ColorRect = ColorRect.new()
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(palette["overlay"], 0.68)
+	dim.gui_input.connect(func(event: InputEvent):
+		if event is InputEventMouseButton and event.pressed:
+			_close_info_sheet()
 	)
-	check.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	screen_body.add_child(check)
-	return check
+	info_layer.add_child(dim)
+	var center: CenterContainer = CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	info_layer.add_child(center)
+	var panel: PanelContainer = _make_panel()
+	panel.name = "InfoPanel"
+	panel.custom_minimum_size = Vector2(minf(780.0, get_viewport_rect().size.x * 0.88), 460.0)
+	center.add_child(panel)
+	info_panel = panel
+	var box: VBoxContainer = VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 20)
+	panel.add_child(box)
+	if kind == "reset_confirm":
+		_make_label(box, "reset_question", 31, "text")
+		var buttons: HBoxContainer = HBoxContainer.new()
+		buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+		buttons.add_theme_constant_override("separation", 18)
+		box.add_child(buttons)
+		var cancel: Button = _make_button(buttons, _t("cancel"), _close_info_sheet, Vector2(190.0, 74.0), "secondary")
+		cancel.set_meta("bb_action", "reset_cancel")
+		var delete: Button = _make_button(buttons, _t("delete"), _delete_progress, Vector2(190.0, 74.0), "danger")
+		delete.set_meta("bb_action", "reset_delete")
+	else:
+		var title_key: String = "how_to_play" if kind == "how_to" else ("credits" if kind == "credits" else "about")
+		_make_label(box, title_key, 42, "accent")
+		if kind == "how_to":
+			var tutorial_text: Label = _make_label(box, TUTORIAL_STEPS[info_step], 30, "text")
+			tutorial_text.name = "InfoTutorialStep"
+			tutorial_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			var tutorial_buttons: HBoxContainer = HBoxContainer.new()
+			tutorial_buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+			tutorial_buttons.add_theme_constant_override("separation", 16)
+			box.add_child(tutorial_buttons)
+			var next_step: Button = _make_button(tutorial_buttons, _t("tap_continue"), _next_info_tutorial, Vector2(270.0, 74.0), "primary")
+			next_step.set_meta("bb_action", "info_tutorial_next")
+			var skip_step: Button = _make_button(tutorial_buttons, _t("skip"), _close_info_sheet, Vector2(150.0, 74.0), "secondary")
+			skip_step.set_meta("bb_action", "info_tutorial_skip")
+		else:
+			var body_key: String = "credits_text" if kind == "credits" else "about_text"
+			var body: Label = _make_label(box, body_key, 27, "text")
+			body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			var close: Button = _make_button(box, _t("close"), _close_info_sheet, Vector2(220.0, 74.0), "primary")
+			close.set_meta("bb_action", "info_close")
+	_make_label(box, "version", 18, "text_muted").horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
-func _on_play() -> void:
-	_show_chapters()
+func _next_info_tutorial() -> void:
+	info_step += 1
+	if info_step >= TUTORIAL_STEPS.size():
+		_close_info_sheet()
+		return
+	var text_label: Label = info_layer.find_child("InfoTutorialStep", true, false) as Label
+	if text_label != null:
+		text_label.text = _t(TUTORIAL_STEPS[info_step])
 
-func _start_demo() -> void:
-	_toast("The playable level slice arrives in Milestone 2.")
+func _delete_progress() -> void:
+	SaveSystem.reset_progress()
+	_close_info_sheet()
+	if settings_status != null and is_instance_valid(settings_status):
+		settings_status.text = _t("reset_done")
+		settings_status.visible = true
+	if screen == "levels":
+		_build_level_page()
 
-func _on_theme_option(index: int) -> void:
-	ThemeManager.set_mode(index as ThemeManager.Mode)
-	_refresh_palette()
+func _close_info_sheet() -> void:
+	if info_layer != null:
+		info_layer.queue_free()
+	info_layer = null
+	info_panel = null
+	info_id = ""
+
+func _on_settings_outside(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		_close_settings()
+	elif event is InputEventScreenTouch and event.pressed:
+		_close_settings()
+
+func _close_settings(animate: bool = true) -> void:
+	if settings_layer == null:
+		return
+	if animate and settings_panel != null:
+		var panel_to_close: PanelContainer = settings_panel
+		var height: float = panel_to_close.size.y
+		var tween: Tween = create_tween()
+		tween.tween_property(panel_to_close, "offset_top", 0.0, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		tween.parallel().tween_property(panel_to_close, "offset_bottom", height, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		tween.tween_callback(func():
+			if settings_layer != null:
+				settings_layer.queue_free()
+			settings_layer = null
+			settings_panel = null
+			settings_content = null
+		)
+	else:
+		settings_layer.queue_free()
+		settings_layer = null
+		settings_panel = null
+		settings_content = null
+	_close_info_sheet()
+
+func _show_game(level_number: int) -> void:
+	_close_settings(false)
+	_clear_screen()
+	screen = "game"
+	current_level_number = level_number
+	shots_used = 0
+	hints_left = HINTS_PER_LEVEL
+	SaveSystem.set_setting("last_played_chapter", chapter_index)
+	var data: Dictionary = _level_metadata(level_number)
+	var par_three: int = int(data.get("par_3", 2))
+	var page: VBoxContainer = VBoxContainer.new()
+	page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	page.add_theme_constant_override("separation", 20)
+	var margin: MarginContainer = MarginContainer.new()
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	for side: String in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 30)
+	page.add_child(margin)
+	content_layer.add_child(page)
+	var game_box: VBoxContainer = VBoxContainer.new()
+	game_box.add_theme_constant_override("separation", 18)
+	game_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	game_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_child(game_box)
+	var compact: bool = get_viewport_rect().size.x < 900.0
+	var header: HBoxContainer = HBoxContainer.new()
+	header.add_theme_constant_override("separation", 8 if compact else 20)
+	game_box.add_child(header)
+	var back: Button = _make_button(header, _t("back"), _show_level_select, Vector2(90.0 if compact else 120.0, 72.0), "secondary")
+	back.set_meta("bb_action", "game_back")
+	var level_title: Label = _make_label(header, "level_number", 28 if compact else 38, "text", {"number": current_level_number})
+	level_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var shots: Label = _make_label(header, "shots_used", 17 if compact else 23, "text", {"number": shots_used})
+	shots.name = "ShotsUsed"
+	var goal: Label = _make_label(header, "three_star_goal", 17 if compact else 23, "text", {"number": par_three})
+	goal.size_flags_horizontal = Control.SIZE_SHRINK_END
+	var play_area: PanelContainer = _make_panel()
+	play_area.name = "PlayArea"
+	play_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	game_box.add_child(play_area)
+	var ready_box: CenterContainer = CenterContainer.new()
+	play_area.add_child(ready_box)
+	_make_label(ready_box, "game_ready", 34, "text_muted")
+	var hint_row: HBoxContainer = HBoxContainer.new()
+	hint_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	game_box.add_child(hint_row)
+	var hint_button: Button = _make_button(hint_row, _t("hint", {"number": hints_left}), _use_hint, Vector2(240.0, 72.0), "secondary")
+	hint_button.name = "HintButton"
+	var bulb: LightBulbIcon = LightBulbIcon.new()
+	bulb.custom_minimum_size = Vector2(38.0, 42.0)
+	bulb.anchor_left = 0.0
+	bulb.anchor_right = 0.0
+	bulb.anchor_top = 0.5
+	bulb.anchor_bottom = 0.5
+	bulb.offset_left = 12.0
+	bulb.offset_right = 50.0
+	bulb.offset_top = -21.0
+	bulb.offset_bottom = 21.0
+	bulb.set_tint(Color(palette["moon"]), Color(palette["outline"]))
+	bulb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hint_button.add_child(bulb)
+	hint_button.set_meta("bb_action", "hint")
+	var footer: HBoxContainer = HBoxContainer.new()
+	footer.alignment = BoxContainer.ALIGNMENT_CENTER
+	footer.add_theme_constant_override("separation", 16)
+	game_box.add_child(footer)
+	var undo: Button = _make_button(footer, _t("undo"), _undo_shot, Vector2(200.0, 72.0), "secondary")
+	undo.set_meta("bb_action", "undo")
+	var restart: Button = _make_button(footer, _t("restart"), func(): _show_game(current_level_number), Vector2(200.0, 72.0), "secondary")
+	restart.set_meta("bb_action", "restart")
+	var settings: Button = _make_button(footer, _t("settings_icon"), _show_settings, Vector2(82.0, 72.0), "secondary")
+	settings.set_meta("bb_action", "settings")
+	if current_level_number <= 3 and not bool(SaveSystem.data.get("tutorial_seen", false)):
+		_show_tutorial(false)
+
+func _show_tutorial(replay: bool) -> void:
+	if tutorial_overlay != null:
+		tutorial_overlay.queue_free()
+	tutorial_replay = replay
+	tutorial_step = 0
+	tutorial_overlay = Control.new()
+	tutorial_overlay.name = "TutorialOverlay"
+	tutorial_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tutorial_overlay.z_index = 50
+	content_layer.add_child(tutorial_overlay)
+	var dim: ColorRect = ColorRect.new()
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(palette["overlay"], 0.68)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tutorial_overlay.add_child(dim)
+	var spotlight: Control = Control.new()
+	spotlight.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	spotlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	spotlight.draw.connect(_draw_tutorial_spotlight.bind(spotlight))
+	tutorial_overlay.add_child(spotlight)
+	var center: CenterContainer = CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tutorial_overlay.add_child(center)
+	var panel: PanelContainer = _make_panel()
+	panel.custom_minimum_size = Vector2(minf(760.0, get_viewport_rect().size.x * 0.86), 410.0)
+	center.add_child(panel)
+	var box: VBoxContainer = VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 22)
+	panel.add_child(box)
+	_make_label(box, "tutorial_title", 42, "accent")
+	var step: Label = _make_label(box, TUTORIAL_STEPS[0], 30, "text")
+	step.name = "TutorialStep"
+	step.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var buttons: HBoxContainer = HBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 18)
+	box.add_child(buttons)
+	var next: Button = _make_button(buttons, _t("tap_continue"), _next_tutorial_step, Vector2(300.0, 78.0), "primary")
+	next.set_meta("bb_action", "tutorial_next")
+	var skip: Button = _make_button(buttons, _t("skip"), _finish_tutorial, Vector2(160.0, 78.0), "secondary")
+	skip.set_meta("bb_action", "tutorial_skip")
+
+func _draw_tutorial_spotlight(canvas: Control) -> void:
+	var w: float = canvas.size.x
+	var h: float = canvas.size.y
+	var target: Rect2 = Rect2(Vector2(w * 0.25, h * 0.35), Vector2(w * 0.5, h * 0.18))
+	if tutorial_step == 3:
+		target = Rect2(Vector2(w * 0.25, h * 0.79), Vector2(w * 0.5, h * 0.12))
+	canvas.draw_rect(target, Color(palette["accent"], 0.22), false, 5.0, true)
+
+func _next_tutorial_step() -> void:
+	tutorial_step += 1
+	if tutorial_step >= TUTORIAL_STEPS.size():
+		_finish_tutorial()
+		return
+	var label: Label = tutorial_overlay.find_child("TutorialStep", true, false) as Label
+	if label != null:
+		label.text = _t(TUTORIAL_STEPS[tutorial_step])
+	var spotlight: Control = tutorial_overlay.get_child(1) as Control
+	if spotlight != null:
+		spotlight.queue_redraw()
+
+func _finish_tutorial() -> void:
+	if not tutorial_replay:
+		SaveSystem.data["tutorial_seen"] = true
+		SaveSystem.save()
+	if tutorial_overlay != null:
+		tutorial_overlay.queue_free()
+	tutorial_overlay = null
+
+func _use_hint() -> void:
+	if hints_left <= 0:
+		return
+	hints_left -= 1
+	var button: Button = find_child("HintButton", true, false) as Button
+	if button != null:
+		button.text = _t("hint", {"number": hints_left})
+	if hint_line != null:
+		hint_line.queue_free()
+	hint_line = AimHint.new()
+	hint_line.name = "HintLine"
+	hint_line.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hint_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hint_line.set_tint(Color(palette["accent"]))
+	content_layer.add_child(hint_line)
+	content_layer.move_child(hint_line, 1)
+
+func _undo_shot() -> void:
+	shots_used = maxi(0, shots_used - 1)
+	_update_shots_label()
+
+func _update_shots_label() -> void:
+	var label: Label = find_child("ShotsUsed", true, false) as Label
+	if label != null:
+		label.text = _t("shots_used", {"number": shots_used})
+
+func _show_level_select_and_clear_tutorial() -> void:
+	if tutorial_overlay != null:
+		tutorial_overlay.queue_free()
+		tutorial_overlay = null
+	_show_level_select()
+
+func _open_level(number: int) -> void:
+	var index: int = maxi(0, number - 1)
+	if not _is_level_open(chapter_data, index):
+		return
+	_show_game(number)
+
+func _ignore_locked_level() -> void:
+	return
+
+func _ignore_locked_chapter() -> void:
+	return
+
+func _chapter_is_open(index: int) -> bool:
+	if index <= 0:
+		return true
+	var previous_entry: Dictionary = LevelRegistry.chapters[index - 1]
+	var previous: Dictionary = LevelRegistry.load_chapter(str(previous_entry.get("id", "")))
+	var previous_levels: Array = previous.get("levels", [])
+	if previous_levels.size() != 20:
+		return false
+	for level_value: Variant in previous_levels:
+		if not level_value is Dictionary or SaveSystem.get_level(str(level_value.get("id", ""))).is_empty():
+			return false
+	return true
+
+func _is_level_open(chapter: Dictionary, index: int) -> bool:
+	if index <= 0:
+		return _chapter_is_open(chapter_index)
+	var levels: Array = chapter.get("levels", [])
+	if index - 1 >= levels.size():
+		return false
+	var previous: Dictionary = levels[index - 1]
+	return SaveSystem.get_level(str(previous.get("id", ""))).size() > 0
+
+func _find_next_playable(chapter: Dictionary) -> int:
+	var levels: Array = chapter.get("levels", [])
+	for index: int in mini(20, levels.size()):
+		if _is_level_open(chapter, index) and SaveSystem.get_level(str((levels[index] as Dictionary).get("id", ""))).is_empty():
+			return index + 1
+	return 20
+
+func _level_metadata(number: int) -> Dictionary:
+	var levels: Array = chapter_data.get("levels", [])
+	var index: int = number - 1
+	return levels[index] if index >= 0 and index < levels.size() and levels[index] is Dictionary else {}
+
+func _chapter_name_key(entry: Dictionary) -> String:
+	return str(entry.get("name_key", "chapter_name_generic"))
+
+func _handle_swipe(delta_x: float) -> void:
+	if absf(delta_x) < 70.0:
+		return
+	_change_chapter(-1 if delta_x > 0.0 else 1)
+
+func _input(event: InputEvent) -> void:
+	if info_layer != null and info_panel != null:
+		if event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed and not info_panel.get_global_rect().has_point((event as InputEventScreenTouch).position):
+			_close_info_sheet()
+			return
+		if event is InputEventMouseButton and (event as InputEventMouseButton).pressed and not info_panel.get_global_rect().has_point((event as InputEventMouseButton).position):
+			_close_info_sheet()
+			return
+	if event is InputEventScreenTouch:
+		var touch: InputEventScreenTouch = event as InputEventScreenTouch
+		if touch.pressed:
+			_pointer_start = touch.position
+			_pointer_down = true
+			_touching_sheet = settings_layer != null and touch.position.y >= settings_panel.get_global_rect().position.y
+		elif _pointer_down:
+			var delta: Vector2 = touch.position - _pointer_start
+			if settings_layer != null and _touching_sheet and delta.y > 90.0:
+				_close_settings()
+			elif screen == "levels" and settings_layer == null:
+				_handle_swipe(delta.x)
+			_pointer_down = false
+	elif event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		var mouse: InputEventMouseButton = event as InputEventMouseButton
+		if mouse.pressed:
+			_pointer_start = mouse.position
+			_pointer_down = true
+			_touching_sheet = settings_layer != null and settings_panel.get_global_rect().has_point(mouse.position)
+		elif _pointer_down:
+			var delta: Vector2 = mouse.position - _pointer_start
+			if settings_layer != null and _touching_sheet and delta.y > 90.0:
+				_close_settings()
+			elif screen == "levels" and settings_layer == null:
+				_handle_swipe(delta.x)
+			_pointer_down = false
+	elif event is InputEventMouseMotion and _pointer_down and screen == "levels" and settings_layer == null:
+		var motion: InputEventMouseMotion = event as InputEventMouseMotion
+		if motion.button_mask & MOUSE_BUTTON_MASK_LEFT != 0 and absf(motion.position.x - _pointer_start.x) > 70.0:
+			_handle_swipe(motion.position.x - _pointer_start.x)
+			_pointer_down = false
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if screen != "levels" or settings_layer != null or not event is InputEventKey:
+		return
+	var key: InputEventKey = event as InputEventKey
+	if not key.pressed or key.echo:
+		return
+	if key.keycode == KEY_LEFT:
+		_change_chapter(-1)
+	elif key.keycode == KEY_RIGHT:
+		_change_chapter(1)
 
 func _on_theme_changed(_mode: int) -> void:
 	_refresh_palette()
 
-func _toast(message: String) -> void:
-	if screen_body != null:
-		_add_label(message, 18, "accent")
+func _make_label(parent: Node, key: String, size: int, token: String, args: Dictionary = {}) -> Label:
+	var label: Label = Label.new()
+	label.text = _t(key, args)
+	label.add_theme_font_size_override("font_size", size)
+	label.add_theme_color_override("font_color", Color(palette[token]))
+	label.set_meta("bb_token", token)
+	parent.add_child(label)
+	return label
 
-func _quit() -> void:
-	get_tree().quit()
+func _make_panel() -> PanelContainer:
+	var panel: PanelContainer = PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _panel_style())
+	return panel
+
+func _panel_style() -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(palette["surface"])
+	style.border_color = Color(palette["outline"])
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(24)
+	style.content_margin_left = 26.0
+	style.content_margin_right = 26.0
+	style.content_margin_top = 22.0
+	style.content_margin_bottom = 22.0
+	return style
+
+func _make_button(parent: Node, text: String, action: Callable, minimum: Vector2 = Vector2(180.0, 72.0), style_name: String = "secondary") -> Button:
+	var button: Button = Button.new()
+	button.text = text
+	button.custom_minimum_size = minimum
+	button.add_theme_font_size_override("font_size", 27)
+	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if minimum.x > 0.0 else Control.SIZE_EXPAND_FILL
+	button.set_meta("bb_style", style_name)
+	_style_button(button, style_name)
+	button.mouse_entered.connect(func(): AudioManager.play_ui("ui_hover"))
+	button.pressed.connect(func():
+		AudioManager.play_ui("ui_click")
+		if action.is_valid():
+			action.call()
+	)
+	parent.add_child(button)
+	return button
+
+func _style_button(button: Button, style_name: String) -> void:
+	var fill: String = str(palette["surface_alt"])
+	var border: String = str(palette["outline"])
+	var text_color: String = str(palette["text"])
+	match style_name:
+		"primary":
+			fill = str(palette["primary"])
+			border = str(palette["outline"])
+			text_color = "#FFFFFF" if ThemeManager._effective_light() else str(palette["text"])
+		"highlight", "theme_active", "switch_on", "dot_active":
+			fill = str(palette["primary"])
+			border = str(palette["accent"])
+			text_color = "#FFFFFF"
+		"completed":
+			fill = str(palette["surface_alt"])
+			border = str(palette["success"])
+		"danger":
+			fill = str(palette["danger"])
+			border = str(palette["outline"])
+			text_color = "#FFFFFF"
+		"switch_off":
+			fill = str(palette["surface_alt"])
+			border = str(palette["text_muted"])
+		"dot":
+			fill = str(palette["surface"])
+			border = str(palette["surface_alt"])
+	var normal: StyleBoxFlat = _button_style(fill, border, false)
+	var hover: StyleBoxFlat = _button_style(str(palette["surface_alt"]), str(palette["accent"]), false)
+	var pressed: StyleBoxFlat = _button_style(str(palette["primary"]), str(palette["accent"]), true)
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("disabled", normal)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", pressed)
+	button.add_theme_stylebox_override("focus", hover)
+	button.add_theme_color_override("font_color", Color(text_color))
+	button.add_theme_color_override("font_hover_color", Color(palette["accent"]))
+	button.add_theme_color_override("font_pressed_color", Color(palette["text"]))
+	button.add_theme_color_override("font_disabled_color", Color(palette["text_muted"]))
+
+func _button_style(fill: String, border: String, pressed: bool) -> StyleBoxFlat:
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(fill)
+	style.border_color = Color(border)
+	style.set_border_width_all(3)
+	style.border_width_bottom = 2 if pressed else 5
+	style.set_corner_radius_all(18)
+	style.content_margin_left = 20.0
+	style.content_margin_right = 20.0
+	style.content_margin_top = 12.0
+	style.content_margin_bottom = 12.0
+	return style
+
+func _t(key: String, args: Dictionary = {}) -> String:
+	return Strings.text(key, args)
