@@ -1,0 +1,25 @@
+// Godot Android plugin (v2) that encodes the share video to MP4.
+// Built by CI: gradle -p plugins_src/ocs_video assembleRelease
+plugins {
+    id 'com.android.library' version '8.11.1'
+}
+
+android {
+    namespace 'io.github.ramlakhanmadheshiya.onecleanshot.video'
+    compileSdk 36
+
+    defaultConfig {
+        minSdk 24
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    compileOnly 'org.godotengine:godot:4.7.2.stable'
+    compileOnly 'androidx.core:core:1.13.1'
+    compileOnly 'androidx.annotation:annotation:1.8.0'
+}

@@ -23,6 +23,11 @@ const MAX_BOUNCES: int = 8
 
 ## Narrowest solving window (degrees) allowed for a room that needs b bounces.
 const MIN_WINDOW: Dictionary = {0: 5.0, 1: 4.0, 2: 3.0, 3: 2.0, 4: 1.4, 5: 1.0, 6: 0.8, 7: 0.6, 8: 0.5}
+## Every moving platform in the game travels at this fraction of the orb's speed
+## (about 270 px/s): medium, and the same in every room.
+const PLATFORM_SPEED: float = 0.18
+## Platforms keep at least this far from other walls through their whole swing.
+const PLATFORM_GAP: float = 18.0
 ## Moving platforms never stop, so the shot also has to be timed. Shortest allowed
 ## timing window, in world-clock units (the orb's speed: 1500 units = 1 second).
 const MIN_TIME_WINDOW: Dictionary = {0: 450.0, 1: 450.0, 2: 375.0, 3: 300.0, 4: 240.0, 5: 195.0, 6: 165.0, 7: 150.0, 8: 120.0}
@@ -59,8 +64,8 @@ const HANDMADE: Dictionary = {
 			[180, 450, 16, 316, 0, "wall"], [460, 450, 16, 316, 0, "wall"]]},
 	],
 	"ch9": [
-		# The platform slides out of the way while the orb is in flight.
-		{"launcher": [320, 860], "bounces": 0, "targets": [[320, 200, 1]], "walls": [[320, 440, 200, 16, 0, "wall", [-240, 0, 1400]]]},
+		# A platform sweeps across the straight shot; release while it is out of the way.
+		{"launcher": [320, 860], "bounces": 0, "targets": [[320, 200, 1]], "walls": [[360, 440, 160, 16, 0, "wall", [180, 0, 2000]]]},
 	],
 }
 
@@ -525,7 +530,10 @@ func _convert_kind(walls: Array, count: int, kind: String) -> void:
 ## (period), so the moment that works comes round again every second or two.
 ## They move at 20-35% of the orb's speed and stay inside the room.
 func _add_rails(level: Dictionary, count: int) -> void:
-	var period: float = _snap(rng.randf_range(1300.0, 2400.0))
+	# One travel distance per room, so every platform shares the same rhythm and
+	# moves at the same constant speed.
+	var amp_abs: float = _snap(rng.randf_range(140.0, 260.0))
+	var period: float = round(2.0 * amp_abs / PLATFORM_SPEED / 10.0) * 10.0
 	var walls: Array = level["walls"]
 	var plain: Array = []
 	for i: int in walls.size():
@@ -538,7 +546,7 @@ func _add_rails(level: Dictionary, count: int) -> void:
 			break
 		for attempt: int in 12:
 			var horizontal: bool = rng.randf() < 0.65
-			var amp: float = maxf(100.0, _snap(period * rng.randf_range(0.1, 0.175))) * (1.0 if rng.randf() < 0.5 else -1.0)
+			var amp: float = amp_abs * (1.0 if rng.randf() < 0.5 else -1.0)
 			var d: Vector2 = Vector2(amp, 0) if horizontal else Vector2(0, amp)
 			var w: Array = (walls[i] as Array).duplicate()
 			w.resize(6)
@@ -546,10 +554,31 @@ func _add_rails(level: Dictionary, count: int) -> void:
 			var moved: Array = w.duplicate()
 			moved[0] = float(w[0]) + d.x
 			moved[1] = float(w[1]) + d.y
-			if _wall_ok(w, level) and _wall_ok(moved.slice(0, 6), level):
-				walls[i] = w
+			if not _wall_ok(w, level) or not _wall_ok(moved.slice(0, 6), level):
+				continue
+			var before: Array = walls[i]
+			walls[i] = w
+			if _sweep_clear(walls, i):
 				made += 1
 				break
+			walls[i] = before
+
+
+## True if wall `i` never comes within PLATFORM_GAP of any other wall at any
+## moment of the cycle (moving walls are checked where they are at that moment).
+func _sweep_clear(walls: Array, i: int) -> bool:
+	var period: float = float(walls[i][6][2])
+	for s: int in 24:
+		var t: float = period * float(s) / 24.0
+		var grown: Array = Geometry2D.offset_polygon(RicochetSim.wall_corners(walls[i], 0.0, t), PLATFORM_GAP)
+		if grown.is_empty():
+			continue
+		for j: int in walls.size():
+			if j == i:
+				continue
+			if not Geometry2D.intersect_polygons(grown[0], RicochetSim.wall_corners(walls[j], 0.0, t)).is_empty():
+				return false
+	return true
 
 
 func _place_features(level: Dictionary, k: float, extras: Dictionary) -> bool:

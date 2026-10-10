@@ -4,123 +4,237 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>One Clean Shot — a quiet ricochet puzzle</title>
-<meta name="description" content="Drag to aim, release, and bank one orb off the walls to pop every target. 360 rooms, 9 chapters. Free for Android and the web.">
-<meta name="theme-color" content="#FFF4E8">
+<meta name="description" content="Drag to aim, release, and bank one orb off the walls to pop every target. 360 hand-tuned rooms in nine chapters. Free for Android and the web.">
+<meta name="theme-color" content="#FFF6EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#241E52" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://theramlakhan.com/one-clean-shot/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ramlakhan games">
+<meta property="og:title" content="One Clean Shot — a quiet ricochet puzzle">
+<meta property="og:description" content="Bank one orb off the walls to pop every target, in one shot. 360 hand-tuned rooms, nine chapters, no interstitial ads.">
+<meta property="og:url" content="https://theramlakhan.com/one-clean-shot/">
+<meta property="og:image" content="https://theramlakhan.com/one-clean-shot/images/dawn.jpg">
+<meta property="og:image:alt" content="A Dawn room in One Clean Shot: a dotted aim line banking off walls toward coral targets.">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@250;400;500;600&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --ink: #2D2A4A; --muted: rgba(45,42,74,.55); --faint: rgba(45,42,74,.08);
-    --top: #FFF4E8; --bottom: #FFD3C2; --accent: #FF8A5B; --target: #FF5D5D;
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; min-height: 100%; }
-  body {
-    font-family: Outfit, system-ui, -apple-system, "Segoe UI", sans-serif;
-    color: var(--ink);
-    background: linear-gradient(180deg, var(--top), var(--bottom)) fixed;
-    padding: max(24px, env(safe-area-inset-top)) 20px max(32px, env(safe-area-inset-bottom));
-    -webkit-font-smoothing: antialiased;
-  }
-  main { max-width: 520px; margin: 0 auto; text-align: center; }
-  .icon { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 12px 32px rgba(45,42,74,.15); margin-top: 24px; }
-  h1 { font-weight: 250; font-size: clamp(64px, 18vw, 104px); letter-spacing: .12em; margin: 12px 0 0; line-height: 1; padding-left: .12em; }
-  .tag { color: var(--muted); font-size: 20px; margin: 10px 0 28px; }
-  .arena { position: relative; height: 210px; background: var(--faint); border-radius: 28px; margin: 0 auto 32px; overflow: hidden;
-    background-image: radial-gradient(rgba(45,42,74,.09) 1.4px, transparent 1.5px); background-size: 24px 24px; }
-  .arena svg { width: 100%; height: 100%; }
-  .btn { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 68px; border-radius: 999px;
-    font: 600 22px Outfit, system-ui, sans-serif; text-decoration: none; transition: transform .12s ease; }
-  .btn:active { transform: scale(.96); }
-  .primary { background: var(--ink); color: var(--top); }
-  .ghost { border: 3px solid rgba(45,42,74,.2); color: var(--ink); margin-top: 14px; }
-  .meta { color: var(--muted); font-size: 15px; margin: 12px 0 0; }
-  .card { background: rgba(255,255,255,.55); border-radius: 28px; padding: 24px; margin-top: 32px; text-align: left; }
-  .card h2 { font-size: 20px; font-weight: 600; margin: 0 0 12px; }
-  .card ol { margin: 0; padding-left: 22px; line-height: 1.6; color: rgba(45,42,74,.85); }
-  .qr { display: flex; gap: 20px; align-items: center; }
-  .qr div { flex: none; background: #fff; border-radius: 16px; padding: 10px; line-height: 0; }
-  .qr p { margin: 0; color: rgba(45,42,74,.85); line-height: 1.5; }
-  .chapters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
-  .chapters span { border-radius: 14px; padding: 12px 0 10px; font-size: 13px; font-weight: 500; text-align: center; }
-  footer { color: var(--muted); font-size: 13px; margin-top: 36px; line-height: 1.6; }
-  footer a { color: inherit; }
-  footer nav { font-size: 15px; margin-bottom: 8px; }
-  footer nav a { margin: 0 4px; }
-  a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
-  @media (hover: none) and (pointer: coarse) { .desktop-only { display: none; } }
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
 </head>
 <body>
-<main>
-  <img class="icon" src="icon.svg" alt="One Clean Shot app icon">
-  <h1>one clean shot</h1>
-  <p class="tag">a quiet ricochet puzzle</p>
+<a class="skip" href="#content">Skip to content</a>
 
-  <div class="arena" aria-hidden="true">
-    <svg viewBox="0 0 480 210">
-      <rect x="150" y="54" width="120" height="12" rx="6" fill="#2D2A4A"/>
-      <rect x="330" y="120" width="12" height="70" rx="6" fill="#2D2A4A"/>
-      <polyline id="path" points="80,190 210,20 330,104 440,30" fill="none" stroke="#2D2A4A" stroke-opacity=".35" stroke-width="4" stroke-dasharray="1 12" stroke-linecap="round"/>
-      <circle cx="80" cy="190" r="13" fill="none" stroke="#2D2A4A" stroke-width="3"/>
-      <circle id="orb" r="6" fill="#2D2A4A">
-        <animateMotion dur="2.6s" repeatCount="indefinite" path="M80,190 L210,20 L330,104 L440,30" keyPoints="0;1" keyTimes="0;1"/>
-      </circle>
-      <circle cx="268" cy="60" r="13" fill="#FF5D5D"/><circle cx="268" cy="60" r="5" fill="none" stroke="#FFF4E8" stroke-width="3"/>
-      <circle cx="400" cy="57" r="13" fill="#FF5D5D"/><circle cx="400" cy="57" r="5" fill="none" stroke="#FFF4E8" stroke-width="3"/>
-    </svg>
+<header class="nav">
+  <div class="container nav-inner">
+    <a class="nav-back" href="/games/" aria-label="All games">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>All games</span>
+    </a>
+    <span class="nav-sep" aria-hidden="true"></span>
+    <a class="brand" href="./"><img src="icon.svg" alt="" width="28" height="28">One Clean Shot</a>
+    <nav class="nav-links" aria-label="Site">
+      <a href="#chapters">Chapters</a>
+      <a href="help/">Help</a>
+      <a class="btn btn-primary btn-sm" href="#download">Download</a>
+    </nav>
   </div>
+</header>
 
-  <a class="btn primary" href="one-clean-shot.apk" download>
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
-    Download for Android
-  </a>
-  <p class="meta">APK · {{APK_SIZE}} · version {{VERSION}} · built {{BUILD_DATE}}</p>
-  <a class="btn ghost" href="play/">Play in your browser</a>
+<main id="content">
 
-  <section class="card desktop-only">
-    <h2>On your phone</h2>
-    <div class="qr">
-      <div id="qr" aria-label="QR code linking to this page"></div>
-      <p>Scan with your phone camera to open this page, then tap <b>Download for Android</b> — or <b>Play in your browser</b> on any phone.</p>
+  <!-- Hero -->
+  <section class="hero" aria-labelledby="title">
+    <svg class="hero-trail" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <polyline class="dots" points="160,860 600,120 909,640 1201,150" fill="none" stroke-width="5" stroke-dasharray="0.1 16" stroke-linecap="round"/>
+      <circle cx="1201" cy="150" r="30" fill="#FF6B5B" fill-opacity=".9"/>
+      <circle cx="1201" cy="150" r="12" fill="none" stroke="#FFF4E8" stroke-width="5"/>
+      <circle cx="160" cy="860" r="22" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="5"/>
+      <circle class="orb" r="9">
+        <animateMotion dur="5s" repeatCount="indefinite" path="M160,860 L600,120 L909,640 L1201,150" keyPoints="0;1;1" keyTimes="0;.62;1" calcMode="linear"/>
+        <animate attributeName="opacity" dur="5s" repeatCount="indefinite" values="0;1;1;0;0" keyTimes="0;.04;.6;.66;1"/>
+      </circle>
+    </svg>
+    <div class="container hero-grid">
+      <div class="hero-copy">
+        <img class="hero-icon" src="icon.svg" alt="" width="96" height="96">
+        <h1 id="title" class="h-xl">One Clean Shot</h1>
+        <p class="lede">A quiet ricochet puzzle. Drag to aim, let go, and bank one orb off the walls to pop every target — in one shot.</p>
+        <div class="btn-row">
+          <a class="btn btn-primary btn-lg" href="one-clean-shot.apk" download>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+            Download for Android
+          </a>
+          <a class="btn btn-lg" href="play/">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>
+            Play in your browser
+          </a>
+        </div>
+        <p class="hero-meta">Free · APK {{APK_SIZE}} · v{{VERSION}}</p>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <div class="phone p-left"><img src="images/glass.jpg" alt="" width="562" height="1000"></div>
+        <div class="phone p-right"><img src="images/prism.jpg" alt="" width="562" height="1000"></div>
+        <div class="phone p-front"><img src="images/dawn.jpg" alt="" width="562" height="1000" fetchpriority="high"></div>
+      </div>
     </div>
   </section>
 
-  <section class="card">
-    <h2>Install the APK</h2>
-    <ol>
-      <li>Tap <b>Download for Android</b> on your phone.</li>
-      <li>Open the downloaded <b>one-clean-shot.apk</b>.</li>
-      <li>If asked, allow your browser to <b>install unknown apps</b>.</li>
-      <li>Tap <b>Install</b>, then open One Clean Shot. New versions install over the old one and keep your stars.</li>
-    </ol>
-  </section>
-
-  <section class="card">
-    <h2>360 rooms, nine moods</h2>
-    <p style="margin:0;color:rgba(45,42,74,.85);line-height:1.5">Drag to aim, release to shoot. You get one shot to pop every target — a miss resets the room. Clear it on your first try for ★★★.</p>
-    <div class="chapters">
-      <span style="background:#FFD3C2">Dawn</span>
-      <span style="background:#CFE3F5;color:#1E3A55">Drift</span>
-      <span style="background:#B7E4DA;color:#173A45">Glass</span>
-      <span style="background:#C9D7B0;color:#27352A">Gate</span>
-      <span style="background:#E8B4A6;color:#3E2430">Turn</span>
-      <span style="background:#5E4485;color:#FFF1F7">Shift</span>
-      <span style="background:#23204A;color:#F1EEFF">Void</span>
-      <span style="background:#4A2A14;color:#FFF2DD">Spark</span>
-      <span style="background:#0F1328;color:#E9EDFF">Prism</span>
+  <!-- One shot -->
+  <section class="section" aria-labelledby="oneshot">
+    <div class="container">
+      <div class="section-head reveal">
+        <p class="eyebrow">The idea</p>
+        <h2 id="oneshot" class="h-lg">One shot.<br>Every target.</h2>
+        <p class="lede">Every room is a small geometry question with exactly one kind of answer: the clean one.</p>
+      </div>
+      <div class="tiles">
+        <article class="card tile reveal">
+          <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+          <h3>One shot</h3>
+          <p>Pop every target with a single orb. A miss simply resets the room, and tries are unlimited. Clear it first try for ★★★.</p>
+        </article>
+        <article class="card tile reveal">
+          <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+          <h3>Nine ideas, 360 rooms</h3>
+          <p>Hand-tuned rooms in nine chapters, each built around one new idea. Every room is proven solvable in one shot.</p>
+        </article>
+        <article class="card tile reveal">
+          <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></div>
+          <h3>Calm by design</h3>
+          <p>No interstitial ads, ever. Three free hints a day, optional reward videos, one-time purchases only. No account — progress stays on your device.</p>
+        </article>
+      </div>
     </div>
   </section>
 
-  <footer>
-    <nav aria-label="Site"><a href="help/">Help</a> · <a href="privacy/">Privacy</a> · <a href="mailto:ramlakhanmadheshiya7@gmail.com?subject=One%20Clean%20Shot%20help">Contact</a></nav>
-    Made with Godot · Outfit font (SIL OFL) · Lucide icons (ISC)<br>
-    Music &amp; sound synthesised for One Clean Shot<br>
-    © 2026 Ramlakhan Madheshiya
-  </footer>
+  <!-- Gallery -->
+  <section class="section" style="padding-top:0" aria-labelledby="look">
+    <div class="container">
+      <div class="section-head reveal">
+        <p class="eyebrow">A closer look</p>
+        <h2 id="look" class="h-lg">Quiet rooms.<br>Clever angles.</h2>
+      </div>
+    </div>
+    <div class="gallery" tabindex="0" aria-label="Screenshots">
+      <figure><div class="phone"><img src="images/home.jpg" alt="The home screen with a ricochet preview and a Play button" width="562" height="1000" loading="lazy"></div><figcaption><b>A quiet start</b>Pick up where you left off.</figcaption></figure>
+      <figure><div class="phone"><img src="images/dawn.jpg" alt="A Dawn room with a dotted aim line banking toward targets" width="562" height="1000" loading="lazy"></div><figcaption><b>Find the angle</b>Dawn teaches the bank shot.</figcaption></figure>
+      <figure><div class="phone"><img src="images/glass.jpg" alt="A Glass room where a pane breaks after one bounce" width="562" height="1000" loading="lazy"></div><figcaption><b>Panes break once</b>Glass changes the room as you play.</figcaption></figure>
+      <figure><div class="phone"><img src="images/prism.jpg" alt="A Prism room on a dark starry background" width="562" height="1000" loading="lazy"></div><figcaption><b>Split the orb</b>Prism, the final chapter.</figcaption></figure>
+      <figure><div class="phone"><img src="images/result.jpg" alt="The result card showing three stars: First try. Perfect." width="562" height="1000" loading="lazy"></div><figcaption><b>One clean shot</b>First try, three stars.</figcaption></figure>
+      <figure><div class="phone"><img src="images/chapters.jpg" alt="The chapter list: Dawn, Drift, Glass, Gate and Turn" width="562" height="1000" loading="lazy"></div><figcaption><b>Nine chapters</b>Forty rooms in each.</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- Chapters -->
+  <section class="section" id="chapters" style="padding-top:0" aria-labelledby="chapters-h">
+    <div class="container">
+      <div class="section-head reveal">
+        <p class="eyebrow">Chapters</p>
+        <h2 id="chapters-h" class="h-lg">Nine ideas, in order.</h2>
+        <p class="lede">Each chapter adds one new rule to the bank shot, and each has its own colour and mood.</p>
+      </div>
+      <ol class="chapters reveal">
+        <li class="chapter c-dawn"><h3>Dawn</h3><p>Plain walls. Learn the bank shot.</p></li>
+        <li class="chapter c-drift"><h3>Drift</h3><p>Moving platforms. Time your release.</p></li>
+        <li class="chapter c-glass"><h3>Glass</h3><p>Panes break after one bounce.</p></li>
+        <li class="chapter c-gate"><h3>Gate</h3><p>Hit the switch to dissolve the gates.</p></li>
+        <li class="chapter c-turn"><h3>Turn</h3><p>Pivot walls turn 90° when hit.</p></li>
+        <li class="chapter c-shift"><h3>Shift</h3><p>Portals send the orb somewhere else.</p></li>
+        <li class="chapter c-void"><h3>Void</h3><p>Dark blocks swallow; bumpers bounce.</p></li>
+        <li class="chapter c-spark"><h3>Spark</h3><p>Flying through a spark adds a bounce.</p></li>
+        <li class="chapter c-prism"><h3>Prism</h3><p>Prisms split the orb. Ringed targets.</p></li>
+      </ol>
+      <div class="chapter-notes">
+        <span>Every chapter opens with a tutorial room.</span>
+        <span>Bounces climb from 1 to 8 across each chapter.</span>
+        <span>Every room is proven solvable in one shot by a solver.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it plays -->
+  <section class="section" style="padding-top:0" aria-labelledby="how">
+    <div class="container">
+      <div class="section-head reveal">
+        <p class="eyebrow">How it plays</p>
+        <h2 id="how" class="h-lg">Aim. Release. Clear.</h2>
+      </div>
+      <ol class="steps">
+        <li class="card step reveal"><h3>Drag to aim</h3><p>The dots above the launcher show how many bounces this room allows.</p></li>
+        <li class="card step reveal"><h3>Release</h3><p>The orb flies and banks off the walls — and whatever else the chapter adds.</p></li>
+        <li class="card step reveal"><h3>Pop every target</h3><p>All of them, in that one shot. A miss resets the room; try as often as you like.</p></li>
+      </ol>
+      <div class="stars" aria-label="Star ratings">
+        <span class="star-pill"><b>★★★</b>First try</span>
+        <span class="star-pill"><b>★★</b>Within three tries, or first try with a hint</span>
+        <span class="star-pill"><b>★</b>Any clear after that</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Download -->
+  <section class="section" id="download" style="padding-top:0" aria-labelledby="dl">
+    <div class="container">
+      <div class="band reveal">
+        <img class="band-icon" src="icon.svg" alt="" width="72" height="72">
+        <h2 id="dl" class="h-lg">Take one clean shot.</h2>
+        <p class="lede">Free on Android, or play right now in your browser. No account, no sign-in.</p>
+        <div class="btn-row">
+          <a class="btn btn-primary btn-lg" href="one-clean-shot.apk" download>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+            Download for Android
+          </a>
+          <a class="btn btn-lg" href="play/">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>
+            Play in your browser
+          </a>
+        </div>
+        <p class="hero-meta">APK · {{APK_SIZE}} · version {{VERSION}} · built {{BUILD_DATE}}</p>
+        <span class="badge">Coming soon to Google Play</span>
+      </div>
+
+      <div class="install-grid">
+        <section class="card desktop-only reveal" aria-labelledby="qr-h">
+          <h3 id="qr-h">On your phone</h3>
+          <div class="qr">
+            <div class="qr-box" id="qr" role="img" aria-label="QR code linking to this page"></div>
+            <p>Scan with your phone camera to open this page, then tap <b>Download for Android</b> — or <b>Play in your browser</b> on any phone.</p>
+          </div>
+        </section>
+        <section class="card reveal" aria-labelledby="install-h">
+          <h3 id="install-h">Install the APK</h3>
+          <ol class="numbered">
+            <li><span>Tap <b>Download for Android</b> on your phone.</span></li>
+            <li><span>Open the downloaded <b>one-clean-shot.apk</b>.</span></li>
+            <li><span>If asked, allow your browser to <b>install unknown apps</b>.</span></li>
+            <li><span>Tap <b>Install</b>, then open One Clean Shot. New versions install over the old one and keep your stars.</span></li>
+          </ol>
+        </section>
+      </div>
+    </div>
+  </section>
 </main>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer-top">
+      <a class="brand" href="./"><img src="icon.svg" alt="" width="28" height="28">One Clean Shot</a>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="help/">Help</a>
+        <a href="privacy/">Privacy</a>
+        <a href="mailto:ramlakhanmadheshiya7@gmail.com?subject=One%20Clean%20Shot%20help">Contact</a>
+        <a href="/games/">All games</a>
+      </nav>
+    </div>
+    <p class="footer-meta">
+      Made with Godot by Ramlakhan Madheshiya, with Claude as AI co-developer.<br>
+      Outfit font (SIL OFL) · Lucide icons (ISC) · Music &amp; sound synthesised for One Clean Shot<br>
+      © 2026 Ramlakhan Madheshiya
+    </p>
+  </div>
+</footer>
+
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <script>
   try {
@@ -131,6 +245,13 @@
   } catch (e) {
     var card = document.querySelector('.desktop-only');
     if (card) card.style.display = 'none';
+  }
+  if ('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.documentElement.classList.add('reveal-on');
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { rootMargin: '0px 0px -8% 0px' });
+    document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
   }
 </script>
 </body>

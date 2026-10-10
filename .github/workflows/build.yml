@@ -102,6 +102,21 @@ jobs:
       - name: Android SDK packages
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.1.0" > /dev/null
 
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+
+      - name: Build the video plugin (Android library)
+        # Encodes the share video to MP4 on phones. If this fails, the APK still
+        # builds; the game then says video saving isn't available.
+        continue-on-error: true
+        run: |
+          gradle -p plugins_src/ocs_video assembleRelease --no-daemon --stacktrace
+          mkdir -p addons/ocs_video/bin
+          cp plugins_src/ocs_video/build/outputs/aar/ocs_video-release.aar addons/ocs_video/bin/
+          ls -l addons/ocs_video/bin
+
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
@@ -136,12 +151,11 @@ jobs:
           mkdir -p site/play
           cp -r build/web/* site/play/
           cp build/android/one-clean-shot.apk site/one-clean-shot.apk
-          cp web/index.html site/index.html
-          cp -r web/privacy site/privacy
-          cp -r web/help site/help
+          # Landing page, help, privacy, shared CSS and images: everything in web/ except Godot's .gdignore
+          rsync -a --exclude '.gdignore' web/ site/
           cp assets/icon.svg site/icon.svg
           size=$(du -h build/android/one-clean-shot.apk | cut -f1)
-          sed -i "s/{{APK_SIZE}}/${size}/; s/{{VERSION}}/1.0.${{ github.run_number }}/; s/{{BUILD_DATE}}/$(date -u +%Y-%m-%d)/" site/index.html
+          sed -i "s/{{APK_SIZE}}/${size}/g; s/{{VERSION}}/1.0.${{ github.run_number }}/g; s/{{BUILD_DATE}}/$(date -u +%Y-%m-%d)/g" site/index.html
           touch site/.nojekyll
 
       - name: Publish APK as a GitHub release

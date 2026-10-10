@@ -13,12 +13,27 @@ const CORAL: Color = Color("#FF6B5B")
 const LENGTH: float = 2.6
 
 var _t: float = 0.0
+## Driven frame by frame (the share video) instead of by the clock: no sound, no
+## tap to skip, no fade-out.
+var manual: bool = false
 var _done: bool = false
 var _popped: bool = false
 var _bounced: bool = false
 
 
+## Shows the moment `t` seconds in (manual mode).
+func show_at(t: float) -> void:
+	_t = t
+	_bounced = t > 0.95
+	_popped = t > 1.45
+	queue_redraw()
+
+
 func _ready() -> void:
+	if manual:
+		set_process(false)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	gui_input.connect(func(e: InputEvent) -> void:

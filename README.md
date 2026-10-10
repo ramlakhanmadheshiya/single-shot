@@ -30,7 +30,7 @@ Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the 
 - **Pacing:** every chapter is a learning journey. Level 1 is a tutorial room for the chapter's new idea (a floating card with an animated diagram, then the element spotlit and the path shown once). Bounces then climb from 1 to 8: levels 1–5 easy, 6–10 easy–medium, 11–15 medium, 16–20 medium–hard, 21–25 hard, 26–30 hard–very hard, 31–35 very hard, 36–39 extreme, 40 the peak.
 - **Progress:** rooms unlock one at a time (clear room N to open room N + 1). A chapter unlocks after 15 clears in the one before it.
 - **Help:** Restart, tap to fast-forward a shot, and hints that show the exact solving path (it stays until you release a shot; in Drift it also outlines where the platform must be). You get 3 free hints, refilled to 3 at local midnight. With none left, the game asks before playing a rewarded ad for +1 hint. If no ad is available, the hint is free.
-- **After a clear:** a result card with Next, Watch (replays your shot), Share, Again and Levels. Share renders a 1080×1350 card of the room with your winning path, stars and a QR code, and opens the system share sheet (Android), the browser share sheet (web) or saves it (desktop).
+- **After a clear:** a result card with Next, Watch (replays your shot), Share, Again and Levels. Share renders a 1080×1350 card of the room with your winning path, stars and a QR code, and opens the system share sheet (Android), the browser share sheet (web) or saves it (desktop). **Save video** makes a 9:16 MP4 (540×960, 30 fps, with music): the game's opening, your shot replayed in its room, the result card, and an end card with a QR code and "Free on Google Play". It is rendered off-screen frame by frame (`game/ui/promo_video.gd`) and encoded with Android's MediaCodec by a small Godot plugin (`plugins_src/ocs_video`, built into `addons/ocs_video/bin` by CI), then saved to Movies › One Clean Shot and offered to the share sheet.
 - **Shop** (the bag on the home screen), all one-time purchases with Restore:
 
   | Product id | What it gives |
@@ -108,7 +108,7 @@ The solver then sweeps all 360° of aim and grades the room. It is rejected if:
 
 Picking the 40: bounces follow `1 + round((n-1)·7/39)`, difficulty rises strictly from level 2 to 40, neighbours never share a layout archetype, an aiming direction or a bounce pattern. `tests/levels_test.gd` enforces all of this.
 
-Moving platforms never stop: they follow a world clock that starts when the room opens. A shot is a pure function of its angle and the clock when it's fired (`state.t0`), so it stays deterministic, and the aim line shows where platforms will be. All platforms in a room share one rhythm, so the winning moment comes round every second or two, and the generator also requires a fair timing window (from 0.3 s down to 0.08 s).
+Moving platforms never stop: they follow a world clock that starts when the room opens. A shot is a pure function of its angle and the clock when it's fired (`state.t0`), so it stays deterministic, and the aim line shows where platforms will be. Every platform in the game moves at the same constant medium speed (18% of the orb's speed, about 270 px/s), all platforms in a room share one rhythm so the winning moment comes round every second or two, no platform ever comes within 18 px of another wall, and the generator also requires a fair timing window (from 0.3 s down to 0.08 s).
 
 ```sh
 godot --headless --path . -s res://tools/level_lab.gd            # all chapters

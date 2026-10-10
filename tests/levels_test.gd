@@ -65,6 +65,21 @@ func _init() -> void:
 		for lv: Dictionary in drift["levels"]:
 			if not RicochetSim.has_movers(lv):
 				_fail("%s: a Drift room without a moving platform" % str(lv["id"]))
+			var walls: Array = lv["walls"]
+			for i: int in walls.size():
+				if not RicochetSim.is_moving(walls[i]):
+					continue
+				var m: Array = walls[i][6]
+				var speed: float = 2.0 * Vector2(float(m[0]), float(m[1])).length() / float(m[2])
+				if absf(speed - LevelLab.PLATFORM_SPEED) > 0.01:
+					_fail("%s: platform speed %.3f, every platform should move at %.2f" % [str(lv["id"]), speed, LevelLab.PLATFORM_SPEED])
+				# No platform ever overlaps another wall.
+				for s: int in 24:
+					var t: float = float(m[2]) * float(s) / 24.0
+					for j: int in walls.size():
+						if j != i and not Geometry2D.intersect_polygons(RicochetSim.wall_corners(walls[i], 0.0, t), RicochetSim.wall_corners(walls[j], 0.0, t)).is_empty():
+							_fail("%s: platform %d overlaps wall %d" % [str(lv["id"]), i, j])
+							break
 	print("LEVELS: %d checked, %s" % [count, "FAIL (%d)" % failures if failures > 0 else "PASS"])
 	quit(1 if failures > 0 else 0)
 
