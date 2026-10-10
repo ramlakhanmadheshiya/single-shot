@@ -1,14 +1,7 @@
 extends Screen
-## One chapter's 40 rooms, grouped by difficulty band. Every number is shown,
-## open or locked, so the whole climb is visible at a glance. A hero card shows the
+## One chapter's 40 rooms as a grid of square tiles. Every number is shown, open
+## or locked, so the whole chapter is visible at a glance. A hero card shows the
 ## chapter's idea and progress; the key chip shows level keys.
-
-## [label, first, last, difficulty 1..9]
-const BANDS: Array = [
-	["Easy", 1, 5, 1], ["Easy – medium", 6, 10, 2], ["Medium", 11, 15, 3],
-	["Medium – hard", 16, 20, 4], ["Hard", 21, 25, 5], ["Hard – very hard", 26, 30, 6],
-	["Very hard", 31, 35, 7], ["Extreme", 36, 39, 8], ["Peak", 40, 40, 9],
-]
 
 var chapter_id: String = "ch1"
 var _focus: Control
@@ -39,45 +32,41 @@ func _ready() -> void:
 	list.add_child(_key_row())
 	var next: Dictionary = Levels.continue_target()
 	var total: int = Levels.level_count(chapter_id)
-	var n: int = 0
-	for band: Array in BANDS:
-		if int(band[1]) > total:
-			break
-		list.add_child(_band_header(str(band[0]), int(band[3])))
-		var row: HBoxContainer = HBoxContainer.new()
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 14)
-		list.add_child(row)
-		for number: int in range(int(band[1]), mini(int(band[2]), total) + 1):
-			var i: int = number - 1
-			var lv: Dictionary = Levels.level(chapter_id, i)
-			var tile: _LevelTile = _LevelTile.new()
-			tile.name = "Level_%d" % number
-			tile.pal = pal
-			tile.number = number
-			tile.stars = SaveSystem.stars_for(str(lv["id"]))
-			tile.open = Levels.level_open(chapter_id, i)
-			tile.keyed = SaveSystem.key_unlocked(str(lv["id"])) and not SaveSystem.is_cleared(str(lv["id"]))
-			tile.current = str(next["chapter"]) == chapter_id and int(next["index"]) == i
-			tile.pressed.connect(_on_tile.bind(i))
-			row.add_child(tile)
-			_tiles.append(tile)
-			if tile.current or (_focus == null and tile.open):
-				_focus = tile
-			tile.modulate.a = 0.0
-			var tw: Tween = create_tween()
-			tw.tween_interval(0.012 * float(n))
-			tw.tween_property(tile, "modulate:a", 1.0, 0.22)
-			n += 1
+	var center: CenterContainer = CenterContainer.new()
+	list.add_child(center)
+	var grid: GridContainer = GridContainer.new()
+	grid.name = "Grid"
+	grid.columns = 5
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 10)
+	center.add_child(grid)
+	for i: int in total:
+		var lv: Dictionary = Levels.level(chapter_id, i)
+		var tile: _LevelTile = _LevelTile.new()
+		tile.name = "Level_%d" % (i + 1)
+		tile.pal = pal
+		tile.number = i + 1
+		tile.stars = SaveSystem.stars_for(str(lv["id"]))
+		tile.open = Levels.level_open(chapter_id, i)
+		tile.keyed = SaveSystem.key_unlocked(str(lv["id"])) and not SaveSystem.is_cleared(str(lv["id"]))
+		tile.current = str(next["chapter"]) == chapter_id and int(next["index"]) == i
+		tile.pressed.connect(_on_tile.bind(i))
+		grid.add_child(tile)
+		_tiles.append(tile)
+		if tile.current or (_focus == null and tile.open):
+			_focus = tile
+		tile.modulate.a = 0.0
+		var tw: Tween = create_tween()
+		tw.tween_interval(0.012 * float(i))
+		tw.tween_property(tile, "modulate:a", 1.0, 0.22)
 	var spacer: Control = Control.new()
 	spacer.custom_minimum_size = Vector2(0, 28)
 	list.add_child(spacer)
 	Events.keys_changed.connect(func(_c: int) -> void: _refresh_keys())
 	# Bring the current room into view, keeping the hero card when it fits.
 	(func() -> void:
-		if _focus != null and _focus.get_parent() != null:
-			var row: Control = _focus.get_parent() as Control
-			var bottom: float = row.position.y + row.size.y + 24.0
+		if _focus != null and _focus.is_inside_tree():
+			var bottom: float = _focus.global_position.y - _scroll.content.global_position.y + _focus.size.y + 24.0
 			if bottom > _scroll.size.y:
 				_scroll.scroll_to(bottom - _scroll.size.y * 0.8)
 	).call_deferred()
@@ -169,21 +158,6 @@ func _key_row() -> Control:
 	return row
 
 
-func _band_header(title: String, level: int) -> Control:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	var pips: _Pips = _Pips.new()
-	pips.pal = pal
-	pips.level = level
-	pips.custom_minimum_size = Vector2(76, 30)
-	row.add_child(UIKit.caption(title, pal, 16))
-	var fill: Control = Control.new()
-	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(fill)
-	row.add_child(pips)
-	return row
-
-
 func focus_default() -> void:
 	if _focus != null:
 		_focus.grab_focus()
@@ -192,20 +166,6 @@ func focus_default() -> void:
 func handle_back() -> bool:
 	app.open_chapters()
 	return true
-
-
-## Difficulty as nine little bars, filled up to the band.
-class _Pips:
-	extends Control
-	var pal: Dictionary
-	var level: int = 1
-
-	func _draw() -> void:
-		for i: int in 9:
-			var h: float = 6.0 + 2.2 * float(i)
-			var x: float = float(i) * 8.4
-			var col: Color = pal["accent"] if i < level else Color(pal["ink"], 0.12)
-			draw_rect(Rect2(Vector2(x, size.y - h), Vector2(5.0, h)), col)
 
 
 ## Open (light) and cleared (solid) shares of the chapter.

@@ -13,13 +13,13 @@ Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the 
   | # | Chapter | Mood | New mechanic |
   |---|---|---|---|
   | 1 | Dawn | warm cream | walls and bank shots |
-  | 2 | Glass | mint | glass panes bounce you once, then shatter |
-  | 3 | Void | indigo night | dark blocks swallow the orb; round bumpers bounce it |
-  | 4 | Drift | sky | platforms never stop sliding: time your release |
-  | 5 | Gate | sage | a switch dissolves the gate walls |
-  | 6 | Turn | rose | pivot walls turn 90° each time they're hit |
-  | 7 | Spark | amber night | flying through a spark adds one bounce |
-  | 8 | Shift | dusk violet | portals carry the orb across the room |
+  | 2 | Drift | sky | platforms never stop sliding: time your release |
+  | 3 | Glass | mint | glass panes bounce you once, then shatter |
+  | 4 | Gate | sage | a switch dissolves the gate walls |
+  | 5 | Turn | rose | pivot walls turn 90° each time they're hit |
+  | 6 | Shift | dusk violet | portals carry the orb across the room |
+  | 7 | Void | indigo night | dark blocks swallow the orb; round bumpers bounce it |
+  | 8 | Spark | amber night | flying through a spark adds one bounce |
   | 9 | Prism | midnight | prisms split one orb into two; ringed targets need two passes |
 
   (Internal ids keep their original numbering, e.g. Drift is `ch9`; `Palette.ORDER` sets the play order.)

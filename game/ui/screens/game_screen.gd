@@ -17,6 +17,10 @@ const NEW_THINGS: Dictionary = {
 	"two_gates": "One switch opens every gate",
 }
 const TITLES: Array = ["", "Cleared", "Nicely done", "One clean shot"]
+## The finish chime and stars sit well under the in-game sounds: they come right
+## after the final pop and were the loudest moment in the game.
+const WIN_DB: float = -9.0
+const STAR_DB: float = -7.0
 
 var chapter_id: String = "ch1"
 var index: int = 0
@@ -59,11 +63,17 @@ func _ready() -> void:
 	add_child(col)
 	col.add_child(make_header("%s  ·  %d" % [pal["name"], index + 1], func() -> void: app.open_levels(chapter_id)))
 
+	# TRY / STARS strip. Messages (why a shot missed, tips) show in this same strip,
+	# above the room, so they never cover the playing area.
+	var strip: Control = Control.new()
+	strip.name = "Strip"
+	strip.custom_minimum_size = Vector2(0, 92)
+	col.add_child(strip)
 	_hud = _Hud.new()
 	_hud.name = "Hud"
 	_hud.pal = pal
-	_hud.custom_minimum_size = Vector2(0, 92)
-	col.add_child(_hud)
+	_hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	strip.add_child(_hud)
 
 	var stage: Control = Control.new()
 	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -79,12 +89,10 @@ func _ready() -> void:
 
 	_toast = UIKit.label("", 24, pal["ink"], 500)
 	_toast.name = "Toast"
-	_toast.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_toast.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_toast.offset_top = 14
-	_toast.offset_bottom = 70
 	_toast.modulate.a = 0.0
-	stage.add_child(_toast)
+	strip.add_child(_toast)
 
 	var bar: HBoxContainer = HBoxContainer.new()
 	bar.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -220,7 +228,7 @@ func _on_shot_finished(cleared: bool, _shots_used: int) -> void:
 		_stars = 3 if attempt == 1 and not _hinted else (2 if attempt <= 3 else 1)
 		SaveSystem.record_level(lid, _stars, attempt)
 		Events.level_completed.emit(lid, _stars)
-		AudioManager.play("win", 1.0)
+		AudioManager.play("win", 1.0, WIN_DB)
 		await get_tree().create_timer(0.55).timeout
 		if is_inside_tree():
 			_show_result(attempt)
@@ -452,23 +460,27 @@ func _close_sheet() -> void:
 	_sheet = null
 
 
+## Shows a message in the strip over the room, in place of TRY / STARS.
 func _show_toast(text: String, seconds: float) -> void:
 	_toast.text = text
 	if _toast_tween != null:
 		_toast_tween.kill()
-	_toast_tween = create_tween()
+	_toast_tween = create_tween().set_parallel(true)
 	_toast_tween.tween_property(_toast, "modulate:a", 1.0, 0.25)
+	_toast_tween.tween_property(_hud, "modulate:a", 0.0, 0.2)
 	if seconds > 0.0:
-		_toast_tween.tween_interval(seconds)
-		_toast_tween.tween_property(_toast, "modulate:a", 0.0, 0.4)
+		_toast_tween.chain().tween_interval(seconds)
+		_toast_tween.chain().tween_property(_toast, "modulate:a", 0.0, 0.35)
+		_toast_tween.tween_property(_hud, "modulate:a", 1.0, 0.35)
 
 
 func _hide_toast() -> void:
 	if _toast.modulate.a > 0.0:
 		if _toast_tween != null:
 			_toast_tween.kill()
-		_toast_tween = create_tween()
+		_toast_tween = create_tween().set_parallel(true)
 		_toast_tween.tween_property(_toast, "modulate:a", 0.0, 0.25)
+		_toast_tween.tween_property(_hud, "modulate:a", 1.0, 0.25)
 
 
 func handle_back() -> bool:
@@ -520,7 +532,7 @@ class _Stars:
 			tw.tween_interval(0.25 + 0.22 * float(i))
 			tw.tween_callback(func() -> void:
 				if i < _earned:
-					AudioManager.play("star", [1.0, 1.25, 1.5][i])
+					AudioManager.play("star", [1.0, 1.25, 1.5][i], STAR_DB)
 					Haptics.tap(12)
 			)
 			tw.tween_method(func(v: float) -> void:

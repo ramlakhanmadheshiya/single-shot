@@ -82,7 +82,7 @@ func build() -> void:
 			return
 		_status.text = msg if not ok else _thanks()
 		if ok:
-			AudioManager.play("win", 1.0)
+			AudioManager.play("win", 1.0, -9.0)
 			Haptics.tap(30)
 	)
 

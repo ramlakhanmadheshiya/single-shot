@@ -138,7 +138,7 @@ static func theme_name(id: String) -> String:
 
 
 ## Play order, gentlest idea first. Ids stay as they were so saves keep working.
-const ORDER: Array = ["ch1", "ch2", "ch3", "ch9", "ch6", "ch8", "ch7", "ch4", "ch5"]
+const ORDER: Array = ["ch1", "ch9", "ch2", "ch6", "ch8", "ch4", "ch3", "ch7", "ch5"]
 
 
 static func ids() -> Array:

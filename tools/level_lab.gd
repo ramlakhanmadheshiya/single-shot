@@ -31,17 +31,18 @@ const TARGETS: Dictionary = {0: [1, 1], 1: [1, 2], 2: [1, 3], 3: [2, 3], 4: [2, 
 const ARCHETYPES: Array[String] = ["scatter", "mirror", "shelves", "pillars", "diagonals", "corridor", "box", "funnel", "zigzag", "frame"]
 
 ## Per-chapter rules. Ranges are [early, late] across the chapter. "late" extras are
-## earlier chapters' ideas that start mixing in from about level 16.
+## ideas from chapters EARLIER IN PLAY ORDER (Palette.ORDER: Dawn, Drift, Glass,
+## Gate, Turn, Shift, Void, Spark, Prism) that start mixing in from about level 16.
 const CHAPTERS: Array = [
 	{"id": "ch1", "name": "Dawn", "seed": 101, "mech": "", "walls": [1, 6]},
 	{"id": "ch2", "name": "Glass", "seed": 202, "mech": "glass", "walls": [1, 5], "glass": [1, 3]},
 	{"id": "ch3", "name": "Void", "seed": 303, "mech": "void", "window_scale": 0.6, "walls": [1, 5], "void": [1, 3], "bumpers": [1, 2], "late": {"glass": [0, 1]}},
-	{"id": "ch4", "name": "Shift", "seed": 404, "mech": "portal", "walls": [1, 5], "portals": 1, "late": {"glass": [0, 1], "void": [0, 2], "bumpers": [0, 1]}},
+	{"id": "ch4", "name": "Shift", "seed": 404, "mech": "portal", "walls": [1, 5], "portals": 1, "late": {"glass": [0, 1]}},
 	{"id": "ch5", "name": "Prism", "seed": 505, "mech": "split", "walls": [1, 5], "prisms": 1, "armored_from": 0.3, "late": {"glass": [0, 1], "void": [0, 1]}},
-	{"id": "ch6", "name": "Gate", "seed": 606, "mech": "switch", "walls": [1, 5], "gates": [1, 2], "switches": 1, "late": {"glass": [0, 1], "void": [0, 1], "bumpers": [0, 1]}},
+	{"id": "ch6", "name": "Gate", "seed": 606, "mech": "switch", "walls": [1, 5], "gates": [1, 2], "switches": 1, "late": {"glass": [0, 1]}},
 	{"id": "ch7", "name": "Spark", "seed": 707, "mech": "spark", "walls": [1, 5], "sparks": [1, 3], "late": {"glass": [0, 1], "void": [0, 1]}},
-	{"id": "ch8", "name": "Turn", "seed": 808, "mech": "pivot", "walls": [2, 5], "pivots": [1, 2], "armored_from": 0.5, "late": {"glass": [0, 1], "void": [0, 1]}},
-	{"id": "ch9", "name": "Drift", "seed": 909, "mech": "move", "pool_factor": 3, "walls": [1, 5], "movers": [1, 3], "late": {"glass": [0, 1], "void": [0, 1], "bumpers": [0, 1]}},
+	{"id": "ch8", "name": "Turn", "seed": 808, "mech": "pivot", "walls": [2, 5], "pivots": [1, 2], "late": {"glass": [0, 1]}},
+	{"id": "ch9", "name": "Drift", "seed": 909, "mech": "move", "pool_factor": 3, "walls": [1, 5], "movers": [1, 3]},
 ]
 
 ## Hand-made rooms that open a chapter by showing its one new idea on its own.
