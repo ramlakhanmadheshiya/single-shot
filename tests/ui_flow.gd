@@ -225,7 +225,7 @@ func _run() -> void:
 	_check(_find("Tip_20") != null and _find("Tip_200") != null and _find("TipAmount") != null, "tip jar has preset amounts and a custom one")
 	(_find("TipAmount") as LineEdit).text = "563"
 	(_find("TipAmount") as LineEdit).text_changed.emit("563")
-	_check((_find("TipCustom") as Button).text.contains("560"), "a custom tip rounds to Play's steps")
+	_check(int(_find("Tips").call("_custom")) == 560 and (_find("TipCustom") as Button).text.contains(Store.price("tip_560")), "a custom tip rounds to Play's steps")
 	app.close_settings()
 
 	# Out of hints with no ad available: the hint is given free, never a dead end.
