@@ -108,9 +108,7 @@ jobs:
           gradle-version: "8.14.3"
 
       - name: Build the video plugin (Android library)
-        # Encodes the share video to MP4 on phones. If this fails, the APK still
-        # builds; the game then says video saving isn't available.
-        continue-on-error: true
+        # Encodes the share video to MP4 on phones (see plugins_src/ocs_video).
         run: |
           gradle -p plugins_src/ocs_video assembleRelease --no-daemon --stacktrace
           mkdir -p addons/ocs_video/bin
