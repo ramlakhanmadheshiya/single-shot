@@ -10,20 +10,34 @@ signal price_updated(product: String, price: String)
 
 ## Shop order. "tier" picks the fallback price shown until Google Play answers.
 const PRODUCTS: Dictionary = {
-	"complete_pack": {"name": "Complete pack", "tier": 3, "blurb": "Everything below, for less",
-		"perks": ["No banner ads, every hint free", "Every level and chapter open", "6 orb styles with their own trails", "11 colour themes", "Yours to keep after one purchase"]},
+	"complete_pack": {"name": "Complete pack", "tier": 3, "blurb": "Everything below, plus 5 level keys",
+		"perks": ["No banner ads, every hint free", "6 orb styles with their own trails", "11 colour themes", "5 level keys to open any room", "Yours to keep after one purchase"]},
 	"supporter_pack": {"name": "Supporter pack", "tier": 2, "blurb": "No ads, and every hint free",
 		"perks": ["No banner ads", "Every hint free, always", "Helps new chapters get made"]},
-	"all_levels": {"name": "Every level", "tier": 1, "blurb": "Play any level, solved or not",
-		"perks": ["Every level and chapter open now", "Stars are still earned by solving", "Yours to keep after one purchase"]},
 	"orb_pack": {"name": "Orb pack", "tier": 1, "blurb": "Comet, Ember, Neon and 3 more", "trial": true,
 		"perks": ["6 more orbs, each with its own trail", "Pick one any time in Settings", "Yours to keep after one purchase"]},
 	"theme_pack": {"name": "Theme pack", "tier": 1, "blurb": "Midnight, Nord, Sepia and 8 more", "trial": true,
 		"perks": ["11 colour themes, light and dark", "Pick one any time in Settings", "Yours to keep after one purchase"]},
 }
-## Tip jar: consumable, buy as often as you like. Opens nothing new.
-const TIPS: Array = ["tip_small", "tip_medium", "tip_large", "tip_huge"]
-const TIP_TIERS: Dictionary = {"tip_small": 0, "tip_medium": 2, "tip_large": 4, "tip_huge": 5}
+## Level keys: consumable, one opens any locked room. Sold 1-10 at a time as
+## products keys_1 ... keys_10; five or more get 10% off.
+const KEY_MAX: int = 10
+const KEY_BULK: int = 5
+const KEY_DISCOUNT: float = 0.10
+## Per-key fallback price by region: [symbol, amount, decimals, symbol after].
+const KEY_UNIT: Dictionary = {
+	"IN": ["₹", 30.0, 0], "US": ["$", 0.49, 2], "EU": ["€", 0.49, 2], "GB": ["£", 0.39, 2],
+	"CA": ["CA$", 0.69, 2], "AU": ["A$", 0.79, 2], "JP": ["¥", 80.0, 0], "BR": ["R$", 2.49, 2],
+	"ID": ["Rp ", 7500.0, 0], "PK": ["Rs ", 129.0, 0], "BD": ["৳", 49.0, 0], "NP": ["Rs ", 59.0, 0],
+	"PH": ["₱", 25.0, 0], "TR": ["₺", 15.99, 2], "MX": ["MX$", 9.0, 0],
+}
+## Tip jar: consumable, opens nothing. Preset amounts plus any custom amount in
+## steps of 10 (Google Play sells fixed prices, so each amount is its own product,
+## tip_10 ... tip_1000, priced in rupees and converted by Play elsewhere).
+const TIP_PRESETS: Array = [20, 50, 100, 200]
+const TIP_MIN: int = 10
+const TIP_MAX: int = 1000
+const TIP_STEP: int = 10
 
 ## Fallback prices by tier, per region, kept in line with the Play Console.
 ## Tiers: 0 = $0.99, 1 = $1.99, 2 = $2.99, 3 = $5.99, 4 = $9.99, 5 = $19.99.
@@ -52,8 +66,12 @@ var _restoring: bool = false
 
 
 func _ready() -> void:
-	for id: String in all_ids():
+	for id: String in PRODUCTS:
 		prices[id] = regional_price(tier_of(id))
+	for n: int in range(1, KEY_MAX + 1):
+		prices["keys_%d" % n] = keys_price(n)
+	for n: int in range(TIP_MIN, TIP_MAX + 1, TIP_STEP):
+		prices["tip_%d" % n] = tip_price(n)
 	# Only create the client where the native plugin exists (Android builds).
 	if Engine.has_singleton("GodotGooglePlayBilling"):
 		_billing = BillingClient.new()
@@ -61,14 +79,60 @@ func _ready() -> void:
 		_connect_billing()
 
 
+static func key_ids() -> Array:
+	var out: Array = []
+	for n: int in range(1, KEY_MAX + 1):
+		out.append("keys_%d" % n)
+	return out
+
+
+static func tip_ids() -> Array:
+	var out: Array = []
+	for n: int in range(TIP_MIN, TIP_MAX + 1, TIP_STEP):
+		out.append("tip_%d" % n)
+	return out
+
+
 static func all_ids() -> Array:
-	return PRODUCTS.keys() + TIPS
+	return PRODUCTS.keys() + key_ids() + tip_ids()
+
+
+static func is_tip(product: String) -> bool:
+	return product.begins_with("tip_")
+
+
+static func is_keys(product: String) -> bool:
+	return product.begins_with("keys_")
+
+
+static func key_count(product: String) -> int:
+	return int(product.trim_prefix("keys_"))
 
 
 static func tier_of(product: String) -> int:
-	if PRODUCTS.has(product):
-		return int(PRODUCTS[product]["tier"])
-	return int(TIP_TIERS.get(product, 0))
+	return int(PRODUCTS.get(product, {}).get("tier", 0))
+
+
+static func _money(unit: Array, amount: float) -> String:
+	var dec: int = int(unit[2])
+	var num: String = str(int(round(amount))) if dec == 0 else ("%.2f" % amount)
+	return str(unit[0]) + num
+
+
+## Fallback price for n keys (Play's real price replaces it once known).
+static func keys_price(n: int) -> String:
+	var unit: Array = KEY_UNIT.get(_region(), KEY_UNIT["US"])
+	var each: float = float(unit[1]) * (1.0 - KEY_DISCOUNT if n >= KEY_BULK else 1.0)
+	return _money(unit, each * float(n))
+
+
+## Fallback price of a tip of `rupees` (shown as rupees in India, else converted
+## roughly from the key price ratio).
+static func tip_price(rupees: int) -> String:
+	if _region() == "IN":
+		return "₹%d" % rupees
+	var unit: Array = KEY_UNIT.get(_region(), KEY_UNIT["US"])
+	return _money(unit, float(unit[1]) * float(rupees) / 30.0)
 
 
 static func display_name(product: String) -> String:
@@ -95,13 +159,14 @@ func price(product: String) -> String:
 	return str(prices.get(product, regional_price(tier_of(product))))
 
 
-## How much the Complete pack saves over buying its parts, as a percentage
-## (from fallback tiers, which share one shape everywhere).
+## How much the Complete pack saves over buying its parts (supporter, orbs,
+## themes and 5 keys), as a percentage of US fallback prices.
 static func complete_saving() -> int:
 	var us: Array = REGIONAL_TIERS["US"]
 	var parts: float = 0.0
-	for id: String in ["supporter_pack", "all_levels", "orb_pack", "theme_pack"]:
+	for id: String in ["supporter_pack", "orb_pack", "theme_pack"]:
 		parts += float(str(us[tier_of(id)]).trim_prefix("$"))
+	parts += float(KEY_UNIT["US"][1]) * 5.0 * (1.0 - KEY_DISCOUNT)
 	var whole: float = float(str(us[tier_of("complete_pack")]).trim_prefix("$"))
 	return int(round((1.0 - whole / parts) * 100.0))
 
@@ -115,7 +180,7 @@ func _simulated() -> bool:
 
 
 func buy(product: String) -> void:
-	if not TIPS.has(product) and SaveSystem.bought(product):
+	if PRODUCTS.has(product) and SaveSystem.bought(product):
 		purchase_finished.emit(true, "It's already yours. Thank you!", product)
 		return
 	if _billing != null:
@@ -140,8 +205,10 @@ func restore() -> void:
 
 
 func _grant(product: String) -> void:
-	if TIPS.has(product):
-		SaveSystem.add_tip()
+	if is_tip(product):
+		SaveSystem.add_tip(int(product.trim_prefix("tip_")))
+	elif is_keys(product):
+		SaveSystem.add_keys(key_count(product))
 	else:
 		SaveSystem.set_owned(product, true)
 
@@ -205,11 +272,12 @@ func _on_purchases(res: Dictionary) -> void:
 		if int(p.get("purchase_state", 0)) != BillingClient.PurchaseState.PURCHASED:
 			continue
 		for id: String in p.get("product_ids", []):
-			if TIPS.has(id):
-				# Tips are consumed so they can be given again.
+			if is_tip(id) or is_keys(id):
+				# Tips and keys are consumed so they can be bought again.
 				_billing.consume_purchase(str(p["purchase_token"]))
 				_grant(id)
-				purchase_finished.emit(true, "Thank you so much for the tip ♥", id)
+				var msg: String = "Thank you so much for the tip ♥" if is_tip(id) else "%d %s added" % [key_count(id), "key" if key_count(id) == 1 else "keys"]
+				purchase_finished.emit(true, msg, id)
 			elif PRODUCTS.has(id):
 				found += 1
 				if not bool(p.get("is_acknowledged", false)):

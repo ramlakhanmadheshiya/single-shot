@@ -1,7 +1,7 @@
 class_name OrbStyles
 extends RefCounted
 ## The orb and its trail, in every style the Orb pack offers. "classic" is free;
-## the rest come with the Orb pack (or a 6-hour trial from a video).
+## the rest come with the Orb pack (or a one-hour trial from a video).
 
 const STYLES: Array = [
 	{"id": "classic", "name": "Classic", "free": true},

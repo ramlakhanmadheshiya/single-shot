@@ -39,8 +39,8 @@ func _draw() -> void:
 			_orbs(c, u * (0.9 if compact else 0.75), 3 if compact else 6)
 		"theme_pack":
 			_swatches(c, u * (0.8 if compact else 0.7), 4 if compact else 11)
-		"all_levels":
-			_levels(c, u * (0.7 if compact else 0.6))
+		"keys":
+			_keys(c, u * (0.7 if compact else 0.6))
 		_:
 			_heart(c, u * (0.55 if compact else 0.5))
 
@@ -85,6 +85,17 @@ func _swatches(c: Vector2, span: float, count: int) -> void:
 		draw_circle(p, rr * 0.62, Color(th["top"]), true, -1.0, true)
 		draw_circle(p, rr * 0.28, Color(th["accent"]), true, -1.0, true)
 		draw_arc(p, rr, 0.0, TAU, 24, Color(pal["ink"], 0.15), 1.2, true)
+
+
+## Three keys fanned out, gently swaying.
+func _keys(c: Vector2, span: float) -> void:
+	for i: int in 3:
+		var a: float = (float(i) - 1.0) * 0.45 + 0.08 * sin(_t * 1.6 + float(i))
+		var s: float = span * (0.62 if i == 1 else 0.5)
+		var p: Vector2 = c + Vector2((float(i) - 1.0) * span * 0.22, (0.0 if i == 1 else span * 0.06))
+		draw_set_transform(p, a, Vector2.ONE)
+		draw_texture_rect(UIKit.icon("key-round"), Rect2(-Vector2(s, s) * 0.5, Vector2(s, s)), false, pal["accent"] if i == 1 else Color(pal["accent"], 0.6))
+	draw_set_transform(Vector2.ZERO)
 
 
 ## A 3x3 grid of rooms whose locks open one by one.

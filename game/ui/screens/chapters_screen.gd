@@ -112,14 +112,8 @@ func _card(c: Dictionary, index: int) -> Button:
 		status.add_child(UIKit.label("%d more in %s" % [left, prev_name], 20, cp["muted"], 500, HORIZONTAL_ALIGNMENT_LEFT))
 		art.modulate.a = 0.45
 		art.playing = false
-		b.pressed.connect(func() -> void:
-			AudioManager.play_ui("ui_back")
-			var tw: Tween = b.create_tween()
-			for k: int in 3:
-				tw.tween_property(b, "position:x", b.position.x + 10.0, 0.04)
-				tw.tween_property(b, "position:x", b.position.x - 10.0, 0.04)
-			tw.tween_property(b, "position:x", b.position.x, 0.04)
-		)
+		# Still worth a look: every room is listed, and a key opens any of them.
+		b.pressed.connect(func() -> void: app.open_levels(id))
 	return b
 
 

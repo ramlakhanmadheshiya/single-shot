@@ -68,7 +68,7 @@ const CHAPTERS: Dictionary = {
 		"card": Color("#FFFFFF", 0.5), "dark": false,
 	},
 	"ch9": {
-		"name": "Drift", "tagline": "Walls move when you shoot",
+		"name": "Drift", "tagline": "Time it with the platforms",
 		"top": Color("#EEF5FB"), "bottom": Color("#CFE3F5"),
 		"ink": Color("#1E3A55"), "muted": Color("#1E3A55", 0.5), "faint": Color("#1E3A55", 0.08),
 		"wall": Color("#1E3A55"), "target": Color("#F25F5C"), "orb": Color("#1E3A55"),
@@ -137,5 +137,9 @@ static func theme_name(id: String) -> String:
 	return "Chapter colours" if id == "chapters" else str(THEMES.get(id, {}).get("name", id))
 
 
+## Play order, gentlest idea first. Ids stay as they were so saves keep working.
+const ORDER: Array = ["ch1", "ch2", "ch3", "ch9", "ch6", "ch8", "ch7", "ch4", "ch5"]
+
+
 static func ids() -> Array:
-	return CHAPTERS.keys()
+	return ORDER

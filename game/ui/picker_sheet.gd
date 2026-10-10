@@ -1,9 +1,17 @@
 extends Overlay
 ## Pick an orb style or a colour theme. Locked ones open their pack's card
-## (buy, or try it for 6 hours with a video).
+## (buy, or try it free for an hour with a video).
 
 ## "orbs" or "themes".
 var mode: String = "orbs"
+var _clock: Label
+var _product: String = ""
+
+
+func _process(_delta: float) -> void:
+	if _clock != null:
+		var c: String = SaveSystem.trial_clock(_product)
+		_clock.text = "On trial  ·  %s left" % c if not c.is_empty() else "Trial over"
 
 
 func _init() -> void:
@@ -19,7 +27,10 @@ func build() -> void:
 	var current: String = SaveSystem.orb_style() if mode == "orbs" else Palette.theme_id
 	var left: int = SaveSystem.trial_left(product)
 	if left > 0 and not SaveSystem.bought(product):
-		body.add_child(UIKit.label("On trial  ·  %dh left" % ceili(float(left) / 3600.0), 20, pal["accent"], 600))
+		_clock = UIKit.label("", 20, pal["accent"], 600)
+		_clock.name = "TrialClock"
+		body.add_child(_clock)
+		_product = product
 	var grid: GridContainer = GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 16)

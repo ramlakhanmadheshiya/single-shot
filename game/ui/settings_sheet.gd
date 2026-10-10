@@ -24,7 +24,7 @@ func build() -> void:
 			_first_focus = row.get_child(1)
 	for item: Array in [["Vibration", "haptics"], ["Screen shake", "shake"], ["Longer aim guide", "long_guide"]]:
 		var tkey: String = item[1]
-		var trow: HBoxContainer = UIKit.toggle_row(item[0], bool(SaveSystem.get_setting(tkey, true)), pal, func(on: bool) -> void: SaveSystem.set_setting(tkey, on))
+		var trow: HBoxContainer = UIKit.toggle_row(item[0], bool(SaveSystem.get_setting(tkey, true)), pal, func(on: bool) -> void: SaveSystem.set_setting(tkey, on), func() -> void: app.open_setting_info(tkey))
 		trow.name = "Row_" + tkey
 		body.add_child(trow)
 	add_gap(12)

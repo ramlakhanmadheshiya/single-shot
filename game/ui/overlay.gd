@@ -20,6 +20,7 @@ var _scroll: TouchScroll
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	add_to_group("modal")
 	var shade: ColorRect = ColorRect.new()
 	shade.color = Color(pal["bottom"], 0.6)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

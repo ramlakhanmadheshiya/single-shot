@@ -30,6 +30,8 @@ func _ready() -> void:
 		_rows[id] = row
 		if _first == null:
 			_first = row
+		if id == "supporter_pack":
+			list.add_child(_keys_row())
 	list.add_child(_tip_row())
 	_status = UIKit.label("", 20, pal["muted"], 500)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -132,6 +134,51 @@ func _row(id: String) -> Button:
 	return b
 
 
+## Level keys: consumable, so a stepper card instead of a one-time pack.
+func _keys_row() -> Button:
+	var b: Button = Button.new()
+	b.name = "Product_keys"
+	b.custom_minimum_size = Vector2(0, 128)
+	var sb: StyleBoxFlat = StyleBoxFlat.new()
+	sb.bg_color = Color(pal["ink"], 0.06)
+	sb.set_corner_radius_all(32)
+	sb.corner_detail = 10
+	for state: String in ["normal", "hover", "pressed", "disabled"]:
+		b.add_theme_stylebox_override(state, sb)
+	UIKit.add_press_feel(b)
+	b.pressed.connect(func() -> void: app.open_keys())
+	var row: HBoxContainer = HBoxContainer.new()
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 22
+	row.offset_right = -22
+	row.offset_top = 16
+	row.offset_bottom = -16
+	row.add_theme_constant_override("separation", 20)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(row)
+	var tile: ProductPreview = ProductPreview.new()
+	tile.product = "keys"
+	tile.pal = pal
+	tile.compact = true
+	tile.custom_minimum_size = Vector2(96, 96)
+	row.add_child(tile)
+	var text: VBoxContainer = VBoxContainer.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.alignment = BoxContainer.ALIGNMENT_CENTER
+	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(text)
+	text.add_child(UIKit.label("Level keys", 30, pal["ink"], 600, HORIZONTAL_ALIGNMENT_LEFT))
+	text.add_child(UIKit.label("Open any locked room  ·  10% off for 5+", 20, pal["muted"], 400, HORIZONTAL_ALIGNMENT_LEFT))
+	var price: VBoxContainer = VBoxContainer.new()
+	price.alignment = BoxContainer.ALIGNMENT_CENTER
+	price.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(price)
+	price.add_child(UIKit.label(Store.price("keys_1"), 26, pal["target"], 700, HORIZONTAL_ALIGNMENT_RIGHT))
+	price.add_child(UIKit.label("per key", 16, pal["muted"], 600, HORIZONTAL_ALIGNMENT_RIGHT))
+	row.add_child(UIKit.icon_rect("chevron-right", 28.0, pal["muted"]))
+	return b
+
+
 func _tip_row() -> Button:
 	var b: Button = UIKit.pill("", pal, "soft", Vector2(0, 112), 24)
 	b.name = "TipJar"
@@ -166,11 +213,25 @@ func handle_back() -> bool:
 	return true
 
 
-## Price pill, "Owned" check, or the time left on a video trial.
+## Price pill, "Owned" check, or the time left on a video trial (live).
 class _PriceTag:
 	extends HBoxContainer
 	var product: String
 	var pal: Dictionary
+	var _clock: Label
+	var _wait: float = 0.0
+
+	func _process(delta: float) -> void:
+		_wait -= delta
+		if _wait <= 0.0:
+			_wait = 0.25
+			_tick()
+
+	func _tick() -> void:
+		if _clock == null or not is_instance_valid(_clock):
+			return
+		var c: String = SaveSystem.trial_clock(product)
+		_clock.text = "trial · %s left" % c if not c.is_empty() else ""
 
 	func refresh() -> void:
 		for c: Node in get_children():
@@ -188,5 +249,9 @@ class _PriceTag:
 		box.add_child(UIKit.label(Store.price(product), 26, pal["target"], 700, HORIZONTAL_ALIGNMENT_RIGHT))
 		var left: int = SaveSystem.trial_left(product)
 		if left > 0:
-			box.add_child(UIKit.label("trial · %dh left" % ceili(float(left) / 3600.0), 16, pal["muted"], 600, HORIZONTAL_ALIGNMENT_RIGHT))
+			var clock: Label = UIKit.label("", 16, pal["accent"], 700, HORIZONTAL_ALIGNMENT_RIGHT)
+			clock.name = "TrialClock"
+			box.add_child(clock)
+			_clock = clock
+			_tick()
 		add_child(UIKit.icon_rect("chevron-right", 28.0, pal["muted"]))

@@ -6,7 +6,9 @@ const SAVE_PATH: String = "user://one_clean_shot_save.json"
 const LEGACY_SAVE_PATH: String = "user://carom_save.json"
 const SAVE_VERSION: int = 3
 ## A video unlocks a cosmetic pack for this long.
-const TRIAL_SECONDS: int = 6 * 60 * 60
+const TRIAL_SECONDS: int = 60 * 60
+## Free keys from videos, per day.
+const VIDEO_KEYS_PER_DAY: int = 3
 const DAILY_HINTS: int = 3
 
 var data: Dictionary = {}
@@ -111,6 +113,11 @@ func misses(level_id: String) -> int:
 	return int((data["tries"] as Dictionary).get(level_id, 0))
 
 
+func clear_misses(level_id: String) -> void:
+	if (data["tries"] as Dictionary).erase(level_id):
+		save()
+
+
 func add_miss(level_id: String) -> void:
 	data["tries"][level_id] = misses(level_id) + 1
 	save()
@@ -212,15 +219,71 @@ func start_trial(product: String) -> void:
 	Events.purchases_changed.emit()
 
 
-func has_all_levels() -> bool:
-	return owns("all_levels")
+## "42:13" left on a trial (or "" when none).
+func trial_clock(product: String) -> String:
+	var left: int = trial_left(product)
+	if left <= 0:
+		return ""
+	return "%d:%02d" % [left / 60, left % 60]
+
+
+# --- Level keys -------------------------------------------------------------
+
+func keys() -> int:
+	_grant_complete_keys()
+	return int(data.get("keys", 0))
+
+
+func add_keys(n: int) -> void:
+	data["keys"] = keys() + maxi(0, n)
+	save()
+	Events.keys_changed.emit(keys())
+
+
+## Spends a key to open one room for good. False if there are no keys.
+func use_key(level_id: String) -> bool:
+	if keys() <= 0:
+		return false
+	data["keys"] = keys() - 1
+	data["unlocked"][level_id] = true
+	save()
+	Events.keys_changed.emit(keys())
+	return true
+
+
+func key_unlocked(level_id: String) -> bool:
+	return bool((data["unlocked"] as Dictionary).get(level_id, false))
+
+
+func video_keys_left() -> int:
+	var today: String = Time.get_date_string_from_system()
+	if str(data.get("video_key_day", "")) != today:
+		return VIDEO_KEYS_PER_DAY
+	return maxi(0, VIDEO_KEYS_PER_DAY - int(data.get("video_keys", 0)))
+
+
+func add_video_key() -> void:
+	var today: String = Time.get_date_string_from_system()
+	if str(data.get("video_key_day", "")) != today:
+		data["video_key_day"] = today
+		data["video_keys"] = 0
+	data["video_keys"] = int(data.get("video_keys", 0)) + 1
+	add_keys(1)
+
+
+## The Complete pack includes 5 keys, granted once.
+func _grant_complete_keys() -> void:
+	if bool((data["owned"] as Dictionary).get("complete_pack", false)) and not flag("complete_keys"):
+		data["flags"]["complete_keys"] = true
+		data["keys"] = int(data.get("keys", 0)) + 5
+		save()
 
 
 func tips_given() -> int:
 	return int(data.get("tips", 0))
 
 
-func add_tip() -> void:
+func add_tip(_rupees: int = 0) -> void:
 	data["tips"] = tips_given() + 1
 	save()
 
@@ -236,7 +299,7 @@ func reset_progress() -> void:
 	data["tries"] = {}
 	data["last"] = {"chapter": "ch1", "index": 0}
 	# Keep purchases; only clear tutorials and tips.
-	data["flags"] = {"supporter": is_supporter()}
+	data["flags"] = {"supporter": is_supporter(), "complete_keys": flag("complete_keys")}
 	save()
 
 
@@ -248,6 +311,8 @@ func _defaults() -> Dictionary:
 		"flags": {},
 		"tries": {},
 		"owned": {},
+		"keys": 0,
+		"unlocked": {},
 		"trials": {},
 		"tips": 0,
 		"hints": DAILY_HINTS,
@@ -267,7 +332,7 @@ func _defaults() -> Dictionary:
 ## Copies saved values over defaults so new keys appear after updates.
 func _merge(into: Dictionary, from: Dictionary) -> void:
 	for key: Variant in from:
-		if into.has(key) and into[key] is Dictionary and from[key] is Dictionary and not key in ["levels", "tries"]:
+		if into.has(key) and into[key] is Dictionary and from[key] is Dictionary and not key in ["levels", "tries", "unlocked"]:
 			_merge(into[key], from[key])
 		else:
 			into[key] = from[key]

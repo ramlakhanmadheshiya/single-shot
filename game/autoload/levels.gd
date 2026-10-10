@@ -80,23 +80,33 @@ func stars_in(chapter_id: String) -> int:
 
 func chapter_open(chapter_id: String) -> bool:
 	var i: int = chapter_index(chapter_id)
-	if i <= 0 or SaveSystem.has_all_levels():
+	if i <= 0:
 		return true
 	return cleared_in(str(chapters[i - 1]["id"])) >= CHAPTER_GATE
 
 
-## Rooms open strictly one at a time: clear room N to open room N + 1.
+## Rooms open strictly one at a time: clear room N to open room N + 1. A level
+## key opens any single room for good (even in a chapter that is still locked);
+## clearing it then opens the next one as usual.
 func level_open(chapter_id: String, index: int) -> bool:
-	if not chapter_open(chapter_id):
-		return false
 	var list: Array = chapter(chapter_id).get("levels", [])
-	if index <= 0:
-		return true
-	if index >= list.size():
+	if index < 0 or index >= list.size():
 		return false
-	if SaveSystem.has_all_levels():
+	var id: String = str(list[index]["id"])
+	if SaveSystem.key_unlocked(id) or SaveSystem.is_cleared(id):
 		return true
-	return SaveSystem.is_cleared(str(list[index - 1]["id"])) or SaveSystem.is_cleared(str(list[index]["id"]))
+	if index == 0:
+		return chapter_open(chapter_id)
+	return SaveSystem.is_cleared(str(list[index - 1]["id"]))
+
+
+## How many rooms of a chapter are open right now.
+func open_in(chapter_id: String) -> int:
+	var n: int = 0
+	for i: int in level_count(chapter_id):
+		if level_open(chapter_id, i):
+			n += 1
+	return n
 
 
 ## The level "Play" should open: the first unbeaten room near where the player was.

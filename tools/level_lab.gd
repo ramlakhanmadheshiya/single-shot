@@ -23,6 +23,9 @@ const MAX_BOUNCES: int = 8
 
 ## Narrowest solving window (degrees) allowed for a room that needs b bounces.
 const MIN_WINDOW: Dictionary = {0: 5.0, 1: 4.0, 2: 3.0, 3: 2.0, 4: 1.4, 5: 1.0, 6: 0.8, 7: 0.6, 8: 0.5}
+## Moving platforms never stop, so the shot also has to be timed. Shortest allowed
+## timing window, in world-clock units (the orb's speed: 1500 units = 1 second).
+const MIN_TIME_WINDOW: Dictionary = {0: 450.0, 1: 450.0, 2: 375.0, 3: 300.0, 4: 240.0, 5: 195.0, 6: 165.0, 7: 150.0, 8: 120.0}
 ## Targets per room for a room that needs b bounces.
 const TARGETS: Dictionary = {0: [1, 1], 1: [1, 2], 2: [1, 3], 3: [2, 3], 4: [2, 4], 5: [3, 4], 6: [3, 5], 7: [3, 5], 8: [4, 6]}
 const ARCHETYPES: Array[String] = ["scatter", "mirror", "shelves", "pillars", "diagonals", "corridor", "box", "funnel", "zigzag", "frame"]
@@ -38,7 +41,7 @@ const CHAPTERS: Array = [
 	{"id": "ch6", "name": "Gate", "seed": 606, "mech": "switch", "walls": [1, 5], "gates": [1, 2], "switches": 1, "late": {"glass": [0, 1], "void": [0, 1], "bumpers": [0, 1]}},
 	{"id": "ch7", "name": "Spark", "seed": 707, "mech": "spark", "walls": [1, 5], "sparks": [1, 3], "late": {"glass": [0, 1], "void": [0, 1]}},
 	{"id": "ch8", "name": "Turn", "seed": 808, "mech": "pivot", "walls": [2, 5], "pivots": [1, 2], "armored_from": 0.5, "late": {"glass": [0, 1], "void": [0, 1]}},
-	{"id": "ch9", "name": "Drift", "seed": 909, "mech": "move", "walls": [1, 5], "movers": [1, 3], "late": {"glass": [0, 1], "void": [0, 1], "bumpers": [0, 1]}},
+	{"id": "ch9", "name": "Drift", "seed": 909, "mech": "move", "pool_factor": 3, "walls": [1, 5], "movers": [1, 3], "late": {"glass": [0, 1], "void": [0, 1], "bumpers": [0, 1]}},
 ]
 
 ## Hand-made rooms that open a chapter by showing its one new idea on its own.
@@ -140,7 +143,7 @@ func _build_chapter() -> Array:
 		var goal: int = -1
 		var worst: float = 1.0e9
 		for b: int in need:
-			var ratio: float = float((pool[b] as Array).size()) / float(int(need[b]) * 6)
+			var ratio: float = float((pool[b] as Array).size()) / float(int(need[b]) * int(chapter.get("pool_factor", 6)))
 			if ratio < worst:
 				worst = ratio
 				goal = b
@@ -153,7 +156,7 @@ func _build_chapter() -> Array:
 		if attempts % 500 == 0:
 			var counts: Array = []
 			for b: int in need:
-				counts.append("%d:%d/%d" % [b, (pool[b] as Array).size(), int(need[b]) * 6])
+				counts.append("%d:%d/%d" % [b, (pool[b] as Array).size(), int(need[b]) * int(chapter.get("pool_factor", 6))])
 			print("  %s: %d attempts  %s" % [chapter["id"], attempts, " ".join(counts)])
 	stats["attempts"] = attempts
 	return _assign(result, pool)
@@ -517,9 +520,11 @@ func _convert_kind(walls: Array, count: int, kind: String) -> void:
 		walls[pick][5] = kind
 
 
-## Puts `count` plain walls on rails. Platforms move at 20-35% of the orb's speed
-## and their whole sweep stays inside the room, clear of the launcher.
+## Puts `count` plain walls on rails. All platforms in a room share one rhythm
+## (period), so the moment that works comes round again every second or two.
+## They move at 20-35% of the orb's speed and stay inside the room.
 func _add_rails(level: Dictionary, count: int) -> void:
+	var period: float = _snap(rng.randf_range(1300.0, 2400.0))
 	var walls: Array = level["walls"]
 	var plain: Array = []
 	for i: int in walls.size():
@@ -532,12 +537,11 @@ func _add_rails(level: Dictionary, count: int) -> void:
 			break
 		for attempt: int in 12:
 			var horizontal: bool = rng.randf() < 0.65
-			var amp: float = _snap(rng.randf_range(120, 280)) * (1.0 if rng.randf() < 0.5 else -1.0)
+			var amp: float = maxf(100.0, _snap(period * rng.randf_range(0.1, 0.175))) * (1.0 if rng.randf() < 0.5 else -1.0)
 			var d: Vector2 = Vector2(amp, 0) if horizontal else Vector2(0, amp)
-			var speed: float = rng.randf_range(0.2, 0.35)
 			var w: Array = (walls[i] as Array).duplicate()
 			w.resize(6)
-			w.append([d.x, d.y, round(2.0 * absf(amp) / speed)])
+			w.append([d.x, d.y, period])
 			var moved: Array = w.duplicate()
 			moved[0] = float(w[0]) + d.x
 			moved[1] = float(w[1]) + d.y
@@ -745,6 +749,26 @@ func _local_width(level: Dictionary, angle: float) -> float:
 	return total
 
 
+## How long (world-clock units) the release can be early or late and still clear,
+## around the moment the room opened (clock 0, which comes round every period).
+func _time_width(level: Dictionary, angle: float) -> float:
+	var period: float = 1.0e9
+	for w: Array in level.get("walls", []):
+		if RicochetSim.is_moving(w):
+			period = minf(period, float(w[6][2]))
+	var total: float = 0.0
+	for sgn: float in [-1.0, 1.0]:
+		var dt: float = 10.0
+		while dt < period * 0.5:
+			var st: Dictionary = RicochetSim.initial_state(level)
+			st["t0"] = dt * sgn
+			if not bool(RicochetSim.simulate(level, st, angle)["cleared"]):
+				break
+			dt += 10.0
+		total += dt - 10.0
+	return total
+
+
 ## The room with this chapter's idea taken away, to prove the idea matters.
 func _without_mechanic(level: Dictionary) -> Dictionary:
 	var out: Dictionary = level.duplicate(true)
@@ -866,6 +890,13 @@ func _grade(level: Dictionary, goal: int, intro: bool) -> Dictionary:
 			if _bounce_count(level, float(w["angle"])) < goal - 1:
 				return _reject("shortcut")
 	var out: Dictionary = level.duplicate(true)
+	var time_score: float = 0.0
+	if RicochetSim.has_movers(level):
+		var tw: float = _time_width(level, angle)
+		if tw < float(MIN_TIME_WINDOW.get(clampi(goal, 0, MAX_BOUNCES), 120.0)) * (0.8 if intro else 1.0):
+			return _reject("timing")
+		out["time_window"] = round(tw)
+		time_score = 0.6 * log(450.0 / tw) / log(10.0)
 	out["shots"] = 1
 	out["need"] = bounces
 	out["solution"] = [snappedf(rad_to_deg(angle), 0.001)]
@@ -879,7 +910,7 @@ func _grade(level: Dictionary, goal: int, intro: bool) -> Dictionary:
 		if RicochetSim.wall_kind(w) != "wall" or RicochetSim.is_moving(w):
 			parts += 1
 	var score: float = log(1.0 / maxf(fraction, 0.00001)) / log(10.0) + 0.9 * log(6.0 / width_deg) / log(10.0) \
-		+ 0.2 * float((level["targets"] as Array).size()) + 0.15 * float(parts)
+		+ 0.2 * float((level["targets"] as Array).size()) + 0.15 * float(parts) + time_score
 	score = maxf(0.0, score)
 	out["score"] = snappedf(score, 0.001)
 	out["difficulty"] = snappedf(float(bounces) + 0.95 * score / (1.0 + score), 0.001)

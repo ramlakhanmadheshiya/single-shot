@@ -12,7 +12,7 @@ func _ready() -> void:
 	if not args.is_empty():
 		out_dir = args[0]
 	DirAccess.make_dir_recursive_absolute(out_dir)
-	AudioManager.mute_for_tests = true
+	AudioManager.mute_for_tests = not OS.get_cmdline_user_args().has("--new")
 	_backup = SaveSystem.data.duplicate(true)
 	app = (load("res://game/scenes/main.tscn") as PackedScene).instantiate()
 	add_child(app)
@@ -35,6 +35,9 @@ func _board() -> Board:
 
 
 func _run() -> void:
+	if OS.get_cmdline_user_args().has("--new"):
+		await _new_screens()
+		return
 	if OS.get_cmdline_user_args().has("--about"):
 		await _wait(1.5)
 		app.open_about()
@@ -42,7 +45,7 @@ func _run() -> void:
 		await _shot("about")
 		get_tree().quit()
 		return
-	SaveSystem.data["owned"] = {"all_levels": true}
+	SaveSystem.data["owned"] = {}
 	SaveSystem.data["flags"] = {}
 	await _wait(2.4)
 	await _shot("01_home")
@@ -125,4 +128,68 @@ func _run() -> void:
 	SaveSystem.data = _backup
 	SaveSystem.save()
 	SaveSystem._apply_cosmetics()
+	get_tree().quit()
+
+
+## The screens added in the second round of changes.
+func _new_screens() -> void:
+	await _wait(1.25)
+	await _shot("n01_splash_shot")
+	await _wait(0.75)
+	await _shot("n02_splash_title")
+	AudioManager.mute_for_tests = true
+	await _wait(1.2)
+	for i: int in 13:
+		SaveSystem.data["levels"]["ch1_%02d" % (i + 1)] = {"stars": [3, 2, 3, 1][i % 4], "best": 1}
+	SaveSystem.data["keys"] = 3
+	SaveSystem.data["unlocked"]["ch1_20"] = true
+	app.open_levels("ch1")
+	await _wait(1.4)
+	await _shot("n03_levels")
+	(app.find_child("Scroll", true, false) as TouchScroll).scroll_to(900.0)
+	await _wait(0.6)
+	await _shot("n04_levels_bottom")
+	app.open_locked("ch1", 25)
+	await _wait(0.6)
+	await _shot("n05_locked")
+	app.open_keys()
+	await _wait(0.6)
+	app.find_child("Quick_5", true, false).emit_signal("pressed")
+	await _wait(0.4)
+	await _shot("n06_keys")
+	app.open_tips()
+	await _wait(0.6)
+	await _shot("n07_tips")
+	app.open_setting_info("long_guide")
+	await _wait(0.8)
+	await _shot("n08_info_guide")
+	app.open_setting_info("shake")
+	await _wait(1.0)
+	await _shot("n09_info_shake")
+	app.close_settings()
+	app.open_game("ch1", 14)
+	await _wait(1.0)
+	var b: Board = _board()
+	b.fire(deg_to_rad(float(b.level["solution"][0]) + 5.0))
+	while b.playing:
+		await _wait(0.1)
+	await _wait(0.5)
+	b.fire(deg_to_rad(float(b.level["solution"][0]) + 5.0))
+	while b.playing:
+		await _wait(0.1)
+	await _wait(0.6)
+	await _shot("n10_hud_try3")
+	app.current.call("_hint")
+	await _wait(0.4)
+	await _shot("n11_hint")
+	app.open_game("ch9", 7)
+	await _wait(1.0)
+	app.current.call("_hint")
+	await _wait(0.7)
+	await _shot("n12_drift_hint")
+	app.open_shop()
+	await _wait(1.0)
+	await _shot("n13_shop")
+	SaveSystem.data = _backup
+	SaveSystem.save()
 	get_tree().quit()

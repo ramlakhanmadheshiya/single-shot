@@ -23,7 +23,7 @@ var index: int = 0
 var level: Dictionary = {}
 
 var board: Board
-var _info: Label
+var _hud: _Hud
 var _hint_btn: Button
 var _hint_badge: Label
 var _toast: Label
@@ -34,6 +34,7 @@ var _sheet_focus: Control
 var _tries: int = 0
 var _hinted: bool = false
 var _win_angle: float = 0.0
+var _win_t0: float = 0.0
 var _win_tracks: Array = []
 var _stars: int = 0
 var _intro: Control
@@ -58,10 +59,11 @@ func _ready() -> void:
 	add_child(col)
 	col.add_child(make_header("%s  ·  %d" % [pal["name"], index + 1], func() -> void: app.open_levels(chapter_id)))
 
-	_info = UIKit.label("", 22, pal["muted"], 600)
-	_info.name = "TryInfo"
-	_info.custom_minimum_size = Vector2(0, 40)
-	col.add_child(_info)
+	_hud = _Hud.new()
+	_hud.name = "Hud"
+	_hud.pal = pal
+	_hud.custom_minimum_size = Vector2(0, 92)
+	col.add_child(_hud)
 
 	var stage: Control = Control.new()
 	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -189,14 +191,14 @@ func focus_default() -> void:
 		board.grab_focus()
 
 
+## Stars still on offer for the next shot.
+func stars_now() -> int:
+	var attempt: int = _tries + 1
+	return 3 if attempt == 1 and not _hinted else (2 if attempt <= 3 else 1)
+
+
 func _refresh() -> void:
-	var best: int = SaveSystem.stars_for(str(level.get("id", "")))
-	var text: String = "Try %d" % (_tries + 1)
-	if best > 0:
-		text += "   ·   best " + "★".repeat(best)
-	elif _tries == 0:
-		text = "One shot"
-	_info.text = text
+	_hud.set_state(_tries + 1, stars_now())
 	if SaveSystem.is_supporter():
 		_hint_badge.text = "∞"
 	else:
@@ -212,6 +214,7 @@ func _on_shot_finished(cleared: bool, _shots_used: int) -> void:
 	if cleared:
 		_done = true
 		_win_angle = board.last_angle
+		_win_t0 = board.last_t0
 		_win_tracks = board.last_tracks
 		var attempt: int = _tries + 1
 		_stars = 3 if attempt == 1 and not _hinted else (2 if attempt <= 3 else 1)
@@ -226,6 +229,7 @@ func _on_shot_finished(cleared: bool, _shots_used: int) -> void:
 	_tries += 1
 	if not SaveSystem.is_cleared(lid):
 		SaveSystem.add_miss(lid)
+	_refresh()
 	AudioManager.play("fail", 1.0)
 	Haptics.tap(20)
 	var why: String = board.miss_reason()
@@ -245,11 +249,18 @@ func _pulse(c: Control) -> void:
 	tw.tween_property(c, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_SINE)
 
 
+## A fresh start: back to try 1 with all three stars on offer.
 func _restart() -> void:
 	_close_sheet()
 	_done = false
+	var fresh: bool = _tries > 0 or _hinted
+	_tries = 0
+	_hinted = false
+	SaveSystem.clear_misses(str(level.get("id", "")))
 	board.reset()
 	_refresh()
+	if fresh:
+		_show_toast("Fresh start  ·  try 1", 1.8)
 
 
 func _hint() -> void:
@@ -272,6 +283,9 @@ func _show_hint_now() -> bool:
 	board.retry()
 	if board.show_hint():
 		_hinted = true
+		_refresh()
+		if RicochetSim.has_movers(level):
+			_show_toast("Aim along the path, and release when the platform\nlines up with its outline", 4.0)
 		return true
 	return false
 
@@ -349,7 +363,7 @@ func _show_result(attempt: int) -> void:
 	sheet.add_child(actions)
 	actions.add_child(_action("play", "WATCH", "Watch", func() -> void:
 		_close_sheet()
-		board.replay(_win_angle)
+		board.replay(_win_angle, _win_t0)
 		_show_toast("Your shot", 1.5)
 		await get_tree().create_timer(0.4).timeout
 		while is_inside_tree() and board.playing:
@@ -360,11 +374,7 @@ func _show_result(attempt: int) -> void:
 				_show_result(attempt)
 	))
 	actions.add_child(_action("share-2", "SHARE", "Share", func() -> void: app.open_share(_share_info(attempt))))
-	actions.add_child(_action("rotate-ccw", "AGAIN", "Replay", func() -> void:
-		_tries = 0
-		_hinted = false
-		_restart()
-	))
+	actions.add_child(_action("rotate-ccw", "AGAIN", "Replay", _restart))
 	actions.add_child(_action("layout-grid", "LEVELS", "Levels", func() -> void: app.open_levels(chapter_id)))
 	_sheet_focus = next_btn
 
@@ -380,7 +390,7 @@ func _share_info(attempt: int) -> Dictionary:
 	return {
 		"level": level, "pal": pal, "chapter": str(pal["name"]), "number": index + 1,
 		"stars": _stars, "title": TITLES[_stars], "verdict": _verdict(attempt),
-		"stats": _stats_line(), "tracks": _win_tracks, "angle": _win_angle,
+		"stats": _stats_line(), "tracks": _win_tracks, "angle": _win_angle, "t0": _win_t0,
 	}
 
 
@@ -401,6 +411,7 @@ func _open_sheet() -> VBoxContainer:
 	_close_sheet()
 	var root: Control = Control.new()
 	root.name = "Sheet"
+	root.add_to_group("modal")
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(root)
@@ -529,3 +540,51 @@ class _Stars:
 				draw_texture_rect(tex, r, false, Color("#FFC53D"))
 			else:
 				draw_texture_rect(outline, r, false, Color(pal["ink"], 0.25))
+
+
+## TRY and STARS, side by side over the room. The stars on offer drop as tries
+## go up (and with a hint), with a little pulse so the change is noticed.
+class _Hud:
+	extends Control
+	var pal: Dictionary
+	var attempt: int = 1
+	var stars: int = 3
+	var _bump: float = 0.0
+	var _t: float = 0.0
+
+	func set_state(a: int, s: int) -> void:
+		if s < stars and is_inside_tree():
+			_bump = 1.0
+			AudioManager.play("undo", 0.8, -6.0)
+		attempt = a
+		stars = s
+		queue_redraw()
+
+	func _process(delta: float) -> void:
+		_t += delta
+		if _bump > 0.0:
+			_bump = maxf(0.0, _bump - delta * 2.5)
+			queue_redraw()
+
+	func _draw() -> void:
+		var f: Font = UIKit.font(600)
+		var fv: FontVariation = (f as FontVariation).duplicate()
+		fv.spacing_glyph = 3
+		var mid: float = size.x * 0.5
+		var cols: Array = [mid - 110.0, mid + 110.0]
+		for i: int in 2:
+			var cap: String = "TRY" if i == 0 else "STARS"
+			var w: float = fv.get_string_size(cap, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x
+			draw_string(fv, Vector2(cols[i] - w * 0.5, 24), cap, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, pal["muted"])
+		var num: String = str(attempt)
+		var nf: Font = UIKit.font(300)
+		var nw: float = nf.get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, 46).x
+		draw_string(nf, Vector2(cols[0] - nw * 0.5, 74), num, HORIZONTAL_ALIGNMENT_LEFT, -1, 46, pal["ink"])
+		for k: int in 3:
+			var s: float = 34.0 * (1.0 + (0.35 * _bump if k == stars else 0.0))
+			var c: Vector2 = Vector2(cols[1] + (float(k) - 1.0) * 40.0, 58)
+			var r: Rect2 = Rect2(c - Vector2(s, s) * 0.5, Vector2(s, s))
+			if k < stars:
+				draw_texture_rect(UIKit.icon("star-filled"), r, false, Color("#FFC53D"))
+			else:
+				draw_texture_rect(UIKit.icon("star"), r, false, Color(pal["ink"], 0.22 + 0.5 * (_bump if k == stars else 0.0)))

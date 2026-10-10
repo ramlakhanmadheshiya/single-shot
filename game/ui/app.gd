@@ -16,6 +16,9 @@ const ProductSheet: GDScript = preload("res://game/ui/product_sheet.gd")
 const TipSheet: GDScript = preload("res://game/ui/tip_sheet.gd")
 const PickerSheet: GDScript = preload("res://game/ui/picker_sheet.gd")
 const ShareSheet: GDScript = preload("res://game/ui/share_sheet.gd")
+const LockedSheet: GDScript = preload("res://game/ui/locked_sheet.gd")
+const KeysSheet: GDScript = preload("res://game/ui/keys_sheet.gd")
+const SettingInfoSheet: GDScript = preload("res://game/ui/setting_info_sheet.gd")
 
 var backdrop: Backdrop
 var host: MarginContainer
@@ -47,6 +50,11 @@ func _ready() -> void:
 	)
 	open_home()
 	AdManager.refresh_banner()
+	# The opening moment: the logo's shot, then the home screen.
+	if not AudioManager.mute_for_tests:
+		var splash: Splash = Splash.new()
+		splash.name = "Splash"
+		add_child(splash)
 
 
 ## Keeps content inside notches and rounded corners; also caps width on desktop.
@@ -110,6 +118,29 @@ func open_product(product: String, back: Callable = Callable()) -> void:
 	sheet.set("show_shop_link", current == null or current.get_script() != ShopScreen)
 	if back.is_valid():
 		sheet.set("on_close", back)
+	_open_overlay(sheet)
+
+
+## A locked room: open it with a key, or see how it opens by playing.
+func open_locked(chapter_id: String, index: int) -> void:
+	var sheet: Control = LockedSheet.new()
+	sheet.set("chapter_id", chapter_id)
+	sheet.set("index", index)
+	_open_overlay(sheet)
+
+
+func open_keys(back: Callable = Callable()) -> void:
+	var sheet: Control = KeysSheet.new()
+	if back.is_valid():
+		sheet.set("on_close", back)
+	_open_overlay(sheet)
+
+
+## What a setting does, with a little demo. Closing returns to Settings.
+func open_setting_info(key: String) -> void:
+	var sheet: Control = SettingInfoSheet.new()
+	sheet.set("key", key)
+	sheet.set("on_close", open_settings.bind(current != null and current.in_game()))
 	_open_overlay(sheet)
 
 

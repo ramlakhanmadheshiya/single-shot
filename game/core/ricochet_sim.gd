@@ -41,13 +41,14 @@ static func initial_state(level: Dictionary) -> Dictionary:
 	for w: Array in level.get("walls", []):
 		intact.append(true)
 		rot.append(0.0)
-	return {"hp": hp, "intact": intact, "rot": rot, "open": false}
+	return {"hp": hp, "intact": intact, "rot": rot, "open": false, "t0": 0.0}
 
 
 static func copy_state(state: Dictionary) -> Dictionary:
 	return {
 		"hp": (state["hp"] as Array).duplicate(), "intact": (state["intact"] as Array).duplicate(),
 		"rot": (state.get("rot", []) as Array).duplicate(), "open": bool(state.get("open", false)),
+		"t0": float(state.get("t0", 0.0)),
 	}
 
 
@@ -87,9 +88,11 @@ static func wall_kind(w: Array) -> String:
 	return str(w[5]) if w.size() > 5 else KIND_WALL
 
 
-## A moving platform carries a rail as its 7th field: [dx, dy, period]. It rests at
-## its start while the player aims, and once the orb launches it slides to
-## start + (dx, dy) and back, one round trip every `period` units of orb travel.
+## A moving platform carries a rail as its 7th field: [dx, dy, period]. It never
+## stops: it slides to start + (dx, dy) and back, one round trip every `period`
+## units of the world clock (the orb covers one unit per unit of clock). The
+## clock reads 0 when the room opens; `state["t0"]` is the clock when the shot is
+## fired, so a shot depends on its angle and its timing, and nothing else.
 static func is_moving(w: Array) -> bool:
 	return w.size() > 6 and w[6] is Array and (w[6] as Array).size() >= 3
 
@@ -102,7 +105,7 @@ static func has_movers(level: Dictionary) -> bool:
 
 
 static func wall_offset(w: Array, t: float) -> Vector2:
-	if not is_moving(w) or t <= 0.0:
+	if not is_moving(w):
 		return Vector2.ZERO
 	var m: Array = w[6]
 	var u: float = fposmod(t / float(m[2]), 1.0)
@@ -116,7 +119,7 @@ static func wall_velocity(w: Array, t: float) -> Vector2:
 		return Vector2.ZERO
 	var m: Array = w[6]
 	var period: float = float(m[2])
-	var u: float = fposmod(maxf(t, 0.0) / period, 1.0)
+	var u: float = fposmod(t / period, 1.0)
 	return Vector2(float(m[0]), float(m[1])) * (2.0 / period) * (1.0 if u < 0.5 else -1.0)
 
 
@@ -128,6 +131,7 @@ static func next_turn(level: Dictionary, t: float) -> float:
 			continue
 		var half: float = float(w[6][2]) * 0.5
 		var k: float = floor(t / half) + 1.0
+		# (floor works for negative clocks too)
 		var at: float = k * half
 		if at - t < 0.0001:
 			at += half
@@ -149,6 +153,7 @@ static func _segments(level: Dictionary, state: Dictionary, t: float = 0.0) -> A
 	var intact: Array = state["intact"]
 	var rot: Array = state.get("rot", [])
 	var open: bool = bool(state.get("open", false))
+	var clock: float = t + float(state.get("t0", 0.0))
 	for i: int in walls.size():
 		if not bool(intact[i]):
 			continue
@@ -156,8 +161,8 @@ static func _segments(level: Dictionary, state: Dictionary, t: float = 0.0) -> A
 		var kind: String = wall_kind(w)
 		if kind == KIND_GATE and open:
 			continue
-		var pts: PackedVector2Array = wall_corners(w, float(rot[i]) if i < rot.size() else 0.0, t)
-		var v: Vector2 = wall_velocity(w, t)
+		var pts: PackedVector2Array = wall_corners(w, float(rot[i]) if i < rot.size() else 0.0, clock)
+		var v: Vector2 = wall_velocity(w, clock)
 		for k: int in 4:
 			segs.append([pts[k], pts[(k + 1) % 4], i, kind, v])
 	return segs
@@ -347,7 +352,8 @@ static func simulate(level: Dictionary, state_in: Dictionary, angle: float, boun
 			break
 		if movers:
 			# A platform turning around changes its velocity: re-plan from there.
-			var turn: float = next_turn(level, t) - t
+			var clock: float = t + float(state.get("t0", 0.0))
+			var turn: float = next_turn(level, clock) - clock
 			if turn < best_d:
 				for o: Dictionary in orbs:
 					if o["alive"]:
@@ -512,8 +518,9 @@ static func preview(level: Dictionary, state: Dictionary, angle: float, stub_len
 		if movers:
 			segs = _segments(level, temp_state, t)
 		hit = _next_hit(level, temp_state, segs, orb)
-		if movers and float(hit["d"]) > next_turn(level, t) - t:
-			var turn: float = next_turn(level, t) - t
+		var clock: float = t + float(temp_state.get("t0", 0.0))
+		if movers and float(hit["d"]) > next_turn(level, clock) - clock:
+			var turn: float = next_turn(level, clock) - clock
 			orb["pos"] = (orb["pos"] as Vector2) + (orb["dir"] as Vector2) * turn
 			t += turn
 			continue

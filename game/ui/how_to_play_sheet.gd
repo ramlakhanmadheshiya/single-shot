@@ -2,12 +2,12 @@ extends Overlay
 ## The rules in five short lines, plus a way to replay the hands-on tutorial.
 
 const STEPS: Array = [
-	["1", "Drag anywhere to aim. Hold still a moment for fine aim."],
+	["1", "Drag anywhere to aim. The dotted line shows the first bounces."],
 	["2", "Let go to shoot. You get one shot per room."],
 	["3", "Pop every target in that one shot to clear the room."],
 	["4", "The dots over the launcher are the bounces your shot gets."],
 	["5", "Missed? The room resets and your last path stays faintly visible."],
-	["6", "First try ★★★  ·  within three tries ★★  ·  after that ★"],
+	["6", "First try ★★★  ·  within three tries ★★  ·  after that ★. Restart gives a fresh start at try 1."],
 ]
 
 

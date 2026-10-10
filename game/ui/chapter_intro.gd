@@ -15,7 +15,7 @@ const LESSONS: Dictionary = {
 	"ch6": ["Switch and gates", "Fly through the switch and every dashed gate dissolves for the rest of the shot."],
 	"ch7": ["Sparks", "Fly through a spark to earn one extra bounce. Some rooms start with none."],
 	"ch8": ["Pivot walls", "A pivot wall turns 90° every time it's hit. Plan for where it will be next."],
-	"ch9": ["Moving platforms", "Platforms slide along their rails once you shoot. The aim line shows where they'll be when your orb arrives."],
+	"ch9": ["Moving platforms", "Platforms never stop sliding along their rails. Watch the rhythm, then release at the right moment. The aim line shows where they'll be when your orb arrives."],
 }
 const CAPTIONS: Dictionary = {
 	"ch2": "This glass breaks after one bounce",
@@ -25,7 +25,7 @@ const CAPTIONS: Dictionary = {
 	"ch6": "The switch opens the gate",
 	"ch7": "A spark gives one more bounce",
 	"ch8": "This wall turns when hit",
-	"ch9": "This platform slides when you shoot",
+	"ch9": "Time your release to the platform",
 }
 
 var chapter_id: String = "ch2"
@@ -49,6 +49,7 @@ func _ready() -> void:
 
 func _build_card() -> void:
 	_card_root = Control.new()
+	_card_root.add_to_group("modal")
 	_card_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_card_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_card_root)

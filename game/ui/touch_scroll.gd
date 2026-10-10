@@ -71,12 +71,12 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event
 		if mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			if get_global_rect().has_point(mb.position) and mb.pressed:
+			if get_global_rect().has_point(mb.position) and mb.pressed and not _covered():
 				scroll_to(scroll_y + (-80.0 if mb.button_index == MOUSE_BUTTON_WHEEL_UP else 80.0))
 			return
 		if mb.button_index != MOUSE_BUTTON_LEFT:
 			return
-		if mb.pressed and get_global_rect().has_point(mb.position):
+		if mb.pressed and get_global_rect().has_point(mb.position) and not _covered():
 			_tracking = true
 			_dragging = false
 			_start_pointer = mb.position.y
@@ -102,6 +102,14 @@ func _input(event: InputEvent) -> void:
 			_last_pointer = y
 			_last_msec = now
 			scroll_to(_start_scroll - (y - _start_pointer))
+
+
+## True while a floating card this list isn't part of is open on top of it.
+func _covered() -> bool:
+	for n: Node in get_tree().get_nodes_in_group("modal"):
+		if is_instance_valid(n) and n is CanvasItem and (n as CanvasItem).is_visible_in_tree() and not n.is_ancestor_of(self):
+			return true
+	return false
 
 
 func _process(delta: float) -> void:

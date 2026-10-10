@@ -205,12 +205,37 @@ static func add_press_feel(c: Control) -> void:
 
 
 ## A labelled on/off row used by the settings sheet.
-static func toggle_row(text: String, value: bool, pal: Dictionary, on_change: Callable) -> HBoxContainer:
+## `on_info` (optional) makes the label tappable, with a small info mark, to explain
+## what the setting does.
+static func toggle_row(text: String, value: bool, pal: Dictionary, on_change: Callable, on_info: Callable = Callable()) -> HBoxContainer:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.custom_minimum_size = Vector2(0, 76)
-	var l: Label = label(text, 28, pal["ink"], 500, HORIZONTAL_ALIGNMENT_LEFT)
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(l)
+	if on_info.is_valid():
+		var info: Button = Button.new()
+		info.name = "Info"
+		info.flat = true
+		info.text = text
+		info.icon = icon("info")
+		info.icon_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		info.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		info.add_theme_constant_override("icon_max_width", 22)
+		info.add_theme_constant_override("h_separation", 10)
+		info.add_theme_font_override("font", font(500))
+		info.add_theme_font_size_override("font_size", 28)
+		for key: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			info.add_theme_color_override(key, pal["ink"])
+		for key: String in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"]:
+			info.add_theme_color_override(key, Color(pal["ink"], 0.4))
+		var empty: StyleBoxEmpty = StyleBoxEmpty.new()
+		for key: String in ["normal", "hover", "pressed", "focus"]:
+			info.add_theme_stylebox_override(key, empty)
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		info.pressed.connect(on_info)
+		row.add_child(info)
+	else:
+		var l: Label = label(text, 28, pal["ink"], 500, HORIZONTAL_ALIGNMENT_LEFT)
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(l)
 	var sw: CheckButton = CheckButton.new()
 	sw.button_pressed = value
 	sw.focus_mode = Control.FOCUS_ALL

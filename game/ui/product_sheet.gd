@@ -1,12 +1,24 @@
 extends Overlay
 ## One pack, on a floating card: a live preview, what you get, the price, and for
-## cosmetic packs a 6-hour trial from a short video.
+## cosmetic packs a one-hour trial from a short video (with a live countdown).
 
 var product: String = "supporter_pack"
 ## Show a "See the shop" link (when opened from outside the shop).
 var show_shop_link: bool = true
 var _buy: Button
 var _status: Label
+var _trial_btn: Button
+var _tick: float = 0.0
+
+
+## Live trial countdown on the trial button.
+func _process(delta: float) -> void:
+	_tick -= delta
+	if _tick > 0.0 or _trial_btn == null:
+		return
+	_tick = 0.25
+	var clock: String = SaveSystem.trial_clock(product)
+	_trial_btn.text = "On trial  ·  %s left  ·  choose one" % clock if not clock.is_empty() else "Try it free for 1 hour with a video"
 
 
 func _init() -> void:
@@ -75,8 +87,9 @@ func build() -> void:
 	body.add_child(_buy)
 	_first_focus = _buy
 	if bool(info.get("trial", false)) and not SaveSystem.bought(product):
-		var trial: Button = UIKit.pill("Try it for 6 hours with a video", pal, "ghost", Vector2(0, 84), 24)
+		var trial: Button = UIKit.pill("Try it free for 1 hour with a video", pal, "ghost", Vector2(0, 84), 24)
 		trial.name = "Trial"
+		_trial_btn = trial
 		trial.pressed.connect(func() -> void:
 			if SaveSystem.trial_left(product) > 0:
 				app.open_picker("orbs" if product == "orb_pack" else "themes")
@@ -92,8 +105,6 @@ func build() -> void:
 			)
 		)
 		body.add_child(trial)
-		if SaveSystem.trial_left(product) > 0:
-			trial.text = "On trial · %dh left · choose one" % ceili(float(SaveSystem.trial_left(product)) / 3600.0)
 	var links: HBoxContainer = HBoxContainer.new()
 	links.alignment = BoxContainer.ALIGNMENT_CENTER
 	links.add_theme_constant_override("separation", 12)

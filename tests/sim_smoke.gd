@@ -108,7 +108,15 @@ func _moving_platforms() -> void:
 	(still["walls"][0] as Array).resize(6)
 	_check(not bool(RicochetSim.simulate(still, RicochetSim.initial_state(still), -PI / 2)["cleared"]), "the same wall standing still blocks the shot")
 	_check(RicochetSim.wall_offset(level["walls"][0], 800.0).distance_to(Vector2(300, 0)) < 0.01, "a platform reaches the end of its rail at half its period")
-	_check(RicochetSim.wall_offset(level["walls"][0], 0.0) == Vector2.ZERO, "platforms rest at their start while aiming")
+	_check(RicochetSim.wall_offset(level["walls"][0], 0.0) == Vector2.ZERO, "platforms start at rest when the room opens")
+	# Platforms never stop: the same angle fired at another moment meets the
+	# platform somewhere else.
+	var late: Dictionary = RicochetSim.initial_state(level)
+	late["t0"] = 800.0
+	_check(not bool(RicochetSim.simulate(level, late, -PI / 2)["cleared"]), "the shot depends on when it is fired")
+	var lap: Dictionary = RicochetSim.initial_state(level)
+	lap["t0"] = 1600.0
+	_check(bool(RicochetSim.simulate(level, lap, -PI / 2)["cleared"]), "one full platform cycle later, the same shot works again")
 	# A platform sliding into the orb's path is struck and the orb bounces back down.
 	var block: Dictionary = {"launcher": [320, 880], "bounces": 1, "targets": [[320, 120]],
 		"walls": [[120, 400, 160, 16, 0, "wall", [200, 0, 1200]]]}

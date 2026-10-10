@@ -362,7 +362,9 @@ func _drift(f: float, a: float) -> void:
 	var start: Vector2 = Vector2(150, 140)
 	var end: Vector2 = Vector2(150, 20)
 	var rest: Vector2 = Vector2(150, 70)
-	var slide: float = 110.0 * (1.0 - pow(1.0 - clampf(f * 1.7, 0.0, 1.0), 2.0))
+	# The platform never stops; the orb is released so it passes at the far end.
+	var u: float = fmod(_t, PERIOD) / PERIOD
+	var slide: float = 110.0 * (0.5 - 0.5 * cos(TAU * (u + 0.103)))
 	var rail_end: Vector2 = rest + Vector2(110, 0)
 	_dots(rest + Vector2(-16, 0), rail_end, Color(pal["special"], 0.6 * a))
 	for p: Vector2 in [rest, rail_end]:

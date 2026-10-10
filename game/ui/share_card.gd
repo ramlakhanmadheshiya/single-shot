@@ -77,7 +77,7 @@ func _ready() -> void:
 	board.size = Vector2(500, 688)
 	add_child(board)
 	board.setup(level, p)
-	board.show_path(float(info["angle"]))
+	board.show_path(float(info["angle"]), float(info.get("t0", 0.0)))
 	# Stars, title, and how it went.
 	var stars: _StarRow = _StarRow.new()
 	stars.earned = int(info["stars"])
