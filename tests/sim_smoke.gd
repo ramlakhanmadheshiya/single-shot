@@ -14,6 +14,7 @@ func _init() -> void:
 	_portal_and_prism()
 	_armored()
 	_new_mechanics()
+	_moving_platforms()
 	_timing()
 	print("SIM SMOKE: ", "FAIL (%d)" % failures if failures > 0 else "PASS")
 	quit(1 if failures > 0 else 0)
@@ -94,6 +95,38 @@ func _timing() -> void:
 	var t0: int = Time.get_ticks_msec()
 	var wins: Array = RicochetSim.solve(level, RicochetSim.initial_state(level), 1440, true)
 	print("  solve(1440) took %d ms, %d windows" % [Time.get_ticks_msec() - t0, wins.size()])
+
+
+func _moving_platforms() -> void:
+	# A platform parked over the launcher's line slides away before the orb arrives:
+	# rail 300 to the right, one round trip per 1600 units of travel.
+	var level: Dictionary = {"launcher": [320, 880], "bounces": 0, "targets": [[320, 120]],
+		"walls": [[320, 300, 160, 16, 0, "wall", [300, 0, 1600]]]}
+	var res: Dictionary = RicochetSim.simulate(level, RicochetSim.initial_state(level), -PI / 2)
+	_check(bool(res["cleared"]), "a platform slides out of the way while the orb flies")
+	var still: Dictionary = level.duplicate(true)
+	(still["walls"][0] as Array).resize(6)
+	_check(not bool(RicochetSim.simulate(still, RicochetSim.initial_state(still), -PI / 2)["cleared"]), "the same wall standing still blocks the shot")
+	_check(RicochetSim.wall_offset(level["walls"][0], 800.0).distance_to(Vector2(300, 0)) < 0.01, "a platform reaches the end of its rail at half its period")
+	_check(RicochetSim.wall_offset(level["walls"][0], 0.0) == Vector2.ZERO, "platforms rest at their start while aiming")
+	# A platform sliding into the orb's path is struck and the orb bounces back down.
+	var block: Dictionary = {"launcher": [320, 880], "bounces": 1, "targets": [[320, 120]],
+		"walls": [[120, 400, 160, 16, 0, "wall", [200, 0, 1200]]]}
+	var res2: Dictionary = RicochetSim.simulate(block, RicochetSim.initial_state(block), -PI / 2)
+	var bounced: bool = res2["events"].any(func(e: Dictionary) -> bool: return e["type"] == "bounce" and int(e["index"]) == 0)
+	_check(bounced and not bool(res2["cleared"]), "a platform sliding into the path is hit")
+	# The preview predicts the same first contact as the real shot.
+	var pv: Dictionary = RicochetSim.preview(block, RicochetSim.initial_state(block), -PI / 2, 100.0, 1)
+	var first: Vector2 = Vector2.INF
+	for e: Dictionary in res2["events"]:
+		if e["type"] == "bounce":
+			first = e["pos"]
+			break
+	_check(pv["points"].size() == 2 and (pv["points"][1] as Vector2).distance_to(first) < 0.5, "aim preview tracks moving platforms")
+	# Deterministic: the same angle always gives the same result.
+	var a: Dictionary = RicochetSim.simulate(block, RicochetSim.initial_state(block), -1.3)
+	var b: Dictionary = RicochetSim.simulate(block, RicochetSim.initial_state(block), -1.3)
+	_check(a["duration"] == b["duration"] and a["events"].size() == b["events"].size(), "moving platforms stay deterministic")
 
 
 func _new_mechanics() -> void:

@@ -74,8 +74,8 @@ jobs:
             echo "$KEYSTORE_B64" | base64 -d > "$ks"
           else
             echo "::warning::No release keystore secret; signing with a throwaway key."
-            KEYSTORE_PASSWORD=android; KEYSTORE_ALIAS=carom
-            keytool -genkeypair -keystore "$ks" -storepass android -keypass android -alias carom \
+            KEYSTORE_PASSWORD=android; KEYSTORE_ALIAS=one-clean-shot
+            keytool -genkeypair -keystore "$ks" -storepass android -keypass android -alias one-clean-shot \
               -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=One Clean Shot"
           fi
           {
@@ -137,6 +137,8 @@ jobs:
           cp -r build/web/* site/play/
           cp build/android/one-clean-shot.apk site/one-clean-shot.apk
           cp web/index.html site/index.html
+          cp -r web/privacy site/privacy
+          cp -r web/help site/help
           cp assets/icon.svg site/icon.svg
           size=$(du -h build/android/one-clean-shot.apk | cut -f1)
           sed -i "s/{{APK_SIZE}}/${size}/; s/{{VERSION}}/1.0.${{ github.run_number }}/; s/{{BUILD_DATE}}/$(date -u +%Y-%m-%d)/" site/index.html

@@ -5,3 +5,4 @@ signal level_completed(level_id: String, stars: int)
 signal hints_changed(count: int)
 signal supporter_changed(active: bool)
 signal banner_changed(height: float)
+signal purchases_changed

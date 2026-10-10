@@ -40,6 +40,42 @@ static func label(text: String, size: int, color: Color, weight: int = 400, alig
 	return l
 
 
+## The floating card used by every overlay (settings, shop, results...).
+static func card_style(pal: Dictionary) -> StyleBoxFlat:
+	var sb: StyleBoxFlat = StyleBoxFlat.new()
+	var dark: bool = bool(pal.get("dark", false))
+	sb.bg_color = (pal["top"] as Color).lightened(0.06) if dark else (pal["top"] as Color).lerp(Color.WHITE, 0.4)
+	sb.set_corner_radius_all(44)
+	sb.corner_detail = 12
+	sb.content_margin_left = 40
+	sb.content_margin_right = 40
+	sb.content_margin_top = 36
+	sb.content_margin_bottom = 36
+	sb.shadow_color = Color(0, 0, 0, 0.16)
+	sb.shadow_size = 30
+	return sb
+
+
+## Small uppercase caption with letter spacing, e.g. "MADE BY".
+static func caption(text: String, pal: Dictionary, size: int = 18, align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_LEFT) -> Label:
+	var l: Label = label(text.to_upper(), size, pal["muted"], 600, align)
+	var fv: FontVariation = (font(600) as FontVariation).duplicate()
+	fv.spacing_glyph = 3
+	l.add_theme_font_override("font", fv)
+	return l
+
+
+static func icon_rect(name: String, size: float, color: Color) -> TextureRect:
+	var ic: TextureRect = TextureRect.new()
+	ic.texture = icon(name)
+	ic.custom_minimum_size = Vector2(size, size)
+	ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	ic.modulate = color
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return ic
+
+
 static func _box(fill: Color, radius: int, border: Color = Color.TRANSPARENT, border_w: int = 0) -> StyleBoxFlat:
 	var s: StyleBoxFlat = StyleBoxFlat.new()
 	s.bg_color = fill
@@ -80,6 +116,9 @@ static func pill(text: String, pal: Dictionary, style: String = "primary", min_s
 		"soft":
 			fill = Color(ink, 0.08)
 			text_c = ink
+		"text":
+			fill = Color(ink, 0.0)
+			text_c = Color(ink, 0.6)
 		_:
 			fill = Color(ink, 0.0)
 			text_c = ink

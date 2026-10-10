@@ -1,6 +1,6 @@
 # One Clean Shot
 
-*A quiet ricochet puzzle.* Drag to aim, release, and bank one orb off the walls to pop every target in the room.
+*A quiet ricochet puzzle.* Drag to aim, release, and bank one orb off the walls to pop every target in the room. You get one shot.
 
 Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the web). It is portrait-first and works with touch, mouse, keyboard and gamepad.
 
@@ -8,7 +8,7 @@ Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the 
 
 ## The game
 
-- **320 rooms in 8 chapters of 40.** Each chapter has its own palette and music, and adds one new idea:
+- **360 rooms in 9 chapters of 40.** Each chapter has its own palette, music and animated chapter card, and adds one new idea:
 
   | Chapter | Mood | New mechanic |
   |---|---|---|
@@ -20,16 +20,31 @@ Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the 
   | Gate | sage | a switch dissolves the gate walls |
   | Spark | amber night | flying through a spark adds one bounce |
   | Turn | rose | pivot walls turn 90° each time they're hit |
+  | Drift | sky | platforms slide along their rails while the orb flies |
 
-- **Stars:** 1 shot gives ★★★, 2 shots ★★, 3 shots ★. Every room can be cleared in one shot.
-- **The dots over the launcher** show how many bounces each shot may make.
-- **Progress:** rooms unlock one at a time (clear room N to open room N + 1). A chapter unlocks after 15 clears in the one before it. Difficulty rises steadily from room to room, measured by the solver.
-- **Help:** Undo, Restart, and hints that show the exact solving path. You get 3 free hints, refilled to 3 at local midnight. With none left, the game asks before playing a rewarded ad for +1 hint. If no ad is available, the hint is free.
-- **Supporter Pack** (the heart on the home screen): a one-time purchase that removes the banner ad and makes every hint free, with a Restore purchase button. The price is shown in the player's local currency (Google Play's localised price, or a regional fallback from the device locale; no permissions needed).
+- **One shot per room.** A miss resets the room at once; the missed path stays faintly visible with the reason ("Out of bounces · 2 targets left"), so the next try can adjust.
+- **Stars:** first try ★★★, within three tries (or first try with a hint) ★★, after that ★.
+- **The dots over the launcher** show exactly how many bounces the solution needs.
+- **Pacing:** every chapter is a learning journey. Level 1 is a tutorial room for the chapter's new idea (a floating card with an animated diagram, then the element spotlit and the path shown once). Bounces then climb from 1 to 8: levels 1–5 easy, 6–10 easy–medium, 11–15 medium, 16–20 medium–hard, 21–25 hard, 26–30 hard–very hard, 31–35 very hard, 36–39 extreme, 40 the peak.
+- **Progress:** rooms unlock one at a time (clear room N to open room N + 1). A chapter unlocks after 15 clears in the one before it.
+- **Help:** Restart, fine aim (hold your finger still and the aim slows to a quarter speed), tap to fast-forward a shot, and hints that show the exact solving path. You get 3 free hints, refilled to 3 at local midnight. With none left, the game asks before playing a rewarded ad for +1 hint. If no ad is available, the hint is free.
+- **After a clear:** a result card with Next, Watch (replays your shot), Share, Again and Levels. Share renders a 1080×1350 card of the room with your winning path, stars and a QR code, and opens the system share sheet (Android), the browser share sheet (web) or saves it (desktop).
+- **Shop** (the bag on the home screen), all one-time purchases with Restore:
+
+  | Product id | What it gives |
+  |---|---|
+  | `complete_pack` | everything below, for less |
+  | `supporter_pack` | no banner ads, every hint free |
+  | `all_levels` | every room and chapter open now |
+  | `orb_pack` | 6 orb styles with their own trails (6-hour trial from a video) |
+  | `theme_pack` | 11 colour themes (6-hour trial from a video) |
+  | `tip_small` … `tip_huge` | consumable tips |
+
+  Each product id must exist in the Play Console. Prices show in local currency (Google Play's localised price, or a regional fallback from the device locale).
 - **Ads (Android only, no interstitials):**
   - a bottom banner on every screen, with layout space reserved so it never covers a button;
   - rewarded ads only when you ask for a hint.
-- **Settings** (on every screen): music and sound volume sliders, vibration, screen shake, a longer aim guide (on by default), How to play, Support the game, About and Credits. Reset progress is hidden while you're playing a level.
+- **Settings** (a floating card on every screen): music and sound volume, vibration, screen shake, a longer aim guide (on by default), colour and orb pickers, How to play, Shop, About and Credits. Reset progress is hidden while you're playing a level.
 - **First play:** Dawn level 1 runs a hands-on tutorial with an animated hand. You can replay it from How to play.
 
 ### Controls
@@ -38,8 +53,7 @@ Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the 
 |---|---|
 | Drag and release (touch or mouse) | Aim, then shoot |
 | ← / → (hold Shift for fine steps) | Nudge the aim |
-| Space | Shoot |
-| Z | Undo |
+| Space | Shoot (or fast-forward a shot in flight) |
 | R | Restart |
 | H | Hint |
 | Esc, or Back on Android | Back |
@@ -59,7 +73,8 @@ Every push to `main` runs `.github/workflows/build.yml`. The workflow:
 3. Publishes them to the `gh-pages` branch:
    - `index.html` is the download page, built from `web/index.html`;
    - `one-clean-shot.apk` is the Android app;
-   - `play/` is the browser version.
+   - `play/` is the browser version;
+   - `privacy/` and `help/` are the privacy policy and help pages (from `web/`).
 
 APK signing uses three repository secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEYSTORE_ALIAS`. If they are missing, the workflow signs with a throwaway key. Phones then can't install updates over an older version.
 
@@ -81,11 +96,17 @@ godot --path . res://tests/capture.tscn -- /tmp/ocs_shots   # screenshots of eve
 | Level generator and solver | `tools/level_lab.gd` |
 | Audio synthesiser | `tools/synth_audio.py` (see `docs/AUDIO.md`) |
 
-**How the levels are made.** The generator builds each room backwards from a shot. It lays out walls on a 40-unit grid, often mirror-symmetric, then fires a random shot and places targets along the ricochet path.
+**How the levels are made.** The generator builds each room backwards from a shot. It lays out walls in one of ten archetypes (shelves, pillars, corridor, open box, funnel, zigzag, frame, diagonals, mirrored, scatter), fires a shot with the bounce allowance the slot calls for, and places targets along the ricochet path, always one on the last leg so every bounce counts.
 
-The solver then sweeps all 360° of aim and records the width of every solving window. A room is rejected if its widest window is under about 0.5–1.4°, because that is too fiddly by touch. A room is also rejected if more than 6% of all angles solve it, because that is too easy.
+The solver then sweeps all 360° of aim and grades the room. It is rejected if:
+- its widest solving window is too narrow for its band (from 4° in the first rooms down to 0.5° at level 40; bumper rooms, which magnify aiming error, get a lower bar);
+- too many angles solve it;
+- the chapter's idea doesn't matter (with the glass made solid, platforms frozen or the bumper removed, the shot must fail or must at least use it);
+- a much cheaper shot also clears it.
 
-Difficulty is scored from the solving fraction, the bounce count and the target count. Each chapter is then sorted into a rising curve.
+Picking the 40: bounces follow `1 + round((n-1)·7/39)`, difficulty rises strictly from level 2 to 40, neighbours never share a layout archetype, an aiming direction or a bounce pattern. `tests/levels_test.gd` enforces all of this.
+
+Moving platforms stay deterministic: they rest at their start while you aim and slide along their rail once the orb launches, so a shot is still a pure function of its angle (and the aim line shows where they'll be).
 
 ```sh
 godot --headless --path . -s res://tools/level_lab.gd            # all chapters
@@ -99,5 +120,6 @@ godot --headless --path . -s res://tools/level_lab.gd -- ch3     # one chapter
 | Font: [Outfit](https://github.com/google/fonts/tree/main/ofl/outfit) | Google Fonts | SIL OFL 1.1, `assets/fonts/OFL.txt` |
 | Icons: [Lucide](https://lucide.dev) | lucide-static 0.460.0 | ISC, `assets/icons/LICENSE.txt` |
 | Music and sound effects | Made for One Clean Shot by `tools/synth_audio.py`, no samples | Released with the project |
+| QR code on the share card | Generated with [segno](https://github.com/heuer/segno) | Generated output |
 
 The game-dev agent skills used while building this are in `.claude/skills/`. They come from [GodotPrompter](https://github.com/jame581/GodotPrompter) (MIT), [awesome-gamedev-agent-skills](https://github.com/gamedev-skills/awesome-gamedev-agent-skills) (Apache-2.0) and [godot-skills](https://github.com/vl4dt/godot-skills) (MIT).

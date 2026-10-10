@@ -1,34 +1,59 @@
 extends Node
-## The one in-app purchase: the Supporter Pack (no ads, unlimited hints).
-## Uses the Google Play Billing plugin on Android; elsewhere purchases are unavailable,
-## except debug desktop builds, which simulate them so the flow can be tested.
+## In-app purchases: the shop's catalogue and Google Play Billing.
+## On Android this uses the Google Play Billing plugin; elsewhere purchases are
+## unavailable, except debug desktop builds, which simulate them so the flow can
+## be tested. Every product id here must also exist in the Play Console.
 
-signal purchase_finished(ok: bool, message: String)
+signal purchase_finished(ok: bool, message: String, product: String)
 signal restore_finished(found: bool, message: String)
-signal price_updated(price: String)
+signal price_updated(product: String, price: String)
 
-const PRODUCT_ID: String = "supporter_pack"
-const FALLBACK_PRICE: String = "$2.99"
-## Shown until Google Play reports the real, localised price (or where Play isn't
-## available). Picked from the device's region setting — no permissions needed.
-## Keep these in line with the prices set in the Play Console.
-const REGIONAL_PRICES: Dictionary = {
-	"IN": "₹249", "US": "$2.99", "GB": "£2.49", "CA": "CA$3.99", "AU": "A$4.49", "NZ": "NZ$4.99",
-	"DE": "€2.99", "FR": "€2.99", "IT": "€2.99", "ES": "€2.99", "NL": "€2.99", "BE": "€2.99",
-	"AT": "€2.99", "IE": "€2.99", "PT": "€2.99", "FI": "€2.99", "GR": "€2.99", "SK": "€2.99",
-	"JP": "¥450", "KR": "₩3,900", "CN": "¥19", "BR": "R$14,90", "MX": "MX$59", "AR": "ARS 2.999",
-	"ID": "Rp 45.000", "PK": "Rs 799", "BD": "৳299", "NP": "Rs 399", "LK": "Rs 899", "NG": "₦2,500",
-	"PH": "₱149", "TR": "₺99,99", "RU": "249 ₽", "ZA": "R54,99", "AE": "AED 10.99", "SA": "SAR 10.99",
-	"VN": "69.000 ₫", "TH": "฿99", "MY": "RM12.90", "SG": "S$3.98", "EG": "EGP 149", "KE": "KSh 399",
-	"PL": "13,99 zł", "SE": "35 kr", "NO": "35 kr", "DK": "22 kr", "CH": "CHF 3.00", "IL": "₪11.90",
+## Shop order. "tier" picks the fallback price shown until Google Play answers.
+const PRODUCTS: Dictionary = {
+	"complete_pack": {"name": "Complete pack", "tier": 3, "blurb": "Everything below, for less",
+		"perks": ["No banner ads, every hint free", "Every level and chapter open", "6 orb styles with their own trails", "11 colour themes", "Yours to keep after one purchase"]},
+	"supporter_pack": {"name": "Supporter pack", "tier": 2, "blurb": "No ads, and every hint free",
+		"perks": ["No banner ads", "Every hint free, always", "Helps new chapters get made"]},
+	"all_levels": {"name": "Every level", "tier": 1, "blurb": "Play any level, solved or not",
+		"perks": ["Every level and chapter open now", "Stars are still earned by solving", "Yours to keep after one purchase"]},
+	"orb_pack": {"name": "Orb pack", "tier": 1, "blurb": "Comet, Ember, Neon and 3 more", "trial": true,
+		"perks": ["6 more orbs, each with its own trail", "Pick one any time in Settings", "Yours to keep after one purchase"]},
+	"theme_pack": {"name": "Theme pack", "tier": 1, "blurb": "Midnight, Nord, Sepia and 8 more", "trial": true,
+		"perks": ["11 colour themes, light and dark", "Pick one any time in Settings", "Yours to keep after one purchase"]},
 }
+## Tip jar: consumable, buy as often as you like. Opens nothing new.
+const TIPS: Array = ["tip_small", "tip_medium", "tip_large", "tip_huge"]
+const TIP_TIERS: Dictionary = {"tip_small": 0, "tip_medium": 2, "tip_large": 4, "tip_huge": 5}
 
-var price: String = regional_price()
+## Fallback prices by tier, per region, kept in line with the Play Console.
+## Tiers: 0 = $0.99, 1 = $1.99, 2 = $2.99, 3 = $5.99, 4 = $9.99, 5 = $19.99.
+const REGIONAL_TIERS: Dictionary = {
+	"US": ["$0.99", "$1.99", "$2.99", "$5.99", "$9.99", "$19.99"],
+	"IN": ["₹79", "₹149", "₹249", "₹449", "₹799", "₹1,599"],
+	"GB": ["£0.89", "£1.79", "£2.49", "£4.99", "£8.99", "£17.99"],
+	"CA": ["CA$1.39", "CA$2.79", "CA$3.99", "CA$7.99", "CA$13.99", "CA$27.99"],
+	"AU": ["A$1.49", "A$2.99", "A$4.49", "A$8.99", "A$15.99", "A$29.99"],
+	"EU": ["€0.99", "€1.99", "€2.99", "€5.99", "€9.99", "€19.99"],
+	"JP": ["¥160", "¥300", "¥450", "¥900", "¥1,500", "¥3,000"],
+	"BR": ["R$4,90", "R$9,90", "R$14,90", "R$29,90", "R$49,90", "R$99,90"],
+	"ID": ["Rp 15.000", "Rp 29.000", "Rp 45.000", "Rp 89.000", "Rp 149.000", "Rp 299.000"],
+	"PK": ["Rs 249", "Rs 499", "Rs 799", "Rs 1,599", "Rs 2,699", "Rs 5,399"],
+	"BD": ["৳99", "৳199", "৳299", "৳599", "৳999", "৳1,999"],
+	"NP": ["Rs 129", "Rs 259", "Rs 399", "Rs 799", "Rs 1,299", "Rs 2,599"],
+	"PH": ["₱49", "₱99", "₱149", "₱299", "₱499", "₱999"],
+	"TR": ["₺34,99", "₺64,99", "₺99,99", "₺199,99", "₺329,99", "₺649,99"],
+	"MX": ["MX$19", "MX$39", "MX$59", "MX$119", "MX$199", "MX$399"],
+}
+const EURO_REGIONS: Array = ["DE", "FR", "IT", "ES", "NL", "BE", "AT", "IE", "PT", "FI", "GR", "SK"]
+
+var prices: Dictionary = {}
 var _billing: BillingClient = null
 var _restoring: bool = false
 
 
 func _ready() -> void:
+	for id: String in all_ids():
+		prices[id] = regional_price(tier_of(id))
 	# Only create the client where the native plugin exists (Android builds).
 	if Engine.has_singleton("GodotGooglePlayBilling"):
 		_billing = BillingClient.new()
@@ -36,14 +61,49 @@ func _ready() -> void:
 		_connect_billing()
 
 
-## Best-guess local price from the device locale, e.g. "en_IN" -> "₹249".
-static func regional_price() -> String:
+static func all_ids() -> Array:
+	return PRODUCTS.keys() + TIPS
+
+
+static func tier_of(product: String) -> int:
+	if PRODUCTS.has(product):
+		return int(PRODUCTS[product]["tier"])
+	return int(TIP_TIERS.get(product, 0))
+
+
+static func display_name(product: String) -> String:
+	return str(PRODUCTS.get(product, {}).get("name", "Tip"))
+
+
+static func _region() -> String:
 	var parts: PackedStringArray = OS.get_locale().replace("-", "_").split("_")
 	for i: int in range(parts.size() - 1, 0, -1):
 		var region: String = parts[i].to_upper()
-		if REGIONAL_PRICES.has(region):
-			return REGIONAL_PRICES[region]
-	return FALLBACK_PRICE
+		if REGIONAL_TIERS.has(region):
+			return region
+		if EURO_REGIONS.has(region):
+			return "EU"
+	return "US"
+
+
+## Best-guess local price for a tier from the device locale, e.g. "en_IN" -> "₹249".
+static func regional_price(tier: int = 2) -> String:
+	return str(REGIONAL_TIERS[_region()][tier])
+
+
+func price(product: String) -> String:
+	return str(prices.get(product, regional_price(tier_of(product))))
+
+
+## How much the Complete pack saves over buying its parts, as a percentage
+## (from fallback tiers, which share one shape everywhere).
+static func complete_saving() -> int:
+	var us: Array = REGIONAL_TIERS["US"]
+	var parts: float = 0.0
+	for id: String in ["supporter_pack", "all_levels", "orb_pack", "theme_pack"]:
+		parts += float(str(us[tier_of(id)]).trim_prefix("$"))
+	var whole: float = float(str(us[tier_of("complete_pack")]).trim_prefix("$"))
+	return int(round((1.0 - whole / parts) * 100.0))
 
 
 func available() -> bool:
@@ -54,34 +114,44 @@ func _simulated() -> bool:
 	return OS.is_debug_build() and not OS.has_feature("mobile") and not OS.has_feature("web")
 
 
-func buy() -> void:
-	if SaveSystem.is_supporter():
-		purchase_finished.emit(true, "You're already a supporter. Thank you!")
+func buy(product: String) -> void:
+	if not TIPS.has(product) and SaveSystem.bought(product):
+		purchase_finished.emit(true, "It's already yours. Thank you!", product)
 		return
 	if _billing != null:
-		_billing_buy()
+		_billing_buy(product)
 	elif _simulated():
-		SaveSystem.set_supporter(true)
-		purchase_finished.emit(true, "Thank you! (simulated purchase in a debug build)")
+		_grant(product)
+		purchase_finished.emit(true, "Thank you! (simulated purchase in a debug build)", product)
 	else:
-		purchase_finished.emit(false, "Purchases are available in the Android app.")
+		purchase_finished.emit(false, "Purchases are available in the Android app.", product)
 
 
 func restore() -> void:
 	if _billing != null:
 		_billing_restore()
 	elif _simulated():
-		restore_finished.emit(SaveSystem.is_supporter(), "Restored." if SaveSystem.is_supporter() else "No purchase found.")
+		var any: bool = false
+		for id: String in PRODUCTS:
+			any = any or SaveSystem.bought(id)
+		restore_finished.emit(any, "Restored." if any else "No purchase found.")
 	else:
 		restore_finished.emit(false, "Restore is available in the Android app.")
+
+
+func _grant(product: String) -> void:
+	if TIPS.has(product):
+		SaveSystem.add_tip()
+	else:
+		SaveSystem.set_owned(product, true)
 
 
 # --- Google Play Billing -------------------------------------------------------
 
 func _connect_billing() -> void:
 	_billing.connected.connect(func() -> void:
-		_billing.query_product_details(PackedStringArray([PRODUCT_ID]), BillingClient.ProductType.INAPP)
-		# Silent restore on every launch keeps the entitlement in sync.
+		_billing.query_product_details(PackedStringArray(all_ids()), BillingClient.ProductType.INAPP)
+		# Silent restore on every launch keeps entitlements in sync.
 		_billing.query_purchases(BillingClient.ProductType.INAPP)
 	)
 	_billing.connect_error.connect(func(code: int, msg: String) -> void: push_warning("Billing %d %s" % [code, msg]))
@@ -90,22 +160,23 @@ func _connect_billing() -> void:
 			return
 		for p: Dictionary in res.get("product_details", []):
 			var offers: Variant = p.get("one_time_purchase_offer_details_list")
-			if str(p.get("product_id", "")) == PRODUCT_ID and offers is Array and not (offers as Array).is_empty():
-				price = str(offers[0].get("formatted_price", FALLBACK_PRICE))
-				price_updated.emit(price)
+			var id: String = str(p.get("product_id", ""))
+			if prices.has(id) and offers is Array and not (offers as Array).is_empty():
+				prices[id] = str(offers[0].get("formatted_price", prices[id]))
+				price_updated.emit(id, prices[id])
 	)
 	_billing.query_purchases_response.connect(_on_purchases)
 	_billing.on_purchase_updated.connect(_on_purchases)
 	_billing.start_connection()
 
 
-func _billing_buy() -> void:
+func _billing_buy(product: String) -> void:
 	if not _billing.is_ready():
-		purchase_finished.emit(false, "Can't reach Google Play right now. Try again in a moment.")
+		purchase_finished.emit(false, "Can't reach Google Play right now. Try again in a moment.", product)
 		return
-	var res: Dictionary = _billing.purchase(PRODUCT_ID)
+	var res: Dictionary = _billing.purchase(product)
 	if int(res.get("response_code", -1)) != BillingClient.BillingResponseCode.OK:
-		purchase_finished.emit(false, "Purchase couldn't start (%s)." % str(res.get("debug_message", "unknown")))
+		purchase_finished.emit(false, "Purchase couldn't start (%s)." % str(res.get("debug_message", "unknown")), product)
 
 
 func _billing_restore() -> void:
@@ -124,20 +195,28 @@ func _on_purchases(res: Dictionary) -> void:
 		return
 	if code != BillingClient.BillingResponseCode.OK:
 		if code == BillingClient.BillingResponseCode.USER_CANCELED:
-			purchase_finished.emit(false, "Purchase cancelled.")
+			purchase_finished.emit(false, "Purchase cancelled.", "")
 		elif _restoring:
 			_restoring = false
 			restore_finished.emit(false, "Couldn't check purchases. Try again later.")
 		return
-	var owned: bool = false
+	var found: int = 0
 	for p: Dictionary in res.get("purchases", []):
-		if PRODUCT_ID in (p.get("product_ids", []) as Array) and int(p.get("purchase_state", 0)) == BillingClient.PurchaseState.PURCHASED:
-			owned = true
-			if not bool(p.get("is_acknowledged", false)):
-				_billing.acknowledge_purchase(str(p["purchase_token"]))
-	if owned and not SaveSystem.is_supporter():
-		SaveSystem.set_supporter(true)
-		purchase_finished.emit(true, "Thank you for supporting One Clean Shot!")
+		if int(p.get("purchase_state", 0)) != BillingClient.PurchaseState.PURCHASED:
+			continue
+		for id: String in p.get("product_ids", []):
+			if TIPS.has(id):
+				# Tips are consumed so they can be given again.
+				_billing.consume_purchase(str(p["purchase_token"]))
+				_grant(id)
+				purchase_finished.emit(true, "Thank you so much for the tip ♥", id)
+			elif PRODUCTS.has(id):
+				found += 1
+				if not bool(p.get("is_acknowledged", false)):
+					_billing.acknowledge_purchase(str(p["purchase_token"]))
+				if not SaveSystem.bought(id):
+					_grant(id)
+					purchase_finished.emit(true, "Thank you for supporting One Clean Shot!", id)
 	if _restoring:
 		_restoring = false
-		restore_finished.emit(owned, "Supporter Pack restored." if owned else "No previous purchase found on this Google account.")
+		restore_finished.emit(found > 0, "Purchases restored." if found > 0 else "No previous purchase found on this Google account.")

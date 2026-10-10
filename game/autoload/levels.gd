@@ -80,7 +80,7 @@ func stars_in(chapter_id: String) -> int:
 
 func chapter_open(chapter_id: String) -> bool:
 	var i: int = chapter_index(chapter_id)
-	if i <= 0:
+	if i <= 0 or SaveSystem.has_all_levels():
 		return true
 	return cleared_in(str(chapters[i - 1]["id"])) >= CHAPTER_GATE
 
@@ -94,6 +94,8 @@ func level_open(chapter_id: String, index: int) -> bool:
 		return true
 	if index >= list.size():
 		return false
+	if SaveSystem.has_all_levels():
+		return true
 	return SaveSystem.is_cleared(str(list[index - 1]["id"])) or SaveSystem.is_cleared(str(list[index]["id"]))
 
 

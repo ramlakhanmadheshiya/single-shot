@@ -19,6 +19,10 @@ var shots_used: int = 0
 var demo: bool = false
 var quiet: bool = false
 var input_enabled: bool = true
+## Orb look from the shop's Orb pack (see OrbStyles).
+var orb_style: String = "classic"
+## Replaying a finished shot for the player to watch: no input, no recording.
+var replaying: bool = false
 
 # View transform (arena units -> control pixels).
 var view_scale: float = 1.0
@@ -33,10 +37,20 @@ var aiming: bool = false
 var has_aim: bool = false
 var _last_tick_angle: float = 0.0
 var _preview: Dictionary = {}
+## Fine aim: hold the finger still for a moment and the aim slows to a quarter
+## speed, for the narrow windows of the hardest rooms.
+const FINE_HOLD_MSEC: int = 380
+const FINE_RATE: float = 0.25
+var fine: bool = false
+var _still_pos: Vector2 = Vector2.ZERO
+var _still_msec: int = 0
+var _fine_raw: float = 0.0
+var _fine_aim: float = 0.0
 
 # Playback.
 var playing: bool = false
 var _result: Dictionary = {}
+var last_result: Dictionary = {}
 var _play_t: float = 0.0
 var _event_i: int = 0
 var _settle: float = -1.0
@@ -62,6 +76,16 @@ var _screen_flash: float = 0.0
 var _kick: float = 0.0
 var _hint_tracks: Array = []
 var _hint_t: float = 0.0
+## The path of the last missed shot, kept faintly visible so the next try can adjust.
+var _ghost_tracks: Array = []
+var _ghost_end: Array = []
+## The tracks of the last shot played (for the share card).
+var last_tracks: Array = []
+var last_angle: float = 0.0
+var _fast: float = 1.0
+## Shot clock used to place moving platforms: follows the orb in flight, then
+## eases back so platforms glide home after the shot.
+var _wall_t: float = 0.0
 var _intro: float = 1.0
 var _demo_wait: float = 1.0
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -79,6 +103,7 @@ func _ready() -> void:
 func setup(level_data: Dictionary, palette: Dictionary) -> void:
 	level = level_data
 	pal = palette
+	orb_style = SaveSystem.orb_style() if not demo else "classic"
 	reset()
 
 
@@ -94,8 +119,50 @@ func reset() -> void:
 	_particles.clear()
 	_rings.clear()
 	_pops.clear()
+	_fast = 1.0
+	replaying = false
 	_sync_display()
 	queue_redraw()
+
+
+## Resets the room for the next try, keeping the missed path as a faint guide.
+func retry() -> void:
+	var keep: Array = _ghost_tracks
+	var keep_end: Array = _ghost_end
+	reset()
+	_intro = 1.0
+	_ghost_tracks = keep
+	_ghost_end = keep_end
+
+
+## Plays a shot again from a fresh room so the player can watch it.
+func replay(angle: float) -> void:
+	reset()
+	_intro = 1.0
+	_ghost_tracks = []
+	replaying = true
+	fire(angle)
+
+
+## Speeds up the shot in flight (tap while it plays).
+func fast_forward() -> void:
+	if playing:
+		_fast = 3.0
+
+
+## Why the last shot failed, in a few words.
+func miss_reason() -> String:
+	if last_result.is_empty():
+		return ""
+	var left: int = RicochetSim.targets_left(last_result["state"])
+	var swallowed: bool = false
+	for e: Dictionary in last_result["events"]:
+		if str(e["type"]) == "absorb":
+			swallowed = true
+	var what: String = "1 target left" if left == 1 else "%d targets left" % left
+	if swallowed:
+		return "Swallowed by the dark  ·  " + what
+	return "Out of bounces  ·  " + what
 
 
 func undo() -> bool:
@@ -110,7 +177,7 @@ func undo() -> bool:
 
 
 func shots_left() -> int:
-	return int(level.get("shots", 3)) - shots_used
+	return int(level.get("shots", 1)) - shots_used
 
 
 func targets_left() -> int:
@@ -153,31 +220,46 @@ func to_screen(p: Vector2) -> Vector2:
 # --- Input -------------------------------------------------------------------
 
 func _gui_input(event: InputEvent) -> void:
+	if playing and event is InputEventMouseButton and (event as InputEventMouseButton).pressed and not demo:
+		fast_forward()
+		accept_event()
+		return
 	if demo or playing or not input_enabled or level.is_empty() or shots_left() <= 0:
 		return
 	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		var mb: InputEventMouseButton = event
 		if mb.pressed:
 			aiming = true
+			fine = false
+			_still_pos = mb.position
+			_still_msec = Time.get_ticks_msec()
 			_aim_at(mb.position)
 			aim_started.emit()
 		elif aiming:
 			aiming = false
 			_aim_at(mb.position)
+			fine = false
 			if has_aim:
 				fire(aim_angle)
 			has_aim = false
 		accept_event()
 	elif event is InputEventMouseMotion and aiming:
-		_aim_at((event as InputEventMouseMotion).position)
+		var pos: Vector2 = (event as InputEventMouseMotion).position
+		if pos.distance_to(_still_pos) > 8.0 and not fine:
+			_still_pos = pos
+			_still_msec = Time.get_ticks_msec()
+		_aim_at(pos)
 		accept_event()
 
 
 func _aim_at(screen_pos: Vector2) -> void:
 	var d: Vector2 = to_world(screen_pos) - RicochetSim.launcher(level)
-	has_aim = d.length() > 46.0
+	has_aim = d.length() > 46.0 or fine
 	if has_aim:
-		aim_angle = d.angle()
+		if fine:
+			aim_angle = wrapf(_fine_aim + angle_difference(_fine_raw, d.angle()) * FINE_RATE, -PI, PI)
+		else:
+			aim_angle = d.angle()
 		if absf(angle_difference(aim_angle, _last_tick_angle)) > deg_to_rad(2.5):
 			_last_tick_angle = aim_angle
 			_sound("aim_tick", 1.0, -6.0)
@@ -219,6 +301,11 @@ func fire(angle: float) -> void:
 	history.append(RicochetSim.copy_state(state))
 	shots_used += 1
 	_result = RicochetSim.simulate(level, state, angle)
+	last_result = _result
+	last_angle = angle
+	last_tracks = _result["tracks"]
+	_ghost_tracks = []
+	_fast = 1.0
 	playing = true
 	_play_t = 0.0
 	_event_i = 0
@@ -238,6 +325,13 @@ func fire(angle: float) -> void:
 
 func _process(delta: float) -> void:
 	_clock += delta
+	if aiming and has_aim and not fine and not playing and Time.get_ticks_msec() - _still_msec > FINE_HOLD_MSEC:
+		fine = true
+		_fine_raw = (to_world(_still_pos) - RicochetSim.launcher(level)).angle()
+		_fine_aim = aim_angle
+		_add_ring(RicochetSim.launcher(level), 30.0, 52.0, 0.35, pal["accent"], 3.0)
+		_haptic(10)
+		_sound("aim_tick", 1.6, -4.0)
 	_intro = minf(1.0, _intro + delta * 2.2)
 	if playing:
 		_advance(delta)
@@ -254,7 +348,7 @@ func _advance(delta: float) -> void:
 	else:
 		_rate = lerpf(_rate, 1.0, minf(1.0, delta * 5.0))
 	if _settle < 0.0:
-		_play_t += SPEED * delta * _rate
+		_play_t += SPEED * delta * _rate * _fast
 		var events: Array = _result["events"]
 		while _event_i < events.size() and float(events[_event_i]["t"]) <= _play_t:
 			_apply_event(events[_event_i])
@@ -265,7 +359,7 @@ func _advance(delta: float) -> void:
 			if p != null:
 				var tr: Array = _trails.get(id, [])
 				tr.append(p)
-				if tr.size() > 16:
+				if tr.size() > OrbStyles.trail_length(orb_style):
 					tr.pop_front()
 				_trails[id] = tr
 			elif _trails.has(id):
@@ -288,8 +382,22 @@ func _finish_shot() -> void:
 	state = _result["state"]
 	_sync_display()
 	var cleared: bool = bool(_result["cleared"])
+	if not cleared:
+		_remember_miss(_result)
+	var was_replay: bool = replaying
 	_stop_playback()
-	shot_finished.emit(cleared, shots_used)
+	replaying = false
+	if not was_replay:
+		shot_finished.emit(cleared, shots_used)
+
+
+func _remember_miss(res: Dictionary) -> void:
+	_ghost_tracks = []
+	_ghost_end = []
+	for track: Dictionary in res["tracks"]:
+		_ghost_tracks.append(track["points"])
+		if str(track["end"]) in ["fizzle", "absorb"]:
+			_ghost_end.append((track["points"] as Array)[-1])
 
 
 ## Position of an orb on its track at time t, or null if it is not in flight.
@@ -426,14 +534,37 @@ func show_hint() -> bool:
 		if wins.is_empty():
 			return false
 		angle = wins[0]["angle"]
+	var tracks: Array = _path_for(angle)
+	if tracks.is_empty():
+		return false
+	_hint_tracks = tracks
+	_hint_t = 5.0
+	aim_angle = angle
+	has_aim = true
+	_preview = {}
+	_sound("hint")
+	return true
+
+
+## A solid path drawn over the room (the share card shows the winning shot).
+var _path_tracks: Array = []
+
+
+func show_path(angle: float) -> void:
+	_intro = 1.0
+	_path_tracks = _path_for(angle)
+
+
+## The clearing path for `angle` from the current state, cut at the last target.
+func _path_for(angle: float) -> Array:
 	var res: Dictionary = RicochetSim.simulate(level, state, angle)
 	if not bool(res["cleared"]):
-		return false
+		return []
 	var last_pop: float = 0.0
 	for e: Dictionary in res["events"]:
 		if str(e["type"]) == "pop":
 			last_pop = maxf(last_pop, float(e["t"]))
-	_hint_tracks = []
+	var out: Array = []
 	for track: Dictionary in res["tracks"]:
 		var pts: Array = []
 		var times: Array = track["times"]
@@ -445,13 +576,8 @@ func show_hint() -> bool:
 				if p != null:
 					pts.append(p)
 		if pts.size() >= 2:
-			_hint_tracks.append(pts)
-	_hint_t = 5.0
-	aim_angle = angle
-	has_aim = true
-	_preview = {}
-	_sound("hint")
-	return true
+			out.append(pts)
+	return out
 
 
 # --- Demo / attract mode -----------------------------------------------------
@@ -542,6 +668,10 @@ func _update_fx(delta: float) -> void:
 	if _open:
 		_gate_alpha = maxf(0.0, _gate_alpha - delta * 3.0)
 	_kick = maxf(0.0, _kick - delta * 5.0)
+	if playing and not _result.is_empty():
+		_wall_t = _play_t
+	else:
+		_wall_t = maxf(0.0, _wall_t - delta * SPEED * 0.6)
 	_hint_t = maxf(0.0, _hint_t - delta)
 	_trauma = maxf(0.0, _trauma - delta * 1.4)
 	var s: float = _trauma * _trauma
@@ -558,6 +688,12 @@ func _draw() -> void:
 	_draw_arena()
 	if _hint_t > 0.0:
 		_draw_hint()
+	if not _ghost_tracks.is_empty() and not playing:
+		_draw_ghost()
+	for pts: Array in _path_tracks:
+		for i: int in pts.size() - 1:
+			_dotted(pts[i], pts[i + 1], Color(pal["accent"], 0.9), 20.0, 4.5)
+	_draw_rails()
 	if not playing and (aiming or has_aim) and shots_left() > 0:
 		_draw_aim()
 	_draw_walls(ease_in)
@@ -642,8 +778,8 @@ func _draw_walls(appear: float) -> void:
 		var flash: float = float(_flash.get("w%d" % i, 0.0))
 		if kind == RicochetSim.KIND_GATE and _gate_alpha <= 0.0:
 			continue
-		var pts: PackedVector2Array = RicochetSim.wall_corners(w, float(_rot_shown[i]) if i < _rot_shown.size() else 0.0)
-		var centre: Vector2 = Vector2(float(w[0]), float(w[1]))
+		var pts: PackedVector2Array = RicochetSim.wall_corners(w, float(_rot_shown[i]) if i < _rot_shown.size() else 0.0, _wall_t)
+		var centre: Vector2 = Vector2(float(w[0]), float(w[1])) + RicochetSim.wall_offset(w, _wall_t)
 		if appear < 1.0:
 			for k: int in 4:
 				pts[k] = centre + (pts[k] - centre) * appear
@@ -694,6 +830,42 @@ func _draw_walls(appear: float) -> void:
 					var o2: PackedVector2Array = pts.duplicate()
 					o2.append(pts[0])
 					draw_polyline(o2, col, 3.0, true)
+
+
+## Moving platforms: a dotted rail with end stops, and while aiming a faint copy
+## that glides along it so the motion is readable before the shot.
+func _draw_rails() -> void:
+	var walls: Array = level.get("walls", [])
+	for i: int in walls.size():
+		var w: Array = walls[i]
+		if not RicochetSim.is_moving(w) or (i < _intact.size() and not bool(_intact[i])):
+			continue
+		var c0: Vector2 = Vector2(float(w[0]), float(w[1]))
+		var c1: Vector2 = c0 + Vector2(float(w[6][0]), float(w[6][1]))
+		var col: Color = Color(pal["special"], 0.55)
+		_dotted(c0 - (c1 - c0).normalized() * 26.0, c1, col, 16.0, 2.6)
+		for c: Vector2 in [c0, c1]:
+			draw_circle(c, 6.0, Color(pal["special"], 0.25), true, -1.0, true)
+			draw_arc(c, 6.0, 0.0, TAU, 20, col, 2.0, true)
+		if not playing and _wall_t <= 0.0:
+			var period: float = float(w[6][2])
+			var ghost_t: float = fmod(_clock * SPEED * 0.45, period)
+			var gp: PackedVector2Array = RicochetSim.wall_corners(w, float(_rot_shown[i]) if i < _rot_shown.size() else 0.0, ghost_t)
+			var o: PackedVector2Array = gp.duplicate()
+			o.append(gp[0])
+			draw_polyline(o, Color(pal["special"], 0.35), 2.0, true)
+
+
+## The last missed shot, faint, ending in a small cross where the orb gave out.
+func _draw_ghost() -> void:
+	var col: Color = Color(pal["ink"], 0.22)
+	for pts: Array in _ghost_tracks:
+		for i: int in pts.size() - 1:
+			_dotted(pts[i], pts[i + 1], col, 14.0, 2.2)
+	for p: Vector2 in _ghost_end:
+		var r: float = 9.0
+		draw_line(p + Vector2(-r, -r), p + Vector2(r, r), Color(pal["target"], 0.6), 3.0, true)
+		draw_line(p + Vector2(-r, r), p + Vector2(r, -r), Color(pal["target"], 0.6), 3.0, true)
 
 
 func _dashed(a: Vector2, b: Vector2, col: Color, width: float) -> void:
@@ -789,26 +961,15 @@ func _draw_targets(appear: float) -> void:
 
 
 func _draw_orbs() -> void:
-	var orb_c: Color = pal["orb"]
-	var dark: bool = bool(pal.get("dark", false))
 	for id: Variant in _trails:
-		var tr: Array = _trails[id]
-		var n: int = tr.size()
-		for k: int in range(1, n):
-			var f: float = float(k) / float(n)
-			draw_line(tr[k - 1], tr[k], Color(orb_c, 0.28 * f), RicochetSim.ORB_R * 1.6 * f, true)
+		OrbStyles.draw_trail(self, orb_style, _trails[id], pal, _clock)
 	if not playing or _result.is_empty():
 		return
 	for track: Dictionary in _result["tracks"]:
 		var p: Variant = _track_pos(track, _play_t)
 		if p == null:
 			continue
-		if dark:
-			draw_circle(p, RicochetSim.ORB_R * 2.8, Color(orb_c, 0.06), true, -1.0, true)
-			draw_circle(p, RicochetSim.ORB_R * 1.8, Color(orb_c, 0.14), true, -1.0, true)
-		else:
-			draw_circle(p, RicochetSim.ORB_R * 1.7, Color(orb_c, 0.1), true, -1.0, true)
-		draw_circle(p, RicochetSim.ORB_R, orb_c, true, -1.0, true)
+		OrbStyles.draw_orb(self, orb_style, p, RicochetSim.ORB_R, pal, _clock, true)
 
 
 func _draw_launcher() -> void:
@@ -818,7 +979,9 @@ func _draw_launcher() -> void:
 	draw_arc(c, 24.0 * k, 0.0, TAU, 40, Color(ink, 0.9), 3.0, true)
 	if not playing and shots_left() > 0:
 		var bob: float = 1.0 + 0.05 * sin(_clock * 3.0)
-		draw_circle(c, RicochetSim.ORB_R * bob, pal["orb"], true, -1.0, true)
+		OrbStyles.draw_orb(self, orb_style, c, RicochetSim.ORB_R * bob, pal, _clock, false)
+	if fine and aiming:
+		draw_arc(c, 46.0, 0.0, TAU, 48, Color(pal["accent"], 0.75), 2.5, true)
 	# Bounce allowance as pips arched over the launcher.
 	var n: int = int(level.get("bounces", 0))
 	var spread: float = deg_to_rad(16.0)

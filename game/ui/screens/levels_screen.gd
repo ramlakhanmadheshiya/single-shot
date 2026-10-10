@@ -45,7 +45,9 @@ func _ready() -> void:
 			if tile.open:
 				app.open_game(chapter_id, idx)
 			else:
+				# Locked: rooms open by playing, or all at once with the Every level pack.
 				AudioManager.play_ui("ui_back")
+				app.open_product("all_levels")
 		)
 		grid.add_child(tile)
 		if tile.current or (_focus == null and tile.open):

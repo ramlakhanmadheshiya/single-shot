@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>One Clean Shot — a quiet ricochet puzzle</title>
-<meta name="description" content="Drag to aim, release, and bank one orb off the walls to pop every target. 320 rooms, 8 chapters. Free for Android and the web.">
+<meta name="description" content="Drag to aim, release, and bank one orb off the walls to pop every target. 360 rooms, 9 chapters. Free for Android and the web.">
 <meta name="theme-color" content="#FFF4E8">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -43,10 +43,13 @@
   .qr { display: flex; gap: 20px; align-items: center; }
   .qr div { flex: none; background: #fff; border-radius: 16px; padding: 10px; line-height: 0; }
   .qr p { margin: 0; color: rgba(45,42,74,.85); line-height: 1.5; }
-  .chapters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
+  .chapters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
   .chapters span { border-radius: 14px; padding: 12px 0 10px; font-size: 13px; font-weight: 500; text-align: center; }
   footer { color: var(--muted); font-size: 13px; margin-top: 36px; line-height: 1.6; }
   footer a { color: inherit; }
+  footer nav { font-size: 15px; margin-bottom: 8px; }
+  footer nav a { margin: 0 4px; }
+  a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
   @media (hover: none) and (pointer: coarse) { .desktop-only { display: none; } }
 </style>
 </head>
@@ -96,8 +99,8 @@
   </section>
 
   <section class="card">
-    <h2>320 rooms, eight moods</h2>
-    <p style="margin:0;color:rgba(45,42,74,.85);line-height:1.5">Drag to aim, release to shoot. Every room can be cleared in one shot — that's ★★★.</p>
+    <h2>360 rooms, nine moods</h2>
+    <p style="margin:0;color:rgba(45,42,74,.85);line-height:1.5">Drag to aim, release to shoot. You get one shot to pop every target — a miss resets the room. Clear it on your first try for ★★★.</p>
     <div class="chapters">
       <span style="background:#FFD3C2">Dawn</span>
       <span style="background:#B7E4DA;color:#173A45">Glass</span>
@@ -107,12 +110,15 @@
       <span style="background:#C9D7B0;color:#27352A">Gate</span>
       <span style="background:#4A2A14;color:#FFF2DD">Spark</span>
       <span style="background:#E8B4A6;color:#3E2430">Turn</span>
+      <span style="background:#CFE3F5;color:#1E3A55">Drift</span>
     </div>
   </section>
 
   <footer>
+    <nav aria-label="Site"><a href="help/">Help</a> · <a href="privacy/">Privacy</a> · <a href="mailto:ramlakhanmadheshiya7@gmail.com?subject=One%20Clean%20Shot%20help">Contact</a></nav>
     Made with Godot · Outfit font (SIL OFL) · Lucide icons (ISC)<br>
-    Music &amp; sound synthesised for One Clean Shot
+    Music &amp; sound synthesised for One Clean Shot<br>
+    © 2026 Ramlakhan Madheshiya
   </footer>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>

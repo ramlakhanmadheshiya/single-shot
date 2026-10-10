@@ -6,12 +6,16 @@ const HomeScreen: GDScript = preload("res://game/ui/screens/home_screen.gd")
 const ChaptersScreen: GDScript = preload("res://game/ui/screens/chapters_screen.gd")
 const LevelsScreen: GDScript = preload("res://game/ui/screens/levels_screen.gd")
 const GameScreen: GDScript = preload("res://game/ui/screens/game_screen.gd")
-const SupporterScreen: GDScript = preload("res://game/ui/screens/supporter_screen.gd")
+const ShopScreen: GDScript = preload("res://game/ui/screens/shop_screen.gd")
 const SettingsSheet: GDScript = preload("res://game/ui/settings_sheet.gd")
 const CreditsSheet: GDScript = preload("res://game/ui/credits_sheet.gd")
 const HowToPlaySheet: GDScript = preload("res://game/ui/how_to_play_sheet.gd")
 const AboutSheet: GDScript = preload("res://game/ui/about_sheet.gd")
 const ConfirmSheet: GDScript = preload("res://game/ui/confirm_sheet.gd")
+const ProductSheet: GDScript = preload("res://game/ui/product_sheet.gd")
+const TipSheet: GDScript = preload("res://game/ui/tip_sheet.gd")
+const PickerSheet: GDScript = preload("res://game/ui/picker_sheet.gd")
+const ShareSheet: GDScript = preload("res://game/ui/share_sheet.gd")
 
 var backdrop: Backdrop
 var host: MarginContainer
@@ -21,6 +25,9 @@ var settings: Control
 var _busy: bool = false
 var _banner_h: float = 0.0
 var _last_back_msec: int = -1000
+## Re-opens the current screen (used to repaint after a theme change).
+var _route: Callable
+var _palette_id: String = "ch1"
 
 
 func _ready() -> void:
@@ -67,28 +74,70 @@ func _apply_safe_area() -> void:
 
 
 func open_home() -> void:
+	_route = open_home
 	_go(HomeScreen.new(), "ch1")
 
 
 func open_chapters() -> void:
+	_route = open_chapters
 	_go(ChaptersScreen.new(), "ch1")
 
 
 func open_levels(chapter_id: String) -> void:
+	_route = open_levels.bind(chapter_id)
 	var s: Screen = LevelsScreen.new()
 	s.set("chapter_id", chapter_id)
 	_go(s, chapter_id)
 
 
-func open_supporter() -> void:
-	_go(SupporterScreen.new(), "ch1")
+func open_shop() -> void:
+	_route = open_shop
+	_go(ShopScreen.new(), "ch1")
 
 
 func open_game(chapter_id: String, index: int) -> void:
+	_route = open_game.bind(chapter_id, index)
 	var s: Screen = GameScreen.new()
 	s.set("chapter_id", chapter_id)
 	s.set("index", index)
 	_go(s, chapter_id)
+
+
+## A pack's card. `back` (optional) is where closing it returns to.
+func open_product(product: String, back: Callable = Callable()) -> void:
+	var sheet: Control = ProductSheet.new()
+	sheet.set("product", product)
+	sheet.set("show_shop_link", current == null or current.get_script() != ShopScreen)
+	if back.is_valid():
+		sheet.set("on_close", back)
+	_open_overlay(sheet)
+
+
+func open_tips() -> void:
+	_open_overlay(TipSheet.new())
+
+
+## "orbs" or "themes".
+func open_picker(mode: String) -> void:
+	var sheet: Control = PickerSheet.new()
+	sheet.set("mode", mode)
+	sheet.set("on_close", open_settings.bind(current != null and current.in_game()))
+	_open_overlay(sheet)
+
+
+func open_share(info: Dictionary) -> void:
+	var sheet: Control = ShareSheet.new()
+	sheet.set("info", info)
+	_open_overlay(sheet)
+
+
+## Repaints everything in the newly chosen colour theme.
+func apply_theme() -> void:
+	if current != null:
+		backdrop.set_palette(Palette.get_palette(_palette_id))
+	if _route.is_valid():
+		_busy = false
+		_route.call()
 
 
 func _go(next: Screen, palette_id: String) -> void:
@@ -97,6 +146,7 @@ func _go(next: Screen, palette_id: String) -> void:
 		return
 	_busy = true
 	close_settings()
+	_palette_id = palette_id
 	var pal: Dictionary = Palette.get_palette(palette_id)
 	next.app = self
 	next.pal = pal

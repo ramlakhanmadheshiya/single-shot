@@ -1,27 +1,79 @@
 extends Overlay
-## What the game is, its version, and where to find it.
+## What the game is, who made it, and where to get help.
 
-const SITE: String = "theramlakhan.com/one-clean-shot"
+const SITE: String = "https://theramlakhan.com/one-clean-shot/"
+const AUTHOR_SITE: String = "https://theramlakhan.com/"
+
+
+func _init() -> void:
+	scrollable = true
+
+
+## Pill padding trimmed so three buttons fit side by side.
+func _tight(sb: StyleBox) -> StyleBox:
+	var out: StyleBox = sb.duplicate()
+	out.content_margin_left = 14
+	out.content_margin_right = 14
+	return out
 
 
 func build() -> void:
 	name = "About"
-	add_title("About")
 	var body: VBoxContainer = card_body()
 	body.add_theme_constant_override("separation", 10)
-	body.add_child(UIKit.label("One Clean Shot", 36, pal["ink"], 500))
-	body.add_child(UIKit.label("Version %s" % str(ProjectSettings.get_setting("application/config/version", "1.0.0")), 20, pal["muted"], 500))
-	add_gap(6)
-	var blurb: Label = UIKit.label("A quiet ricochet puzzle. Read the room, find the angle, and clear it with one clean shot. 320 rooms across 8 chapters, every one proven solvable.", 24, pal["ink"], 400)
+	var head: HBoxContainer = HBoxContainer.new()
+	head.alignment = BoxContainer.ALIGNMENT_END
+	var close_btn: Button = UIKit.icon_button("x", pal, 60.0)
+	close_btn.name = "Close"
+	close_btn.pressed.connect(close)
+	head.add_child(close_btn)
+	body.add_child(head)
+	var icon: TextureRect = TextureRect.new()
+	icon.texture = load("res://assets/icon.svg")
+	icon.custom_minimum_size = Vector2(150, 150)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	body.add_child(icon)
+	body.add_child(UIKit.label("One Clean Shot", 52, pal["ink"], 400))
+	var version: String = str(ProjectSettings.get_setting("application/config/version", "1.0.0"))
+	body.add_child(UIKit.caption("A quiet ricochet puzzle   ·   version %s" % version, pal, 17, HORIZONTAL_ALIGNMENT_CENTER))
+	add_gap(10)
+	var blurb: Label = UIKit.label("Read the room, find the angle, and clear it with one clean shot. 360 rooms across 9 chapters, every one proven solvable in a single shot.", 23, pal["ink"], 400)
 	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_child(blurb)
+	add_gap(14)
+	body.add_child(UIKit.caption("Made by", pal, 17, HORIZONTAL_ALIGNMENT_CENTER))
+	var me: Button = UIKit.pill("Ramlakhan Madheshiya", pal, "text", Vector2(0, 56), 30)
+	me.name = "Author"
+	me.add_theme_color_override("font_color", pal["ink"])
+	me.add_theme_color_override("font_hover_color", pal["accent"])
+	me.pressed.connect(func() -> void: OS.shell_open(AUTHOR_SITE))
+	body.add_child(me)
+	body.add_child(UIKit.label("Game designer and developer", 20, pal["muted"], 400))
+	add_gap(4)
+	body.add_child(UIKit.label("Claude Opus 5.5", 28, pal["ink"], 500))
+	body.add_child(UIKit.label("AI co-developer, by Anthropic", 20, pal["muted"], 400))
+	add_gap(16)
+	var row: HBoxContainer = HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	body.add_child(row)
+	for item: Array in [["Privacy", "privacy/", "shield"], ["Help", "help/", "circle-help"], ["Website", "", "globe"]]:
+		var b: Button = UIKit.pill(item[0], pal, "soft", Vector2(0, 72), 22)
+		b.name = str(item[0])
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.clip_text = true
+		b.add_theme_stylebox_override("normal", _tight(b.get_theme_stylebox("normal")))
+		b.icon = UIKit.icon(item[2])
+		b.add_theme_constant_override("icon_max_width", 26)
+		b.add_theme_color_override("icon_normal_color", pal["ink"])
+		var url: String = SITE + str(item[1])
+		b.pressed.connect(func() -> void: OS.shell_open(url))
+		row.add_child(b)
+		if _first_focus == null:
+			_first_focus = b
 	add_gap(6)
-	body.add_child(UIKit.label("Made by Ramlakhan Madheshiya", 22, pal["muted"], 500))
-	var site: Button = UIKit.pill(SITE, pal, "soft", Vector2(0, 68), 20)
-	site.name = "Website"
-	site.pressed.connect(func() -> void: OS.shell_open("https://" + SITE + "/"))
-	body.add_child(site)
-	var privacy: Label = UIKit.label("Progress is saved only on this device. Ads (Android) are served by Google AdMob.", 18, pal["muted"], 400)
-	privacy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.add_child(privacy)
-	_first_focus = site
+	var note: Label = UIKit.label("Your progress is saved only on this device. Ads (Android) are served by Google AdMob.", 18, pal["muted"], 400)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.add_child(note)

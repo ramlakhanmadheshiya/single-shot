@@ -14,13 +14,10 @@ func _ready() -> void:
 	var top: HBoxContainer = HBoxContainer.new()
 	top.alignment = BoxContainer.ALIGNMENT_END
 	top.custom_minimum_size = Vector2(0, 96)
-	var heart: Button = UIKit.icon_button("heart-filled" if SaveSystem.is_supporter() else "heart", pal, 72.0)
-	heart.name = "Supporter"
-	heart.add_theme_color_override("icon_normal_color", pal["target"])
-	heart.add_theme_color_override("icon_hover_color", pal["target"])
-	heart.add_theme_color_override("icon_pressed_color", pal["target"])
-	heart.pressed.connect(func() -> void: app.open_supporter())
-	top.add_child(heart)
+	var shop: Button = UIKit.icon_button("shopping-bag", pal, 72.0)
+	shop.name = "Shop"
+	shop.pressed.connect(func() -> void: app.open_shop())
+	top.add_child(shop)
 	var fill: Control = Control.new()
 	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(fill)

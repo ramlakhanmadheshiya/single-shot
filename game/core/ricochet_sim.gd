@@ -15,7 +15,7 @@ const BUMPER_R: float = 30.0
 const SWITCH_R: float = 18.0
 const SPARK_R: float = 16.0
 const SPLIT_ANGLE: float = 0.5585  # 32 degrees either side
-const MAX_EVENTS: int = 220
+const MAX_EVENTS: int = 360
 const MAX_TRAVEL: float = 14000.0
 const INF: float = 1.0e20
 
@@ -26,6 +26,9 @@ const KIND_VOID: String = "void"
 const KIND_GATE: String = "gate"
 ## Reflects, then turns 90 degrees about its centre.
 const KIND_PIVOT: String = "pivot"
+## Moving platforms never go faster than this fraction of the orb's speed, so a
+## bounce always carries the orb clear of the wall that hit it.
+const MAX_PLATFORM_SPEED: float = 0.4
 
 
 ## Returns a fresh mutable state for a level (target health and glass panes).
@@ -68,9 +71,10 @@ static func launcher(level: Dictionary) -> Vector2:
 	return Vector2(float(l[0]), float(l[1]))
 
 
-## Corners of a rotated wall rectangle, clockwise.
-static func wall_corners(w: Array, extra_deg: float = 0.0) -> PackedVector2Array:
-	var c: Vector2 = Vector2(float(w[0]), float(w[1]))
+## Corners of a rotated wall rectangle, clockwise. `t` is the shot clock (travelled
+## distance) and slides moving platforms along their rail.
+static func wall_corners(w: Array, extra_deg: float = 0.0, t: float = 0.0) -> PackedVector2Array:
+	var c: Vector2 = Vector2(float(w[0]), float(w[1])) + wall_offset(w, t)
 	var half: Vector2 = Vector2(float(w[2]), float(w[3])) * 0.5
 	var rot: float = deg_to_rad((float(w[4]) if w.size() > 4 else 0.0) + extra_deg)
 	var pts: PackedVector2Array = PackedVector2Array()
@@ -83,15 +87,64 @@ static func wall_kind(w: Array) -> String:
 	return str(w[5]) if w.size() > 5 else KIND_WALL
 
 
-## Builds the segment list used for collision. Arena border segments carry index -1.
-static func _segments(level: Dictionary, state: Dictionary) -> Array:
+## A moving platform carries a rail as its 7th field: [dx, dy, period]. It rests at
+## its start while the player aims, and once the orb launches it slides to
+## start + (dx, dy) and back, one round trip every `period` units of orb travel.
+static func is_moving(w: Array) -> bool:
+	return w.size() > 6 and w[6] is Array and (w[6] as Array).size() >= 3
+
+
+static func has_movers(level: Dictionary) -> bool:
+	for w: Array in level.get("walls", []):
+		if is_moving(w):
+			return true
+	return false
+
+
+static func wall_offset(w: Array, t: float) -> Vector2:
+	if not is_moving(w) or t <= 0.0:
+		return Vector2.ZERO
+	var m: Array = w[6]
+	var u: float = fposmod(t / float(m[2]), 1.0)
+	var f: float = u * 2.0 if u < 0.5 else 2.0 - u * 2.0
+	return Vector2(float(m[0]), float(m[1])) * f
+
+
+## Platform velocity in arena units per unit of orb travel (the orb's speed is 1).
+static func wall_velocity(w: Array, t: float) -> Vector2:
+	if not is_moving(w):
+		return Vector2.ZERO
+	var m: Array = w[6]
+	var period: float = float(m[2])
+	var u: float = fposmod(maxf(t, 0.0) / period, 1.0)
+	return Vector2(float(m[0]), float(m[1])) * (2.0 / period) * (1.0 if u < 0.5 else -1.0)
+
+
+## The next moment after `t` when any platform turns around (INF if none move).
+static func next_turn(level: Dictionary, t: float) -> float:
+	var best: float = INF
+	for w: Array in level.get("walls", []):
+		if not is_moving(w):
+			continue
+		var half: float = float(w[6][2]) * 0.5
+		var k: float = floor(t / half) + 1.0
+		var at: float = k * half
+		if at - t < 0.0001:
+			at += half
+		best = minf(best, at)
+	return best
+
+
+## Builds the segment list used for collision at shot time `t`. Arena border
+## segments carry index -1; each entry is [a, b, wall index, kind, velocity].
+static func _segments(level: Dictionary, state: Dictionary, t: float = 0.0) -> Array:
 	var segs: Array = []
 	var a: Vector2 = Vector2.ZERO
 	var b: Vector2 = Vector2(ARENA.x, 0)
 	var c: Vector2 = ARENA
 	var d: Vector2 = Vector2(0, ARENA.y)
 	for pair: Array in [[a, b], [b, c], [c, d], [d, a]]:
-		segs.append([pair[0], pair[1], -1, KIND_WALL])
+		segs.append([pair[0], pair[1], -1, KIND_WALL, Vector2.ZERO])
 	var walls: Array = level.get("walls", [])
 	var intact: Array = state["intact"]
 	var rot: Array = state.get("rot", [])
@@ -103,9 +156,10 @@ static func _segments(level: Dictionary, state: Dictionary) -> Array:
 		var kind: String = wall_kind(w)
 		if kind == KIND_GATE and open:
 			continue
-		var pts: PackedVector2Array = wall_corners(w, float(rot[i]) if i < rot.size() else 0.0)
+		var pts: PackedVector2Array = wall_corners(w, float(rot[i]) if i < rot.size() else 0.0, t)
+		var v: Vector2 = wall_velocity(w, t)
 		for k: int in 4:
-			segs.append([pts[k], pts[(k + 1) % 4], i, kind])
+			segs.append([pts[k], pts[(k + 1) % 4], i, kind, v])
 	return segs
 
 
@@ -174,9 +228,19 @@ static func _next_hit(level: Dictionary, state: Dictionary, segs: Array, orb: Di
 	var dir: Vector2 = orb["dir"]
 	var best: Dictionary = {"d": INF}
 	for s: Array in segs:
-		var hit: Array = _ray_capsule(p, dir, s[0], s[1], ORB_R)
+		var v: Vector2 = s[4]
+		var hit: Array
+		if v == Vector2.ZERO:
+			hit = _ray_capsule(p, dir, s[0], s[1], ORB_R)
+		else:
+			# Solve in the platform's frame: the orb moves at (dir - v) there.
+			var rel: Vector2 = dir - v
+			var speed: float = rel.length()
+			hit = _ray_capsule(p, rel / speed, s[0], s[1], ORB_R)
+			if not hit.is_empty():
+				hit[0] = float(hit[0]) / speed
 		if not hit.is_empty() and float(hit[0]) < float(best["d"]):
-			best = {"d": hit[0], "n": hit[1], "type": "wall", "index": s[2], "kind": s[3]}
+			best = {"d": hit[0], "n": hit[1], "type": "wall", "index": s[2], "kind": s[3], "v": v}
 	var targets: Array = level.get("targets", [])
 	var hp: Array = state["hp"]
 	for i: int in targets.size():
@@ -255,11 +319,14 @@ static func simulate(level: Dictionary, state_in: Dictionary, angle: float, boun
 	var events: Array = []
 	var tracks: Array = []
 	var segs: Array = _segments(level, state)
+	var movers: bool = has_movers(level)
 	var t: float = 0.0
 	var max_bounces_used: int = 0
 	var guard: int = 0
 	while guard < MAX_EVENTS:
 		guard += 1
+		if movers:
+			segs = _segments(level, state, t)
 		var best_d: float = INF
 		var best_orb: Dictionary = {}
 		var best_hit: Dictionary = {}
@@ -278,6 +345,16 @@ static func simulate(level: Dictionary, state_in: Dictionary, angle: float, boun
 				best_hit = hit
 		if alive == 0:
 			break
+		if movers:
+			# A platform turning around changes its velocity: re-plan from there.
+			var turn: float = next_turn(level, t) - t
+			if turn < best_d:
+				for o: Dictionary in orbs:
+					if o["alive"]:
+						o["pos"] = (o["pos"] as Vector2) + (o["dir"] as Vector2) * turn
+						o["travel"] = float(o["travel"]) + turn
+				t += turn
+				continue
 		for orb: Dictionary in orbs:
 			if orb["alive"]:
 				orb["pos"] = (orb["pos"] as Vector2) + (orb["dir"] as Vector2) * best_d
@@ -298,18 +375,18 @@ static func simulate(level: Dictionary, state_in: Dictionary, angle: float, boun
 					_end_orb(orb, tracks, "fizzle")
 				else:
 					var n: Vector2 = best_hit["n"]
-					orb["dir"] = (orb["dir"] as Vector2).bounce(n).normalized()
+					orb["dir"] = _reflect(orb["dir"], n, best_hit.get("v", Vector2.ZERO))
 					orb["pos"] = pos + n * 0.01
 					orb["bounces"] = int(orb["bounces"]) - 1
 					max_bounces_used = maxi(max_bounces_used, limit - int(orb["bounces"]))
 					orb["track"]["bounces"][-1] = int(orb["bounces"])
 					if kind == KIND_GLASS:
 						state["intact"][idx] = false
-						segs = _segments(level, state)
+						segs = _segments(level, state, t)
 						events.append({"t": t, "type": "glass", "pos": pos, "orb": orb["id"], "index": idx, "n": n})
 					elif kind == KIND_PIVOT:
 						state["rot"][idx] = fmod(float(state["rot"][idx]) + 90.0, 360.0)
-						segs = _segments(level, state)
+						segs = _segments(level, state, t)
 						events.append({"t": t, "type": "pivot", "pos": pos, "orb": orb["id"], "index": idx, "n": n, "rot": state["rot"][idx]})
 					else:
 						events.append({"t": t, "type": "bounce", "pos": pos, "orb": orb["id"], "index": idx, "n": n})
@@ -375,7 +452,7 @@ static func simulate(level: Dictionary, state_in: Dictionary, angle: float, boun
 				events.append({"t": t, "type": "split", "pos": centre, "orb": orb["id"], "index": ri, "kids": kids})
 			"switch":
 				state["open"] = true
-				segs = _segments(level, state)
+				segs = _segments(level, state, t)
 				events.append({"t": t, "type": "switch", "pos": pos, "orb": orb["id"], "index": best_hit["index"]})
 			"spark":
 				(orb["used_sparks"] as Array).append(best_hit["index"])
@@ -397,25 +474,51 @@ static func simulate(level: Dictionary, state_in: Dictionary, angle: float, boun
 	}
 
 
+## Mirror bounce. Off a moving platform, make sure the orb leaves faster than the
+## platform follows it, so it can't be caught twice by the same face.
+static func _reflect(dir: Vector2, n: Vector2, v: Vector2) -> Vector2:
+	var out: Vector2 = dir.bounce(n).normalized()
+	if v != Vector2.ZERO:
+		var need: float = maxf(0.0, v.dot(n)) + 0.08
+		if out.dot(n) < need:
+			out = (out + n * (need - out.dot(n))).normalized()
+	return out
+
+
 static func _end_orb(orb: Dictionary, tracks: Array, reason: String) -> void:
 	orb["alive"] = false
 	orb["track"]["end"] = reason
 	tracks.append(orb["track"])
 
 
-## Cheap preview: the path from the launcher up to the first contact, then a short
-## reflected stub. Returns {points: PackedVector2Array, hit: Vector2, stub_end: Vector2, kind: String}.
+## Cheap preview: the path from the launcher up to the first `segments` contacts,
+## then a short reflected stub. Moving platforms are tracked along the way, so the
+## line shows where they will be when the orb gets there.
+## Returns {points: PackedVector2Array, stub_end: Vector2, kind: String, pops: Array}.
 static func preview(level: Dictionary, state: Dictionary, angle: float, stub_length: float = 120.0, segments: int = 1) -> Dictionary:
-	var segs: Array = _segments(level, state)
+	var movers: bool = has_movers(level)
+	var temp_state: Dictionary = copy_state(state)
+	var t: float = 0.0
+	var segs: Array = _segments(level, temp_state)
 	var orb: Dictionary = {"pos": launcher(level), "dir": Vector2.from_angle(angle), "used_prisms": [], "used_sparks": []}
 	var points: PackedVector2Array = PackedVector2Array([orb["pos"]])
 	var kind: String = ""
 	var pops: Array[int] = []
-	var temp_state: Dictionary = copy_state(state)
-	for i: int in segments:
-		var hit: Dictionary = _next_hit(level, temp_state, segs, orb)
-		while str(hit.get("type", "")) in ["target", "switch", "spark"]:
-			# Pass-through triggers: remember popped targets and keep looking.
+	var contacts: int = 0
+	var guard: int = 0
+	var hit: Dictionary = {}
+	while contacts < segments and guard < 80:
+		guard += 1
+		if movers:
+			segs = _segments(level, temp_state, t)
+		hit = _next_hit(level, temp_state, segs, orb)
+		if movers and float(hit["d"]) > next_turn(level, t) - t:
+			var turn: float = next_turn(level, t) - t
+			orb["pos"] = (orb["pos"] as Vector2) + (orb["dir"] as Vector2) * turn
+			t += turn
+			continue
+		if str(hit.get("type", "")) in ["target", "switch", "spark"]:
+			# Pass-through triggers: remember popped targets and keep going.
 			match str(hit["type"]):
 				"target":
 					if int(temp_state["hp"][hit["index"]]) < 2:
@@ -425,19 +528,25 @@ static func preview(level: Dictionary, state: Dictionary, angle: float, stub_len
 					temp_state["open"] = true
 				"spark":
 					(orb["used_sparks"] as Array).append(hit["index"])
-			hit = _next_hit(level, temp_state, segs, orb)
+			orb["pos"] = (orb["pos"] as Vector2) + (orb["dir"] as Vector2) * float(hit["d"])
+			t += float(hit["d"])
+			continue
 		if float(hit["d"]) >= INF:
 			break
 		var p: Vector2 = (orb["pos"] as Vector2) + (orb["dir"] as Vector2) * float(hit["d"])
+		t += float(hit["d"])
 		points.append(p)
+		contacts += 1
 		kind = str(hit["type"]) if str(hit["type"]) != "wall" else str(hit["kind"])
 		if not hit.has("n") or kind == KIND_VOID:
 			break
 		var n: Vector2 = hit["n"]
-		orb["dir"] = (orb["dir"] as Vector2).bounce(n)
+		orb["dir"] = _reflect(orb["dir"], n, hit.get("v", Vector2.ZERO))
 		orb["pos"] = p + n * 0.01
 	var stub_end: Vector2 = points[-1]
 	if kind != KIND_VOID and kind != "portal" and kind != "prism" and points.size() >= 2:
+		if movers:
+			segs = _segments(level, temp_state, t)
 		var stub_hit: Dictionary = _next_hit(level, temp_state, segs, orb)
 		var stub_len: float = minf(stub_length, float(stub_hit["d"]))
 		stub_end = points[-1] + (orb["dir"] as Vector2) * stub_len

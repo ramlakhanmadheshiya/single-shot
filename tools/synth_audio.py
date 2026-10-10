@@ -5,7 +5,7 @@ One Clean Shot -- procedural audio synthesizer.
 Generates ALL of One Clean Shot's music and sound effects from scratch (pure synthesis,
 no samples, no third-party material). Output is 16-bit PCM WAV:
 
-    assets/audio/music/{menu,ch1..ch8}.wav              (mono, 44100 Hz, seamless loops)
+    assets/audio/music/{menu,ch1..ch9}.wav              (mono, 44100 Hz, seamless loops)
     assets/audio/sfx/*.wav                               (mono, 44100 Hz, one-shots)
 
 Usage (from the project root):
@@ -787,6 +787,40 @@ def track_ch8():  # Turn
     return s, y
 
 
+def track_ch9():  # Drift
+    s = Song("ch9", 76, 24, seed=1010)
+    A = ["Am7", "Fmaj7", "Cmaj7", "G6"]
+    B = ["Dm7", "Am7", "Fmaj7", "Em"]
+    C = ["Fmaj7", "G6", "Am7", "Csus2"]
+    prog = A + A + B + A + C + A
+    s.pad_chords("pad", prog, lo=52, hi=72, gain=0.07, detunes=(-8, -2, 4, 9),
+                 attack=2.0, release=2.8, cutoff=1200, trem=0.05)
+    # gliding kalimba figure: up the chord, then back down, like a platform
+    # sliding to the end of its rail and returning
+    shape = [0, 1, 2, 3, 2, 1]
+    for b, ch in enumerate(prog):
+        tones = chord_tones(ch, 57, 81)
+        for i in range(6):
+            pos = i * (4.0 / 6.0)
+            m = tones[min(shape[i] + (b % 2), len(tones) - 1)]
+            acc = 1.0 if i in (0, 3) else 0.7
+            s.add("kal", b * 4 + pos, kalimba(m, 2.6, bright=0.8), 0.14 * acc, human=0.004)
+        s.add("bass", b * 4, soft_bass(root_in(ch, 33), 3.6, 1.6), 0.46, vel_var=0.03)
+        if b >= 6 and b % 2 == 1:
+            s.add("bass", b * 4 + 3.0, soft_bass(root_in(ch, 33) + 12, 1.2, 0.5), 0.16)
+        if b >= 12:
+            mt = chord_tones(ch, 69, 86)
+            s.add("mar", b * 4 + 1.5, marimba(mt[(b * 3) % len(mt)], 1.6, bright=0.6), 0.1, human=0.003)
+    density = [0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 2, 1, 1, 0, 1, 2, 1, 1, 2, 1, 1, 0, 1, 0]
+    s.melody("mel", prog, density, 72, 84, lambda m, d: bell_fm(m, 3.8, ratio=2.0, index=0.6, tau=1.6, shimmer=0.2), 0.26, SPARSE, DENSE)
+    ir = make_ir(4.5, 3.4, seed=23, bright=0.9)
+    y, k = s.mixdown({"pad": (1.0, 0.55, 0.0), "kal": (1.0, 0.35, 0.3),
+                      "bass": (0.55, 0.08, 0.0), "mar": (1.0, 0.45, 0.35),
+                      "mel": (1.0, 0.6, 0.4)},
+                     ir, delay=(s.beat * 1.5, 0.4, 3000, 0.5), master_lp=9000)
+    return s, y
+
+
 TRACKS = {"menu": (track_menu, 72, "C major (Cmaj7-Am7-Fmaj7-G6)"),
           "ch1": (track_ch1, 84, "C major (C-G-Am-F-Csus2-Em-F-G)"),
           "ch2": (track_ch2, 90, "C major / F lydian colour (Fmaj7-C-Dm7-Am7 | Fmaj7-Em-Dm7-G6)"),
@@ -795,7 +829,8 @@ TRACKS = {"menu": (track_menu, 72, "C major (Cmaj7-Am7-Fmaj7-G6)"),
           "ch5": (track_ch5, 100, "C major / A minor (F-G-Em-Am | C-G-Am-F)"),
           "ch6": (track_ch6, 78, "A minor / C major (Am7-Fmaj7-C-G6 | Dm7-Am7-Fmaj7-Csus2)"),
           "ch7": (track_ch7, 104, "C major (C-Em-Am-F | Dm7-G6-Cmaj7-Am7)"),
-          "ch8": (track_ch8, 88, "C major (Fmaj7-G6-Em-Am7 | Dm7-G-Cmaj7-Am7 | Fmaj7-G6-Cmaj7-Csus2)")}
+          "ch8": (track_ch8, 88, "C major (Fmaj7-G6-Em-Am7 | Dm7-G-Cmaj7-Am7 | Fmaj7-G6-Cmaj7-Csus2)"),
+          "ch9": (track_ch9, 76, "A minor / C major (Am7-Fmaj7-Cmaj7-G6 | Dm7-Am7-Fmaj7-Em)")}
 
 
 # =============================================================================

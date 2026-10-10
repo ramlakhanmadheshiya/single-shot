@@ -67,13 +67,74 @@ const CHAPTERS: Dictionary = {
 		"accent": Color("#C8553D"), "special": Color("#7D5BA6"), "special2": Color("#C8553D"),
 		"card": Color("#FFFFFF", 0.5), "dark": false,
 	},
+	"ch9": {
+		"name": "Drift", "tagline": "Walls move when you shoot",
+		"top": Color("#EEF5FB"), "bottom": Color("#CFE3F5"),
+		"ink": Color("#1E3A55"), "muted": Color("#1E3A55", 0.5), "faint": Color("#1E3A55", 0.08),
+		"wall": Color("#1E3A55"), "target": Color("#F25F5C"), "orb": Color("#1E3A55"),
+		"accent": Color("#3D8BD9"), "special": Color("#3D8BD9"), "special2": Color("#F2A541"),
+		"card": Color("#FFFFFF", 0.55), "dark": false,
+	},
 }
 
 const HOME_ID: String = "ch1"
 
+## Colour themes from the Theme pack. "chapters" (free) keeps each chapter's own
+## colours; any other theme repaints every chapter in one calm scheme.
+const THEMES: Dictionary = {
+	"midnight": {"name": "Midnight", "top": "#15161E", "bottom": "#23253A", "ink": "#ECEAF6", "target": "#FF6B81", "accent": "#7AA2F7", "special": "#7DCFFF", "special2": "#E0AF68", "dark": true},
+	"paper": {"name": "Paper", "top": "#FAFAF7", "bottom": "#E9E7E1", "ink": "#222222", "target": "#E5484D", "accent": "#222222", "special": "#3E9B8F", "special2": "#D9822B", "dark": false},
+	"sepia": {"name": "Sepia", "top": "#F6EEDF", "bottom": "#E2D2B4", "ink": "#4A3B2A", "target": "#C0532E", "accent": "#A66A2C", "special": "#5C8A7A", "special2": "#B0882C", "dark": false},
+	"nord": {"name": "Nord", "top": "#2E3440", "bottom": "#3B4252", "ink": "#ECEFF4", "target": "#BF616A", "accent": "#88C0D0", "special": "#8FBCBB", "special2": "#EBCB8B", "dark": true},
+	"dracula": {"name": "Dracula", "top": "#282A36", "bottom": "#343746", "ink": "#F8F8F2", "target": "#FF5555", "accent": "#BD93F9", "special": "#8BE9FD", "special2": "#F1FA8C", "dark": true},
+	"forest": {"name": "Forest", "top": "#EEF3EA", "bottom": "#C9DBC0", "ink": "#22372B", "target": "#D2553F", "accent": "#3F7D4F", "special": "#2F8F83", "special2": "#C9962E", "dark": false},
+	"ocean": {"name": "Ocean", "top": "#0E2233", "bottom": "#14405A", "ink": "#E6F4FB", "target": "#FF8A65", "accent": "#4FC3F7", "special": "#80DEEA", "special2": "#FFD54F", "dark": true},
+	"rose": {"name": "Rose", "top": "#FFF1F3", "bottom": "#F7C9D2", "ink": "#4A2030", "target": "#E0405F", "accent": "#C2185B", "special": "#7E57C2", "special2": "#F29E4C", "dark": false},
+	"mint": {"name": "Mint", "top": "#EFFAF5", "bottom": "#BFE8D6", "ink": "#16413A", "target": "#F2545B", "accent": "#18A57E", "special": "#2B8BD6", "special2": "#F2A541", "dark": false},
+	"sunset": {"name": "Sunset", "top": "#2B1B3D", "bottom": "#7A3B57", "ink": "#FFF0E6", "target": "#FFD166", "accent": "#FF8C61", "special": "#6EE7F9", "special2": "#FFB4A2", "dark": true},
+	"mono": {"name": "Mono", "top": "#101010", "bottom": "#1C1C1C", "ink": "#F2F2F2", "target": "#F2F2F2", "accent": "#BDBDBD", "special": "#9E9E9E", "special2": "#E0E0E0", "dark": true},
+}
+
+## The active theme, set by SaveSystem from the player's setting.
+static var theme_id: String = "chapters"
+
 
 static func get_palette(chapter_id: String) -> Dictionary:
-	return CHAPTERS.get(chapter_id, CHAPTERS[HOME_ID])
+	var base: Dictionary = CHAPTERS.get(chapter_id, CHAPTERS[HOME_ID])
+	if not THEMES.has(theme_id):
+		return base
+	return themed(base, theme_id)
+
+
+## A chapter palette repainted in a theme (keeps the chapter's name and tagline).
+static func themed(base: Dictionary, id: String) -> Dictionary:
+	var th: Dictionary = THEMES[id]
+	var ink: Color = Color(th["ink"])
+	var dark: bool = bool(th["dark"])
+	var out: Dictionary = base.duplicate()
+	out["top"] = Color(th["top"])
+	out["bottom"] = Color(th["bottom"])
+	out["ink"] = ink
+	out["muted"] = Color(ink, 0.5)
+	out["faint"] = Color(ink, 0.07 if dark else 0.08)
+	out["wall"] = ink
+	out["orb"] = Color.WHITE if dark else ink
+	out["target"] = Color(th["target"])
+	out["accent"] = Color(th["accent"])
+	out["special"] = Color(th["special"])
+	out["special2"] = Color(th["special2"])
+	out["card"] = Color("#FFFFFF", 0.08 if dark else 0.5)
+	out["dark"] = dark
+	return out
+
+
+## Theme ids in shop order, "chapters" first.
+static func theme_ids() -> Array:
+	return ["chapters"] + THEMES.keys()
+
+
+static func theme_name(id: String) -> String:
+	return "Chapter colours" if id == "chapters" else str(THEMES.get(id, {}).get("name", id))
 
 
 static func ids() -> Array:

@@ -47,7 +47,7 @@ func _card(c: Dictionary, index: int) -> Button:
 	var open: bool = Levels.chapter_open(id)
 	var b: Button = Button.new()
 	b.name = "Chapter_" + id
-	b.custom_minimum_size = Vector2(0, 168)
+	b.custom_minimum_size = Vector2(0, 200)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.focus_mode = Control.FOCUS_ALL
 	var sb: StyleBoxFlat = StyleBoxFlat.new()
@@ -55,10 +55,8 @@ func _card(c: Dictionary, index: int) -> Button:
 	sb.set_corner_radius_all(36)
 	sb.corner_detail = 12
 	sb.anti_aliasing = true
-	b.add_theme_stylebox_override("normal", sb)
-	b.add_theme_stylebox_override("hover", sb)
-	b.add_theme_stylebox_override("pressed", sb)
-	b.add_theme_stylebox_override("disabled", sb)
+	for state: String in ["normal", "hover", "pressed", "disabled"]:
+		b.add_theme_stylebox_override(state, sb)
 	var focus: StyleBoxFlat = sb.duplicate()
 	focus.bg_color = Color.TRANSPARENT
 	focus.border_color = pal["accent"]
@@ -69,10 +67,18 @@ func _card(c: Dictionary, index: int) -> Button:
 	focus.expand_margin_bottom = 6
 	b.add_theme_stylebox_override("focus", focus)
 	UIKit.add_press_feel(b)
-	var art: Control = _CardArt.new()
+	var bg: Control = _CardBack.new()
+	bg.pal = cp
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(bg)
+	# The chapter's idea, playing out on the right half of the card.
+	var art: ChapterArt = ChapterArt.new()
+	art.name = "Art"
+	art.chapter_id = id
 	art.pal = cp
 	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art.resized.connect(func() -> void: art.area = Rect2(art.size.x * 0.44, 14.0, art.size.x * 0.54, art.size.y - 28.0))
 	b.add_child(art)
 	var margin: MarginContainer = MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -82,39 +88,30 @@ func _card(c: Dictionary, index: int) -> Button:
 	for side: String in ["top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 22)
 	b.add_child(margin)
-	var row: HBoxContainer = HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.add_child(row)
 	var text: VBoxContainer = VBoxContainer.new()
-	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text.alignment = BoxContainer.ALIGNMENT_CENTER
-	text.add_theme_constant_override("separation", 0)
+	text.add_theme_constant_override("separation", 2)
 	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(text)
+	margin.add_child(text)
 	text.add_child(UIKit.label("%02d" % (index + 1), 22, cp["muted"], 600, HORIZONTAL_ALIGNMENT_LEFT))
 	text.add_child(UIKit.label(str(cp["name"]), 48, cp["ink"], 500, HORIZONTAL_ALIGNMENT_LEFT))
 	text.add_child(UIKit.label(str(cp["tagline"]), 22, cp["muted"], 400, HORIZONTAL_ALIGNMENT_LEFT))
-	var right: VBoxContainer = VBoxContainer.new()
-	right.alignment = BoxContainer.ALIGNMENT_CENTER
-	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(right)
 	var total: int = Levels.level_count(id)
+	var status: HBoxContainer = HBoxContainer.new()
+	status.add_theme_constant_override("separation", 10)
+	status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	text.add_child(status)
 	if open:
-		right.add_child(UIKit.label("★ %d/%d" % [Levels.stars_in(id), total * 3], 26, cp["ink"], 600, HORIZONTAL_ALIGNMENT_RIGHT))
-		right.add_child(UIKit.label("%d/%d cleared" % [Levels.cleared_in(id), total], 20, cp["muted"], 400, HORIZONTAL_ALIGNMENT_RIGHT))
+		status.add_child(UIKit.label("★ %d/%d" % [Levels.stars_in(id), total * 3], 22, cp["ink"], 600, HORIZONTAL_ALIGNMENT_LEFT))
+		status.add_child(UIKit.label("·  %d/%d cleared" % [Levels.cleared_in(id), total], 20, cp["muted"], 500, HORIZONTAL_ALIGNMENT_LEFT))
 		b.pressed.connect(func() -> void: app.open_levels(id))
 	else:
-		var lock: TextureRect = TextureRect.new()
-		lock.texture = UIKit.icon("lock")
-		lock.custom_minimum_size = Vector2(40, 40)
-		lock.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		lock.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		lock.modulate = cp["ink"]
-		lock.size_flags_horizontal = Control.SIZE_SHRINK_END
-		right.add_child(lock)
+		status.add_child(UIKit.icon_rect("lock", 26.0, cp["ink"]))
 		var prev_name: String = str(Palette.get_palette(str(Levels.chapters[index - 1]["id"]))["name"])
-		right.add_child(UIKit.label("Clear %d in %s" % [Levels.CHAPTER_GATE, prev_name], 20, cp["muted"], 500, HORIZONTAL_ALIGNMENT_RIGHT))
-		art.modulate.a = 0.5
+		var left: int = Levels.CHAPTER_GATE - Levels.cleared_in(str(Levels.chapters[index - 1]["id"]))
+		status.add_child(UIKit.label("%d more in %s" % [left, prev_name], 20, cp["muted"], 500, HORIZONTAL_ALIGNMENT_LEFT))
+		art.modulate.a = 0.45
+		art.playing = false
 		b.pressed.connect(func() -> void:
 			AudioManager.play_ui("ui_back")
 			var tw: Tween = b.create_tween()
@@ -136,26 +133,20 @@ func handle_back() -> bool:
 	return true
 
 
-## A tiny decorative ricochet path in the chapter's colours.
-class _CardArt:
+## The card's face: the chapter's light colour fading into its deeper one.
+class _CardBack:
 	extends Control
 	var pal: Dictionary
 
 	func _draw() -> void:
-		var top: Color = pal["top"]
-		var r: Rect2 = Rect2(Vector2.ZERO, size)
 		var sb: StyleBoxFlat = StyleBoxFlat.new()
 		sb.set_corner_radius_all(36)
 		sb.corner_detail = 12
 		sb.anti_aliasing = true
-		sb.bg_color = top
-		draw_style_box(sb, r)
-		var pts: PackedVector2Array = PackedVector2Array([Vector2(size.x * 0.40, size.y - 26), Vector2(size.x * 0.48, 26), Vector2(size.x * 0.56, size.y - 34), Vector2(size.x * 0.62, 52)])
-		for i: int in pts.size() - 1:
-			var a: Vector2 = pts[i]
-			var b: Vector2 = pts[i + 1]
-			var n: int = int(a.distance_to(b) / 16.0)
-			for k: int in n:
-				draw_circle(a.lerp(b, float(k) / float(n)), 2.4, Color(pal["ink"], 0.18), true, -1.0, true)
-		draw_circle(pts[-1], 13.0, Color(pal["target"], 0.85), true, -1.0, true)
-		draw_circle(pts[0], 7.0, Color(pal["ink"], 0.4), true, -1.0, true)
+		sb.bg_color = pal["top"]
+		draw_style_box(sb, Rect2(Vector2.ZERO, size))
+		# A soft panel behind the scene so it reads as a little window into the chapter.
+		var art: StyleBoxFlat = sb.duplicate()
+		art.bg_color = Color(pal["bottom"], 0.45)
+		art.set_corner_radius_all(26)
+		draw_style_box(art, Rect2(Vector2(size.x * 0.44, 12.0), Vector2(size.x * 0.54, size.y - 24.0)))

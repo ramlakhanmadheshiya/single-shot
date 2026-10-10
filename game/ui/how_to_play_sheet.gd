@@ -2,11 +2,12 @@ extends Overlay
 ## The rules in five short lines, plus a way to replay the hands-on tutorial.
 
 const STEPS: Array = [
-	["1", "Drag anywhere to aim. The dotted line shows your path."],
-	["2", "Let go to shoot. The orb bounces off walls."],
-	["3", "Pop every red target to clear the room."],
-	["4", "The dots above the launcher = bounces you get per shot."],
-	["5", "Clear a room in one shot for ★★★. You have 3 shots."],
+	["1", "Drag anywhere to aim. Hold still a moment for fine aim."],
+	["2", "Let go to shoot. You get one shot per room."],
+	["3", "Pop every target in that one shot to clear the room."],
+	["4", "The dots over the launcher are the bounces your shot gets."],
+	["5", "Missed? The room resets and your last path stays faintly visible."],
+	["6", "First try ★★★  ·  within three tries ★★  ·  after that ★"],
 ]
 
 
@@ -31,7 +32,7 @@ func build() -> void:
 		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(text)
 		body.add_child(row)
-	var tip: Label = UIKit.label("Stuck? Undo, restart, or tap the bulb for a hint.", 21, pal["muted"], 400)
+	var tip: Label = UIKit.label("Stuck? The bulb shows the way. Tap the room while a shot flies to speed it up.", 21, pal["muted"], 400)
 	tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_child(tip)
 	add_gap(6)
