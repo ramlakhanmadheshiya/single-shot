@@ -9,7 +9,7 @@ const SECTIONS: Array = [
 	["Engine", [["Godot Engine 4.7", "MIT licence. godotengine.org", "https://godotengine.org/"]]],
 	["Type", [["Outfit", "By the Outfit Project Authors. SIL Open Font License 1.1.", ""]]],
 	["Icons", [["Lucide", "By the Lucide contributors. ISC licence. lucide.dev", "https://lucide.dev/"]]],
-	["Sound and music", [["Synthesised for One Clean Shot", "Every sound effect and all nine chapter themes are made in code for this game.", ""]]],
+	["Sound and music", [["Synthesised for Single Shot", "Every sound effect and all nine chapter themes are made in code for this game.", ""]]],
 	["Art and levels", [["Made in code", "Drawn and generated for this game. Every one of the 360 rooms is proven solvable in one shot by its solver.", ""]]],
 	["Ads and purchases, on Android", [
 		["Godot AdMob Plugin", "By Poing Studios. MIT licence.", ""],

@@ -119,6 +119,9 @@ func reset() -> void:
 	shots_used = 0
 	_stop_playback()
 	_hint_t = 0.0
+	# A fresh room: no trace of an earlier miss (retry() puts it back).
+	_ghost_tracks = []
+	_ghost_end = []
 	_intro = 0.0
 	aiming = false
 	has_aim = false
@@ -549,6 +552,9 @@ func show_hint() -> bool:
 		return false
 	_hint_tracks = tracks
 	_hint_t = 5.0
+	# The hint path replaces the trace of the last miss, so the two never tangle.
+	_ghost_tracks = []
+	_ghost_end = []
 	aim_angle = angle
 	has_aim = true
 	_preview = {}

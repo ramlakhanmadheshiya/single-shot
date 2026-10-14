@@ -16,7 +16,7 @@ const NEW_THINGS: Dictionary = {
 	"multi_mover": "Two platforms: watch both rails",
 	"two_gates": "One switch opens every gate",
 }
-const TITLES: Array = ["", "Cleared", "Nicely done", "One clean shot"]
+const TITLES: Array = ["", "Cleared", "Nicely done", "Clean shot"]
 ## The finish chime and stars sit well under the in-game sounds: they come right
 ## after the final pop and were the loudest moment in the game.
 const WIN_DB: float = -9.0

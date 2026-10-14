@@ -1,14 +1,14 @@
 extends Node
 ## Sharing and saving the result card.
 ## - Android: the system share sheet with the picture attached (through the app's
-##   FileProvider), and "Save" writes it to Pictures/One Clean Shot.
+##   FileProvider), and "Save" writes it to Pictures/Single Shot.
 ## - Web: the browser's share sheet where it can share files, else a download.
 ## - Desktop: saves to the Pictures folder and shows it.
 ## Every path falls back to copying the link, so sharing never dead-ends.
 
 signal finished(ok: bool, message: String)
 
-const URL: String = "https://theramlakhan.com/one-clean-shot/"
+const URL: String = "https://theramlakhan.com/single-shot/"
 const DIR: String = "user://share"
 
 
@@ -17,11 +17,11 @@ func _ready() -> void:
 
 
 func message_for(info: Dictionary) -> String:
-	return "One Clean Shot · %s, level %d: %s Can you do it in one shot? %s" % [info["chapter"], int(info["number"]), str(info["verdict"]), URL]
+	return "Single Shot · %s, level %d: %s Can you do it in one shot? %s" % [info["chapter"], int(info["number"]), str(info["verdict"]), URL]
 
 
 func file_name(info: Dictionary) -> String:
-	return "one-clean-shot-%s-%02d.png" % [str(info["chapter"]).to_lower(), int(info["number"])]
+	return "single-shot-%s-%02d.png" % [str(info["chapter"]).to_lower(), int(info["number"])]
 
 
 ## Writes the picture to the app's share folder; returns the absolute path.
@@ -57,7 +57,7 @@ func save(img: Image, info: Dictionary) -> void:
 	if OS.has_feature("android"):
 		var path: String = _write(img, name)
 		if _android_save(path, name):
-			finished.emit(true, "Saved to Pictures › One Clean Shot")
+			finished.emit(true, "Saved to Pictures › Single Shot")
 		else:
 			# Older Android: hand it to the share sheet ("Save to device" lives there).
 			finished.emit(_android_share(path, message_for(info)), "")
@@ -119,7 +119,7 @@ func _android_share(path: String, text: String) -> bool:
 	return true
 
 
-## Android 10+: insert into MediaStore under Pictures/One Clean Shot.
+## Android 10+: insert into MediaStore under Pictures/Single Shot.
 func _android_save(path: String, name: String) -> bool:
 	var activity: Object = _activity()
 	if activity == null or path.is_empty():
@@ -136,7 +136,7 @@ func _android_save(path: String, name: String) -> bool:
 	var values: Object = values_class.call("ContentValues")
 	values.call("put", "_display_name", name)
 	values.call("put", "mime_type", "image/png")
-	values.call("put", "relative_path", "Pictures/One Clean Shot")
+	values.call("put", "relative_path", "Pictures/Single Shot")
 	var resolver: Object = activity.call("getContentResolver")
 	var uri: Object = resolver.call("insert", media.get("EXTERNAL_CONTENT_URI"), values)
 	if uri == null:

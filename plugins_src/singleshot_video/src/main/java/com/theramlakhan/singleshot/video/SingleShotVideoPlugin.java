@@ -1,4 +1,4 @@
-package io.github.ramlakhanmadheshiya.onecleanshot.video;
+package com.theramlakhan.singleshot.video;
 
 import android.app.Activity;
 import android.content.ContentResolver;
@@ -38,7 +38,7 @@ import java.util.List;
  * GDScript use: begin(path, w, h, fps, frames, wav) -> addFrame(rgba) x frames ->
  * finish() -> saveToGallery(path, name) / share(path, text).
  */
-public class OCSVideoPlugin extends GodotPlugin {
+public class SingleShotVideoPlugin extends GodotPlugin {
 	private static final String VIDEO_MIME = "video/avc";
 	private static final String AUDIO_MIME = "audio/mp4a-latm";
 	private static final long TIMEOUT_US = 10_000;
@@ -58,14 +58,14 @@ public class OCSVideoPlugin extends GodotPlugin {
 	private MediaFormat audioFormat;
 	private String error = "";
 
-	public OCSVideoPlugin(Godot godot) {
+	public SingleShotVideoPlugin(Godot godot) {
 		super(godot);
 	}
 
 	@NonNull
 	@Override
 	public String getPluginName() {
-		return "OCSVideo";
+		return "SingleShotVideo";
 	}
 
 	@UsedByGodot
@@ -186,7 +186,7 @@ public class OCSVideoPlugin extends GodotPlugin {
 		}
 	}
 
-	/** Copies the video into the gallery under Movies/One Clean Shot (Android 10+). */
+	/** Copies the video into the gallery under Movies/Single Shot (Android 10+). */
 	@UsedByGodot
 	public boolean saveToGallery(String path, String displayName) {
 		Activity activity = getActivity();
@@ -199,7 +199,7 @@ public class OCSVideoPlugin extends GodotPlugin {
 			ContentValues values = new ContentValues();
 			values.put(MediaStore.MediaColumns.DISPLAY_NAME, displayName);
 			values.put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4");
-			values.put(MediaStore.MediaColumns.RELATIVE_PATH, "Movies/One Clean Shot");
+			values.put(MediaStore.MediaColumns.RELATIVE_PATH, "Movies/Single Shot");
 			values.put(MediaStore.MediaColumns.IS_PENDING, 1);
 			Uri uri = resolver.insert(MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values);
 			if (uri == null) {
@@ -301,15 +301,25 @@ public class OCSVideoPlugin extends GodotPlugin {
 		int uPix = planes[1].getPixelStride();
 		int vRow = planes[2].getRowStride();
 		int vPix = planes[2].getPixelStride();
+		byte[] row = new byte[width];
 		for (int y = 0; y < height; y++) {
 			int src = y * width * 4;
-			int dst = y * yRow;
 			for (int x = 0; x < width; x++) {
 				int r = rgba[src] & 255;
 				int g = rgba[src + 1] & 255;
 				int b = rgba[src + 2] & 255;
-				yb.put(dst + x * yPix, (byte) clamp(((66 * r + 129 * g + 25 * b + 128) >> 8) + 16));
+				row[x] = (byte) clamp(((66 * r + 129 * g + 25 * b + 128) >> 8) + 16);
 				src += 4;
+			}
+			if (yPix == 1) {
+				// Packed plane (the usual case): one bulk copy per row.
+				yb.position(y * yRow);
+				yb.put(row, 0, width);
+			} else {
+				int dst = y * yRow;
+				for (int x = 0; x < width; x++) {
+					yb.put(dst + x * yPix, row[x]);
+				}
 			}
 		}
 		for (int y = 0; y < height / 2; y++) {

@@ -76,9 +76,9 @@ jobs:
             echo "$KEYSTORE_B64" | base64 -d > "$ks"
           else
             echo "::warning::No release keystore secret; signing with a throwaway key."
-            KEYSTORE_PASSWORD=android; KEYSTORE_ALIAS=one-clean-shot
-            keytool -genkeypair -keystore "$ks" -storepass android -keypass android -alias one-clean-shot \
-              -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=One Clean Shot"
+            KEYSTORE_PASSWORD=android; KEYSTORE_ALIAS=single-shot
+            keytool -genkeypair -keystore "$ks" -storepass android -keypass android -alias single-shot \
+              -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Single Shot"
           fi
           {
             echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$ks"
@@ -110,12 +110,12 @@ jobs:
           gradle-version: "8.14.3"
 
       - name: Build the video plugin (Android library)
-        # Encodes the share video to MP4 on phones (see plugins_src/ocs_video).
+        # Encodes the share video to MP4 on phones (see plugins_src/singleshot_video).
         run: |
-          gradle -p plugins_src/ocs_video assembleRelease --no-daemon --stacktrace
-          mkdir -p addons/ocs_video/bin
-          cp plugins_src/ocs_video/build/outputs/aar/ocs_video-release.aar addons/ocs_video/bin/
-          ls -l addons/ocs_video/bin
+          gradle -p plugins_src/singleshot_video assembleRelease --no-daemon --stacktrace
+          mkdir -p addons/singleshot_video/bin
+          cp plugins_src/singleshot_video/build/outputs/aar/singleshot_video-release.aar addons/singleshot_video/bin/
+          ls -l addons/singleshot_video/bin
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -150,7 +150,7 @@ jobs:
             echo ""
             echo "general/android/app_id=\"$ADMOB_APP_ID\""
             echo ""
-            echo "[one_clean_shot]"
+            echo "[single_shot]"
             echo ""
             echo "ads/android_banner_id=\"$ADMOB_BANNER_ID\""
             echo "ads/android_rewarded_id=\"$ADMOB_REWARDED_ID\""
@@ -161,14 +161,14 @@ jobs:
         run: |
           mkdir -p build/android
           # Installs Godot's Gradle template, then the AdMob/Billing plugins patch it.
-          godot --headless --path . --install-android-build-template --export-release "Android" build/android/one-clean-shot.apk
-          test -s build/android/one-clean-shot.apk
+          godot --headless --path . --install-android-build-template --export-release "Android" build/android/single-shot.apk
+          test -s build/android/single-shot.apk
           ls -lh build/android
 
       - name: Export Android App Bundle (for Google Play)
         run: |
-          godot --headless --path . --export-release "Android AAB" build/android/one-clean-shot.aab
-          test -s build/android/one-clean-shot.aab
+          godot --headless --path . --export-release "Android AAB" build/android/single-shot.aab
+          test -s build/android/single-shot.aab
           ls -lh build/android
 
       - name: Export web build
@@ -181,11 +181,11 @@ jobs:
         run: |
           mkdir -p site/play
           cp -r build/web/* site/play/
-          cp build/android/one-clean-shot.apk site/one-clean-shot.apk
+          cp build/android/single-shot.apk site/single-shot.apk
           # Landing page, help, privacy, shared CSS and images: everything in web/ except Godot's .gdignore
           rsync -a --exclude '.gdignore' web/ site/
           cp assets/icon.svg site/icon.svg
-          size=$(du -h build/android/one-clean-shot.apk | cut -f1)
+          size=$(du -h build/android/single-shot.apk | cut -f1)
           sed -i "s/{{APK_SIZE}}/${size}/g; s/{{VERSION}}/1.0.${{ github.run_number }}/g; s/{{BUILD_DATE}}/$(date -u +%Y-%m-%d)/g" site/index.html
           touch site/.nojekyll
 
@@ -194,22 +194,22 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tag="v1.0.${{ github.run_number }}"
-          gh release create "$tag" build/android/one-clean-shot.apk \
-            --title "One Clean Shot $tag" \
-            --notes "Android build of ${GITHUB_SHA::7}. Install: download one-clean-shot.apk on your phone and open it." \
+          gh release create "$tag" build/android/single-shot.apk \
+            --title "Single Shot $tag" \
+            --notes "Android build of ${GITHUB_SHA::7}. Install: download single-shot.apk on your phone and open it." \
             --latest
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: one-clean-shot-apk
-          path: build/android/one-clean-shot.apk
+          name: single-shot-apk
+          path: build/android/single-shot.apk
 
       - name: Upload App Bundle artifact
         uses: actions/upload-artifact@v4
         with:
-          name: one-clean-shot-aab
-          path: build/android/one-clean-shot.aab
+          name: single-shot-aab
+          path: build/android/single-shot.aab
 
       - name: Upload to Google Play (internal testing)
         # Runs once the repository has a PLAY_SERVICE_ACCOUNT_JSON secret (a
@@ -219,8 +219,8 @@ jobs:
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: io.github.ramlakhanmadheshiya.onecleanshot
-          releaseFiles: build/android/one-clean-shot.aab
+          packageName: com.theramlakhan.singleshot
+          releaseFiles: build/android/single-shot.aab
           track: internal
           status: completed
 

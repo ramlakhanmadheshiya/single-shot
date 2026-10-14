@@ -34,7 +34,7 @@ func _draw() -> void:
 	draw_arc(launch, 30.0, 0.0, TAU, 48, WHITE, 9.0, true)
 	# Name and line.
 	var title: Font = UIKit.font(300)
-	draw_string(title, Vector2(486, 236), "One Clean Shot", HORIZONTAL_ALIGNMENT_LEFT, -1, 74, WHITE)
+	draw_string(title, Vector2(486, 236), "Single Shot", HORIZONTAL_ALIGNMENT_LEFT, -1, 74, WHITE)
 	var body: Font = UIKit.font(500)
 	draw_string(body, Vector2(490, 296), "A quiet ricochet puzzle.", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color(1, 1, 1, 0.75))
 	draw_string(body, Vector2(490, 342), "One shot. Every target.", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color("#FFC9A8"))

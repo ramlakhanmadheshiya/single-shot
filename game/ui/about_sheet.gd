@@ -1,7 +1,7 @@
 extends Overlay
 ## What the game is, who made it, and where to get help.
 
-const SITE: String = "https://theramlakhan.com/one-clean-shot/"
+const SITE: String = "https://theramlakhan.com/single-shot/"
 const AUTHOR_SITE: String = "https://theramlakhan.com/"
 
 
@@ -35,11 +35,11 @@ func build() -> void:
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	body.add_child(icon)
-	body.add_child(UIKit.label("One Clean Shot", 52, pal["ink"], 400))
+	body.add_child(UIKit.label("Single Shot", 52, pal["ink"], 400))
 	var version: String = str(ProjectSettings.get_setting("application/config/version", "1.0.0"))
 	body.add_child(UIKit.caption("A quiet ricochet puzzle   ·   version %s" % version, pal, 17, HORIZONTAL_ALIGNMENT_CENTER))
 	add_gap(10)
-	var blurb: Label = UIKit.label("Read the room, find the angle, and clear it with one clean shot. 360 rooms across 9 chapters, every one proven solvable in a single shot.", 23, pal["ink"], 400)
+	var blurb: Label = UIKit.label("Read the room, find the angle, and clear it with a single shot. 360 rooms across 9 chapters, every one proven solvable in one shot.", 23, pal["ink"], 400)
 	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_child(blurb)
 	add_gap(14)

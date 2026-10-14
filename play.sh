@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch One Clean Shot directly (no Godot editor window).
+# Launch Single Shot directly (no Godot editor window).
 set -e
 cd "$(dirname "$0")"
 GODOT="${GODOT:-$(command -v godot || echo /Applications/Godot.app/Contents/MacOS/Godot)}"

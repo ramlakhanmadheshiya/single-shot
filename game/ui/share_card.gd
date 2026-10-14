@@ -5,7 +5,7 @@ extends Control
 ## (4:5, the shape chat apps and feeds show best).
 
 const SIZE: Vector2i = Vector2i(1080, 1350)
-const SITE: String = "theramlakhan.com/one-clean-shot"
+const SITE: String = "theramlakhan.com/single-shot"
 
 var info: Dictionary = {}
 var pal: Dictionary
@@ -49,7 +49,7 @@ func _ready() -> void:
 	icon.position = Vector2(72, 64)
 	icon.size = Vector2(100, 100)
 	add_child(icon)
-	var name_l: Label = UIKit.label("One Clean Shot", 54, p["ink"], 400, HORIZONTAL_ALIGNMENT_LEFT)
+	var name_l: Label = UIKit.label("Single Shot", 54, p["ink"], 400, HORIZONTAL_ALIGNMENT_LEFT)
 	name_l.position = Vector2(196, 78)
 	name_l.size = Vector2(520, 72)
 	add_child(name_l)

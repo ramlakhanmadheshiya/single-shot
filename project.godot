@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="One Clean Shot"
+config/name="Single Shot"
 config/description="A quiet ricochet puzzle."
 config/version="1.0.0"
 run/main_scene="res://game/scenes/main.tscn"
@@ -48,7 +48,7 @@ window/handheld/orientation=1
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/GodotGooglePlayBilling/plugin.cfg", "res://addons/admob/plugin.cfg", "res://addons/ocs_video/plugin.cfg")
+enabled=PackedStringArray("res://addons/GodotGooglePlayBilling/plugin.cfg", "res://addons/admob/plugin.cfg", "res://addons/singleshot_video/plugin.cfg")
 
 [gui]
 

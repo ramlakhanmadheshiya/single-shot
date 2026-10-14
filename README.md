@@ -1,10 +1,10 @@
-# One Clean Shot
+# Single Shot
 
 *A quiet ricochet puzzle.* Drag to aim, release, and bank one orb off the walls to pop every target in the room. You get one shot.
 
 Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the web). It is portrait-first and works with touch, mouse, keyboard and gamepad.
 
-**Play / download:** https://theramlakhan.com/one-clean-shot/ — Android APK, or play in the browser on any phone.
+**Play / download:** https://theramlakhan.com/single-shot/ — Android APK, or play in the browser on any phone.
 
 ## The game
 
@@ -13,14 +13,14 @@ Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the 
   | # | Chapter | Mood | New mechanic |
   |---|---|---|---|
   | 1 | Dawn | warm cream | walls and bank shots |
-  | 2 | Drift | sky | platforms never stop sliding: time your release |
-  | 3 | Glass | mint | glass panes bounce you once, then shatter |
-  | 4 | Gate | sage | a switch dissolves the gate walls |
+  | 2 | Glass | mint | glass panes bounce you once, then shatter |
+  | 3 | Gate | sage | a switch dissolves the gate walls |
+  | 4 | Drift | sky | platforms never stop sliding: time your release |
   | 5 | Turn | rose | pivot walls turn 90° each time they're hit |
   | 6 | Shift | dusk violet | portals carry the orb across the room |
   | 7 | Void | indigo night | dark blocks swallow the orb; round bumpers bounce it |
-  | 8 | Spark | amber night | flying through a spark adds one bounce |
-  | 9 | Prism | midnight | prisms split one orb into two; ringed targets need two passes |
+  | 8 | Prism | midnight | prisms split one orb into two; ringed targets need two passes |
+  | 9 | Spark | amber night | flying through a spark adds one bounce |
 
   (Internal ids keep their original numbering, e.g. Drift is `ch9`; `Palette.ORDER` sets the play order.)
 
@@ -30,14 +30,14 @@ Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the 
 - **Pacing:** every chapter is a learning journey. Level 1 is a tutorial room for the chapter's new idea (a floating card with an animated diagram, then the element spotlit and the path shown once). Bounces then climb from 1 to 8: levels 1–5 easy, 6–10 easy–medium, 11–15 medium, 16–20 medium–hard, 21–25 hard, 26–30 hard–very hard, 31–35 very hard, 36–39 extreme, 40 the peak.
 - **Progress:** rooms unlock one at a time (clear room N to open room N + 1). A chapter unlocks after 15 clears in the one before it.
 - **Help:** Restart, tap to fast-forward a shot, and hints that show the exact solving path (it stays until you release a shot; in Drift it also outlines where the platform must be). You get 3 free hints, refilled to 3 at local midnight. With none left, the game asks before playing a rewarded ad for +1 hint. If no ad is available, the hint is free.
-- **After a clear:** a result card with Next, Watch (replays your shot), Share, Again and Levels. Share renders a 1080×1350 card of the room with your winning path, stars and a QR code, and opens the system share sheet (Android), the browser share sheet (web) or saves it (desktop). **Save video** makes a 9:16 MP4 (540×960, 30 fps, with music): the game's opening, your shot replayed in its room, the result card, and an end card with a QR code and "Free on Google Play". It is rendered off-screen frame by frame (`game/ui/promo_video.gd`) and encoded with Android's MediaCodec by a small Godot plugin (`plugins_src/ocs_video`, built into `addons/ocs_video/bin` by CI), then saved to Movies › One Clean Shot and offered to the share sheet.
+- **After a clear:** a result card with Next, Watch (replays your shot), Share, Again and Levels. Share renders a 1080×1350 card of the room with your winning path, stars and a QR code, and opens the system share sheet (Android), the browser share sheet (web) or saves it (desktop). **Save video** makes a 9:16 MP4 (540×960, 30 fps, with music): the game's opening, your shot replayed in its room, the result card, and an end card with a QR code and "Free on Google Play". It is rendered off-screen frame by frame (`game/ui/promo_video.gd`) and encoded with Android's MediaCodec by a small Godot plugin (`plugins_src/singleshot_video`, built into `addons/singleshot_video/bin` by CI), then saved to Movies › Single Shot and offered to the share sheet.
 - **Shop** (the bag on the home screen), all one-time purchases with Restore:
 
   | Product id | What it gives |
   |---|---|
   | `complete_pack` | supporter + orbs + themes + 5 level keys, for less |
   | `supporter_pack` | no banner ads, every hint free |
-  | `keys_1` … `keys_10` | consumable level keys, ₹30 each, 10% off for 5+ (one also comes from a video, 3 a day) |
+  | `keys_1` … `keys_10` | consumable level keys, ₹30 each, 10% off for 5+ (one also comes from a video, 5 a day) |
   | `orb_pack` | 6 orb styles with their own trails (1-hour trial from a video) |
   | `theme_pack` | 11 colour themes (1-hour trial from a video) |
   | `tip_10` … `tip_1000` | consumable tips in ₹10 steps (presets ₹20/50/100/200, or a custom amount) |
@@ -74,7 +74,7 @@ Every push to `main` runs `.github/workflows/build.yml`. The workflow:
 2. Exports a signed Android APK and a web build with Godot 4.7.2.
 3. Publishes them to the `gh-pages` branch:
    - `index.html` is the download page, built from `web/index.html`;
-   - `one-clean-shot.apk` is the Android app;
+   - `single-shot.apk` is the Android app;
    - `play/` is the browser version;
    - `privacy/` and `help/` are the privacy policy and help pages (from `web/`).
 
@@ -121,7 +121,7 @@ godot --headless --path . -s res://tools/level_lab.gd -- ch3     # one chapter
 |---|---|---|
 | Font: [Outfit](https://github.com/google/fonts/tree/main/ofl/outfit) | Google Fonts | SIL OFL 1.1, `assets/fonts/OFL.txt` |
 | Icons: [Lucide](https://lucide.dev) | lucide-static 0.460.0 | ISC, `assets/icons/LICENSE.txt` |
-| Music and sound effects | Made for One Clean Shot by `tools/synth_audio.py`, no samples | Released with the project |
+| Music and sound effects | Made for Single Shot by `tools/synth_audio.py`, no samples | Released with the project |
 | QR code on the share card | Generated with [segno](https://github.com/heuer/segno) | Generated output |
 
 The game-dev agent skills used while building this are in `.claude/skills/`. They come from [GodotPrompter](https://github.com/jame581/GodotPrompter) (MIT), [awesome-gamedev-agent-skills](https://github.com/gamedev-skills/awesome-gamedev-agent-skills) (Apache-2.0) and [godot-skills](https://github.com/vl4dt/godot-skills) (MIT).

@@ -1,7 +1,7 @@
-# One Clean Shot: game design
+# Single Shot: game design
 
 ## High concept
-One Clean Shot is a minimalist portrait ricochet puzzle. You fire one orb that travels at a constant speed and banks off walls. You get one shot to clear every target in the room; a miss resets the room for another try.
+Single Shot is a minimalist portrait ricochet puzzle. You fire one orb that travels at a constant speed and banks off walls. You get one shot to clear every target in the room; a miss resets the room for another try.
 
 ## Market references
 - **Ricochet One, Ricochet Kills, Bouncy Bullet:** the proven "bounce to clear all targets" loop, a visible trajectory preview, and limited shots.
@@ -34,7 +34,7 @@ You read the room, find the angle, and watch one perfect shot chain through ever
 | Moving platforms | Never stop: they slide along a rail and back at 20–35% of the orb's speed, all in one rhythm per room. You time your release; the aim line shows where they will be. |
 
 ## Progression
-- 9 chapters × 40 rooms, gentlest idea first: Dawn (walls), Drift (moving platforms), Glass, Gate (switches), Turn (pivot walls), Shift (portals), Void (dark blocks and bumpers), Spark, Prism (splits and ringed targets). Each introduces one mechanic, then mixes in ideas from earlier chapters (in play order) from about level 16.
+- 9 chapters × 40 rooms, gentlest idea first: Dawn (walls), Glass, Gate (switches), Drift (moving platforms), Turn (pivot walls), Shift (portals), Void (dark blocks and bumpers), Prism (splits and ringed targets), Spark. Each introduces one mechanic, then mixes in ideas from earlier chapters (in play order) from about level 16.
 - **A learning journey, not 40 puzzles:** level 1 is a tutorial room for the new idea (a floating card with a live diagram, then the element spotlit and the solving path shown once). Every later room must use the idea: with it removed, the solving shot fails. The first time a chapter shows something new (a ringed target, an older chapter's idea), a short tip says so.
 - **Bands:** 1–5 easy, 6–10 easy–medium, 11–15 medium, 16–20 medium–hard, 21–25 hard, 26–30 hard–very hard, 31–35 very hard, 36–39 extreme, 40 the peak.
 - **Bounces climb:** the solution needs `1 + round((n-1)·7/39)` bounces, from 1 at the start of a chapter to 8 at level 40, and the dots over the launcher show exactly that many.
@@ -61,7 +61,7 @@ Screen shake, vibration and the longer aim guide can all be toggled in Settings.
 Ads come from AdMob through the Poing plugin, and the one purchase uses Google Play Billing. All rules live in `game/ads/ad_manager.gd`:
 - **Banner:** at the bottom of every screen, with layout space reserved so it never covers a button.
 - **No interstitials**, by design.
-- **Rewarded:** +1 hint, +1 level key (3 a day), or a one-hour trial of the Orb or Theme pack (with a live countdown). The game asks before playing one, and if no ad can be shown a hint is free.
+- **Rewarded:** +1 hint, +1 level key (5 a day), or a one-hour trial of the Orb or Theme pack (with a live countdown). The game asks before playing one, and if no ad can be shown a hint is free.
 - **Hints:** 3 free hints, refilled to 3 at local midnight.
 - **Shop** (one-time purchases, Restore in the shop and on every pack card; prices in local currency):
   - Complete pack (`complete_pack`, $5.99 / ₹449): supporter, orbs, themes and 5 keys, about a third off.

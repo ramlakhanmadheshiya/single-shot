@@ -70,7 +70,7 @@ func build() -> void:
 		body.add_child(_reset_btn)
 	add_gap(6)
 	var version: String = str(ProjectSettings.get_setting("application/config/version", "1.0.0"))
-	body.add_child(UIKit.caption("One Clean Shot %s   ·   made with Godot" % version, pal, 16, HORIZONTAL_ALIGNMENT_CENTER))
+	body.add_child(UIKit.caption("Single Shot %s   ·   made with Godot" % version, pal, 16, HORIZONTAL_ALIGNMENT_CENTER))
 
 
 ## A card showing the current colour theme or orb, opening its picker.

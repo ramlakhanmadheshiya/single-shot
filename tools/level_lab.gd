@@ -36,8 +36,8 @@ const TARGETS: Dictionary = {0: [1, 1], 1: [1, 2], 2: [1, 3], 3: [2, 3], 4: [2, 
 const ARCHETYPES: Array[String] = ["scatter", "mirror", "shelves", "pillars", "diagonals", "corridor", "box", "funnel", "zigzag", "frame"]
 
 ## Per-chapter rules. Ranges are [early, late] across the chapter. "late" extras are
-## ideas from chapters EARLIER IN PLAY ORDER (Palette.ORDER: Dawn, Drift, Glass,
-## Gate, Turn, Shift, Void, Spark, Prism) that start mixing in from about level 16.
+## ideas from chapters EARLIER IN PLAY ORDER (Palette.ORDER: Dawn, Glass, Gate,
+## Drift, Turn, Shift, Void, Prism, Spark) that start mixing in from about level 16.
 const CHAPTERS: Array = [
 	{"id": "ch1", "name": "Dawn", "seed": 101, "mech": "", "walls": [1, 6]},
 	{"id": "ch2", "name": "Glass", "seed": 202, "mech": "glass", "walls": [1, 5], "glass": [1, 3]},

@@ -78,6 +78,7 @@ func _run() -> void:
 	var hints_before: int = SaveSystem.hints_left()
 	(_find("Hint") as Button).pressed.emit()
 	_check(SaveSystem.hints_left() == hints_before - 1, "a hint is spent and the path is shown")
+	_check((board.get("_ghost_tracks") as Array).is_empty(), "a hint clears the trace of the last miss, so the lines don't tangle")
 	board.has_aim = true
 	board.aiming = true
 	await _wait(1.0)
@@ -100,7 +101,7 @@ func _run() -> void:
 	(_find("Share") as Button).pressed.emit()
 	await _wait(0.5)
 	_check(_find("ShareNow") != null and _find("Save") != null and _find("CopyLink") != null, "share card offers share, save and copy link")
-	_check(ShareService.message_for({"chapter": "Dawn", "number": 1, "verdict": "First try. Perfect."}).contains("theramlakhan.com/one-clean-shot"), "the share message links to the game")
+	_check(ShareService.message_for({"chapter": "Dawn", "number": 1, "verdict": "First try. Perfect."}).contains("theramlakhan.com/single-shot"), "the share message links to the game")
 	app.close_settings()
 	(_find("Next") as Button).pressed.emit()
 	await _wait(0.8)
@@ -111,8 +112,10 @@ func _run() -> void:
 	board.fire(deg_to_rad(10.0))
 	await _settle(board)
 	_check(int(_find("Hud").get("attempt")) == 2, "a miss on room 2 counts a try")
+	_check(not (board.get("_ghost_tracks") as Array).is_empty(), "the miss trace shows before Restart")
 	(_find("Restart") as Button).pressed.emit()
 	await _wait(0.2)
+	_check((board.get("_ghost_tracks") as Array).is_empty(), "Restart clears the trace of the last miss")
 	_check(int(_find("Hud").get("attempt")) == 1 and int(_find("Hud").get("stars")) == 3 and SaveSystem.misses("ch1_02") == 0, "Restart resets to try 1 with three stars")
 	# First clean shot on a fresh room is three stars.
 	board.fire(deg_to_rad(float(board.level["solution"][0])))
@@ -143,7 +146,7 @@ func _run() -> void:
 	_check(_screen_is("chapters_screen.gd"), "back goes to chapters")
 	_check(Levels.chapters.size() == 9 and _find("Chapter_ch9") != null, "nine chapters, Drift included")
 	var order: Array = Levels.chapters.map(func(c: Dictionary) -> String: return str(c["name"]))
-	_check(order == ["Dawn", "Drift", "Glass", "Gate", "Turn", "Shift", "Void", "Spark", "Prism"], "chapters run Dawn, Drift, Glass, Gate, Turn, Shift, Void, Spark, Prism")
+	_check(order == ["Dawn", "Glass", "Gate", "Drift", "Turn", "Shift", "Void", "Prism", "Spark"], "chapters run Dawn, Glass, Gate, Drift, Turn, Shift, Void, Prism, Spark")
 	_check(_find("Art") is ChapterArt, "chapter cards show their chapter's scene")
 	_check(not Levels.chapter_open("ch2"), "chapter 2 stays locked until 15 Dawn clears")
 	app.go_back()
@@ -213,6 +216,8 @@ func _run() -> void:
 	await _wait(0.2)
 	_check(SaveSystem.keys() == before_keys + 5, "buying 5 keys adds 5 keys")
 	_check(Store.keys_price(5).length() > 0 and Store.KEY_UNIT["IN"][1] == 30.0, "keys cost ₹30 each")
+	SaveSystem.data["video_key_day"] = ""
+	_check(SaveSystem.video_keys_left() == 5, "videos give up to 5 free keys a day")
 	app.open_levels("ch5")
 	await _wait(0.8)
 	_check(_find("Keys") != null and _find("Hero") != null, "the level page shows the hero card and keys")

@@ -11,4 +11,4 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = 'ocs_video'
+rootProject.name = 'singleshot_video'

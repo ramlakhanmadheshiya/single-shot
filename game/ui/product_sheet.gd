@@ -46,7 +46,7 @@ func build() -> void:
 		body.add_child(UIKit.caption("Best value  ·  save %d%%" % Store.complete_saving(), {"muted": pal["accent"]}, 18, HORIZONTAL_ALIGNMENT_CENTER))
 	body.add_child(UIKit.label(str(info["name"]), 48, pal["ink"], 500))
 	if product == "supporter_pack":
-		var sub: Label = UIKit.label("One Clean Shot is made by one person. One purchase\nhelps make the next chapter.", 22, pal["muted"], 400)
+		var sub: Label = UIKit.label("Single Shot is made by one person. One purchase\nhelps make the next chapter.", 22, pal["muted"], 400)
 		sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		body.add_child(sub)
 	add_gap(4)

@@ -133,7 +133,7 @@ func _draw() -> void:
 	if ta > 0.0:
 		var f2: Font = UIKit.font(250)
 		var fs: int = int(clampf(size.x * 0.11, 48.0, 96.0))
-		var title: String = "one clean shot"
+		var title: String = "single shot"
 		var w: float = f2.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var y: float = size.y * 0.42 + _r(560) + 20.0 * (1.0 - ta)
 		draw_string(f2, Vector2(size.x * 0.5 - w * 0.5, y), title, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color("#F4F1FF", ta))

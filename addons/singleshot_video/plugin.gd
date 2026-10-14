@@ -1,6 +1,6 @@
 @tool
 extends EditorPlugin
-## Bundles the OCSVideo Android library (built by CI from plugins_src/ocs_video)
+## Bundles the SingleShotVideo Android library (built by CI from plugins_src/singleshot_video)
 ## into Android exports. Without the .aar the export still works; the game then
 ## reports that video saving isn't available.
 
@@ -19,10 +19,10 @@ func _exit_tree() -> void:
 
 class AndroidExport:
 	extends EditorExportPlugin
-	const AAR: String = "ocs_video/bin/ocs_video-release.aar"
+	const AAR: String = "singleshot_video/bin/singleshot_video-release.aar"
 
 	func _get_name() -> String:
-		return "OCSVideo"
+		return "SingleShotVideo"
 
 	func _supports_platform(platform: EditorExportPlatform) -> bool:
 		return platform is EditorExportPlatformAndroid

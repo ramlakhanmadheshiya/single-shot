@@ -238,7 +238,7 @@ func _open_overlay(sheet: Control) -> void:
 
 func _confirm_quit() -> void:
 	var sheet: Control = ConfirmSheet.new()
-	sheet.set("message", "Leave One Clean Shot?")
+	sheet.set("message", "Leave Single Shot?")
 	sheet.set("yes_text", "Quit")
 	sheet.set("no_text", "Keep playing")
 	sheet.set("on_yes", func() -> void: get_tree().quit())

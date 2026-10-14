@@ -21,7 +21,7 @@ func _ready() -> void:
 	var list: VBoxContainer = VBoxContainer.new()
 	list.add_theme_constant_override("separation", 16)
 	scroll.set_content(list)
-	var sub: Label = UIKit.label("Every room in One Clean Shot opens by playing.\nThese are extras, and they help me make more.", 22, pal["muted"], 400)
+	var sub: Label = UIKit.label("Every room in Single Shot opens by playing.\nThese are extras, and they help me make more.", 22, pal["muted"], 400)
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	list.add_child(sub)
 	for id: String in Store.PRODUCTS:

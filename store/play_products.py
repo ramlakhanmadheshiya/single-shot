@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The in-app products One Clean Shot sells, and a way to create them on Google Play.
+"""The in-app products Single Shot sells, and a way to create them on Google Play.
 
   python3 store/play_products.py list                  # print every product and price
   python3 store/play_products.py csv > products.csv    # the same, as CSV
@@ -18,7 +18,7 @@ import csv
 import json
 import sys
 
-PACKAGE = "io.github.ramlakhanmadheshiya.onecleanshot"
+PACKAGE = "com.theramlakhan.singleshot"
 CURRENCY = "INR"
 
 # One-time packs (kept forever, restorable).

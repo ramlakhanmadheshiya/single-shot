@@ -1,4 +1,4 @@
-# One Clean Shot on Google Play: what to put in every form
+# Single Shot on Google Play: what to put in every form
 
 Follows `PLAY_PUBLISHING_GUIDE.md`, filled in for this exact build: Godot 4.7,
 Google AdMob (Mobile Ads SDK + User Messaging Platform), Google Play Billing, and
@@ -8,16 +8,16 @@ a local video encoder. No analytics, no crash reporting, no accounts, no servers
 
 | Thing | Value |
 |---|---|
-| Package name | `io.github.ramlakhanmadheshiya.onecleanshot` (permanent after the first upload) |
+| Package name | `com.theramlakhan.singleshot` (permanent after the first upload) |
 | Upload key | the keystore in `~/.android-keys/` (password in `carom-release.txt`), also in the repo secrets `ANDROID_KEYSTORE_*`. Back it up off this Mac. |
 | Version code | GitHub Actions run number (goes up on every push to `main`) |
 | Version name | `1.0.<run number>` |
 | Target SDK | 36 (`export_presets.cfg`), min SDK 24 |
-| Play build | the **AAB** from the CI run: Actions > latest "Build & publish" > Artifacts > `one-clean-shot-aab` |
+| Play build | the **AAB** from the CI run: Actions > latest "Build & publish" > Artifacts > `single-shot-aab` |
 | Support email | support@theramlakhan.com |
-| Website | https://theramlakhan.com/one-clean-shot/ |
-| Privacy policy | https://theramlakhan.com/one-clean-shot/privacy/ |
-| Support page | https://theramlakhan.com/one-clean-shot/help/ |
+| Website | https://theramlakhan.com/single-shot/ |
+| Privacy policy | https://theramlakhan.com/single-shot/privacy/ |
+| Support page | https://theramlakhan.com/single-shot/help/ |
 
 ## Before the first upload (one-time setup)
 
@@ -33,7 +33,7 @@ a local video encoder. No analytics, no crash reporting, no accounts, no servers
 
 | Field | Answer |
 |---|---|
-| App name | One Clean Shot: Ricochet |
+| App name | Single Shot: Ricochet Puzzle |
 | Default language | English (United States) |
 | App or game | Game |
 | Free or paid | Free |
@@ -43,7 +43,7 @@ a local video encoder. No analytics, no crash reporting, no accounts, no servers
 
 | Form | Answer |
 |---|---|
-| Privacy policy | https://theramlakhan.com/one-clean-shot/privacy/ |
+| Privacy policy | https://theramlakhan.com/single-shot/privacy/ |
 | App access | All functionality is available without special access |
 | Ads | **Yes**, the app contains ads |
 | Content rating | See below |
@@ -98,7 +98,7 @@ Everything is in `store/listing.md` (text, checked by `python3 store/check_listi
 | Feature graphic 1024 × 500 | `store/feature_graphic.png` |
 | Phone screenshots 1080 × 1920 | `store/screenshots/01_home.png` … `08_levels.png` |
 
-Store settings: category **Games > Puzzle**, tags from `listing.md`, email support@theramlakhan.com, website https://theramlakhan.com/one-clean-shot/. No phone number needed.
+Store settings: category **Games > Puzzle**, tags from `listing.md`, email support@theramlakhan.com, website https://theramlakhan.com/single-shot/. No phone number needed.
 
 Re-render the art any time: `godot --path . --disable-vsync --always-on-top --resolution 360x640 res://tests/capture.tscn -- "$PWD/store/screenshots" --store` and `godot --path . --disable-vsync --always-on-top --resolution 1024x500 res://tools/render_feature_graphic.tscn`.
 
@@ -123,7 +123,7 @@ Then add your own Gmail under Settings > License testing so you can buy with tes
 
    Message to send testers:
 
-   > Hi! I've made a calm puzzle game called One Clean Shot and need testers on Google Play for 14 days. Join with the Gmail you use on your Android phone: [opt-in link]. Install it, play a few rooms whenever you like, and keep it installed for two weeks. Tell me anything confusing, too hard, or broken: support@theramlakhan.com. Thank you!
+   > Hi! I've made a calm puzzle game called Single Shot and need testers on Google Play for 14 days. Join with the Gmail you use on your Android phone: [opt-in link]. Install it, play a few rooms whenever you like, and keep it installed for two weeks. Tell me anything confusing, too hard, or broken: support@theramlakhan.com. Thank you!
 
 ## Apply for production (after the 14 days)
 

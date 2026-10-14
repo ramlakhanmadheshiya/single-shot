@@ -3,39 +3,47 @@ extends Node
 ## Makes the share video: the game's opening, the player's winning shot in its
 ## room, the result card, and an end card that invites friends to play (QR code,
 ## web address, Google Play). Rendered off-screen frame by frame on a fixed clock,
-## so it is smooth however fast the phone is; encoded to MP4 by the OCSVideo
+## so it is smooth however fast the phone is; encoded to MP4 by the SingleShotVideo
 ## Android plugin with the menu theme underneath.
 
 signal progress(fraction: float)
 signal done(ok: bool, message: String)
 
-const SIZE: Vector2i = Vector2i(540, 960)
-const FPS: int = 30
-const INTRO: float = 2.4
-const AIM: float = 1.0
-const RESULT: float = 2.8
-const OUTRO: float = 3.4
-const MAX_SHOT: float = 7.0
+## Encoded size. Scenes are laid out at LAYOUT and scaled down, so a smaller video
+## keeps the same framing. 432 x 768 at 24 fps keeps saving quick on phones.
+const SIZE: Vector2i = Vector2i(432, 768)
+const LAYOUT: Vector2i = Vector2i(540, 960)
+const FPS: int = 24
+const INTRO: float = 1.7
+## The splash plays faster than in the game so the video gets to the shot sooner.
+const INTRO_SPEED: float = 1.4
+const AIM: float = 0.7
+const RESULT: float = 2.2
+const OUTRO: float = 2.6
+const MAX_SHOT: float = 5.0
 const MUSIC: String = "res://assets/promo/promo_music.wav"
-const URL: String = "theramlakhan.com/one-clean-shot"
+const URL: String = "theramlakhan.com/single-shot"
 
 var info: Dictionary = {}
 ## Where the finished MP4 was written (Android).
 var video_path: String = ""
+## True once the MP4 is fully written (it may be built before Save is tapped).
+var finished: bool = false
 var _busy: bool = false
+var _name: String = ""
 
 
 static func available() -> bool:
-	return Engine.has_singleton("OCSVideo") or (OS.is_debug_build() and not OS.has_feature("mobile") and not OS.has_feature("web"))
+	return Engine.has_singleton("SingleShotVideo") or (OS.is_debug_build() and not OS.has_feature("mobile") and not OS.has_feature("web"))
 
 
 ## Renders and encodes the video for `data` (the result card's share info).
 func make(data: Dictionary) -> void:
-	if _busy:
+	if _busy or finished:
 		return
 	_busy = true
 	info = data
-	var plugin: Object = Engine.get_singleton("OCSVideo") if Engine.has_singleton("OCSVideo") else null
+	var plugin: Object = Engine.get_singleton("SingleShotVideo") if Engine.has_singleton("SingleShotVideo") else null
 	if plugin == null and not available():
 		_busy = false
 		done.emit(false, "Saving the video works in the Android app.")
@@ -63,17 +71,19 @@ func make(data: Dictionary) -> void:
 	# Off-screen stage.
 	var vp: SubViewport = SubViewport.new()
 	vp.size = SIZE
+	vp.size_2d_override = LAYOUT
+	vp.size_2d_override_stretch = true
 	vp.transparent_bg = false
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(vp)
 	var splash: Splash = Splash.new()
 	splash.manual = true
-	splash.size = Vector2(SIZE)
+	splash.size = Vector2(LAYOUT)
 	vp.add_child(splash)
 	var room: _Room = _Room.new()
 	room.pal = pal
 	room.title = "%s  ·  Level %d" % [info["chapter"], int(info["number"])]
-	room.size = Vector2(SIZE)
+	room.size = Vector2(LAYOUT)
 	room.visible = false
 	vp.add_child(room)
 	var board: Board = Board.new()
@@ -87,18 +97,19 @@ func make(data: Dictionary) -> void:
 	var card: _ResultCard = _ResultCard.new()
 	card.pal = pal
 	card.info = info
-	card.size = Vector2(SIZE)
+	card.size = Vector2(LAYOUT)
 	card.visible = false
 	room.add_child(card)
 	var outro: _Outro = _Outro.new()
-	outro.size = Vector2(SIZE)
+	outro.size = Vector2(LAYOUT)
 	outro.visible = false
 	vp.add_child(outro)
 
 	# Encoder.
 	var dir: String = ProjectSettings.globalize_path("user://share")
 	DirAccess.make_dir_recursive_absolute(dir)
-	var name: String = "one-clean-shot-%s-%02d" % [str(info["chapter"]).to_lower(), int(info["number"])]
+	var name: String = "single-shot-%s-%02d" % [str(info["chapter"]).to_lower(), int(info["number"])]
+	_name = name
 	video_path = dir.path_join(name + ".mp4")
 	var frame_dir: String = dir.path_join("video_frames")
 	if plugin != null:
@@ -130,7 +141,7 @@ func make(data: Dictionary) -> void:
 		room.visible = t >= INTRO and t < outro_start
 		outro.visible = t >= outro_start
 		if t < INTRO:
-			splash.show_at(t)
+			splash.show_at(t * INTRO_SPEED)
 		elif t < shot_start:
 			# Line up the shot: the aim swings from straight up onto the winning angle,
 			# and moving platforms glide into the moment of release.
@@ -175,15 +186,20 @@ func make(data: Dictionary) -> void:
 	if not bool(plugin.call("finish")):
 		done.emit(false, "Couldn't finish the video (%s)." % str(plugin.call("lastError")))
 		return
-	if bool(plugin.call("saveToGallery", video_path, name + ".mp4")):
-		done.emit(true, "Saved to Movies › One Clean Shot")
-	else:
-		done.emit(true, "Video ready. Share it to save a copy.")
+	finished = true
+	done.emit(true, "Video ready")
+
+
+## Copies the finished video into the gallery (Movies › Single Shot).
+func save_to_gallery() -> bool:
+	if not finished or not Engine.has_singleton("SingleShotVideo"):
+		return false
+	return bool(Engine.get_singleton("SingleShotVideo").call("saveToGallery", video_path, _name + ".mp4"))
 
 
 func share(text: String) -> bool:
-	if Engine.has_singleton("OCSVideo") and not video_path.is_empty():
-		return bool(Engine.get_singleton("OCSVideo").call("share", video_path, text))
+	if Engine.has_singleton("SingleShotVideo") and not video_path.is_empty():
+		return bool(Engine.get_singleton("SingleShotVideo").call("share", video_path, text))
 	return false
 
 
@@ -211,7 +227,7 @@ class _Room:
 		var w2: float = f2.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
 		draw_string(f2, Vector2((size.x - w2) * 0.5, 100), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, pal["accent"])
 		var f3: Font = UIKit.font(500)
-		var tag: String = "one clean shot"
+		var tag: String = "single shot"
 		var w3: float = f3.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
 		draw_string(f3, Vector2((size.x - w3) * 0.5, size.y - 40), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, pal["muted"])
 
@@ -285,7 +301,7 @@ class _Outro:
 		var s: float = 176.0 * (0.8 + 0.2 * k)
 		draw_texture_rect(_icon, Rect2(Vector2((size.x - s) * 0.5, 120 + (176.0 - s) * 0.5), Vector2(s, s)), false, Color(1, 1, 1, k))
 		var a1: float = clampf((_t - 0.25) / 0.4, 0.0, 1.0)
-		_text("One Clean Shot", 380, 50, 400, Color("#F4F1FF", a1))
+		_text("Single Shot", 380, 50, 400, Color("#F4F1FF", a1))
 		_text("a quiet ricochet puzzle", 420, 22, 500, Color(1, 1, 1, 0.55 * a1))
 		var a2: float = clampf((_t - 0.6) / 0.4, 0.0, 1.0)
 		_text("Can you do it in one shot?", 500, 28, 600, Color("#FFC9A8", a2))

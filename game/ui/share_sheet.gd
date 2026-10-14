@@ -10,6 +10,7 @@ var _status: Label
 var _bar: _Bar
 var _video: PromoVideo
 var _share_video: Button
+var _save_wanted: bool = false
 
 
 func build() -> void:
@@ -54,6 +55,7 @@ func build() -> void:
 		if is_inside_tree() and not msg.is_empty():
 			_status.text = msg
 	)
+	_prepare_video.call_deferred()
 	ShareCard.render(self, info, func(img: Image) -> void:
 		if not is_inside_tree():
 			return
@@ -67,32 +69,63 @@ func build() -> void:
 
 
 ## Makes the video and saves it to the gallery, with progress.
-func _save_video() -> void:
-	if _video != null and _bar.visible:
+## Starts building the video quietly as soon as the card opens (on phones), so
+## Save is usually instant.
+func _prepare_video() -> void:
+	if _video != null or not Engine.has_singleton("SingleShotVideo"):
 		return
+	_video = PromoVideo.new()
+	add_child(_video)
+	_video.progress.connect(func(f: float) -> void:
+		_bar.value = f
+		_bar.queue_redraw()
+		if _save_wanted:
+			_status.text = "Making your video…  %d%%" % int(f * 100.0)
+	)
+	_video.done.connect(func(ok: bool, msg: String) -> void:
+		_bar.visible = false
+		if not ok:
+			_status.text = msg
+		elif _save_wanted:
+			_finish_save()
+	)
+	_video.make(info)
+
+
+## Saves the video: right away if it's ready, otherwise as soon as it is.
+func _save_video() -> void:
 	if not PromoVideo.available():
 		_status.text = "Saving the video works in the Android app. Here's the picture instead."
 		ShareService.save(_image, info)
 		return
 	if _video == null:
-		_video = PromoVideo.new()
-		add_child(_video)
-		_video.progress.connect(func(f: float) -> void:
-			_bar.value = f
-			_bar.queue_redraw()
-			_status.text = "Making your video…  %d%%" % int(f * 100.0)
-		)
-		_video.done.connect(func(ok: bool, msg: String) -> void:
-			_bar.visible = false
-			_status.text = msg
-			if ok:
-				AudioManager.play("unlock", 1.0, -6.0)
-				_share_video.visible = Engine.has_singleton("OCSVideo")
-		)
-	_bar.visible = true
-	_bar.value = 0.0
-	_status.text = "Making your video…"
-	_video.make(info)
+		if Engine.has_singleton("SingleShotVideo"):
+			_prepare_video()
+		else:
+			# Desktop (debug): writes the frames for checking.
+			_video = PromoVideo.new()
+			add_child(_video)
+			_video.done.connect(func(_ok: bool, msg: String) -> void:
+				_bar.visible = false
+				_status.text = msg
+			)
+			_video.make(info)
+	_save_wanted = true
+	if _video.finished:
+		_finish_save()
+	else:
+		_bar.visible = true
+		_status.text = "Making your video…  %d%%" % int(_bar.value * 100.0)
+
+
+func _finish_save() -> void:
+	_save_wanted = false
+	if _video.save_to_gallery():
+		_status.text = "Saved to Movies › Single Shot"
+		AudioManager.play("unlock", 1.0, -6.0)
+	else:
+		_status.text = "Video ready. Share it to keep a copy."
+	_share_video.visible = true
 
 
 func _action(icon_name: String, caption: String, node_name: String, cb: Callable) -> Control:

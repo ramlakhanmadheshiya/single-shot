@@ -284,7 +284,7 @@ func _on_purchases(res: Dictionary) -> void:
 					_billing.acknowledge_purchase(str(p["purchase_token"]))
 				if not SaveSystem.bought(id):
 					_grant(id)
-					purchase_finished.emit(true, "Thank you for supporting One Clean Shot!", id)
+					purchase_finished.emit(true, "Thank you for supporting Single Shot!", id)
 	if _restoring:
 		_restoring = false
 		restore_finished.emit(found > 0, "Purchases restored." if found > 0 else "No previous purchase found on this Google account.")

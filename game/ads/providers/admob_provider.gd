@@ -5,7 +5,7 @@ extends Node
 
 signal banner_resized(height_px: float)
 
-## Ad unit IDs come from Project Settings (one_clean_shot/ads/*), which CI fills in
+## Ad unit IDs come from Project Settings (single_shot/ads/*), which CI fills in
 ## from the repository secrets ADMOB_BANNER_ID and ADMOB_REWARDED_ID (and the App ID,
 ## admob/general/android/app_id, from ADMOB_APP_ID). Without them, Google's public
 ## TEST units are used, so development builds never show real ads.
@@ -16,7 +16,7 @@ var REWARDED_ID: String = _unit("android_rewarded_id", TEST_REWARDED_ID)
 
 
 static func _unit(key: String, fallback: String) -> String:
-	var v: String = str(ProjectSettings.get_setting("one_clean_shot/ads/" + key, ""))
+	var v: String = str(ProjectSettings.get_setting("single_shot/ads/" + key, ""))
 	return v if not v.strip_edges().is_empty() else fallback
 
 var _ready_to_load: bool = false

@@ -1,11 +1,11 @@
-# Google Play store listing: One Clean Shot
+# Google Play store listing: Single Shot
 
 Paste these into Play Console > Grow users > Store presence > Main store listing.
 Lengths are checked by `python3 store/check_listing.py`.
 
 ## App name (30 max)
 
-One Clean Shot: Ricochet
+Single Shot: Ricochet Puzzle
 
 ## Short description (80 max)
 
@@ -13,21 +13,21 @@ Aim, bank off the walls and pop every target in a single shot.
 
 ## Full description (4000 max)
 
-One Clean Shot is a calm ricochet puzzle. Drag to aim, let go, and watch your orb bank off the walls. Pop every target in the room with that one shot.
+Single Shot is a calm ricochet puzzle. Drag to aim, let go, and watch your orb bank off the walls. Pop every target in the room with that one shot.
 
 Miss, and the room resets right away. Your last path stays faintly on screen, so you can see what went wrong and adjust. Clear it on the first try for three stars.
 
 NINE IDEAS, ONE AT A TIME
 Each chapter adds one new idea and opens with a short tutorial room:
 • Dawn: walls and bank shots
-• Drift: platforms that never stop sliding, so time your release
 • Glass: panes that bounce you once, then break
 • Gate: a switch that dissolves the gates
+• Drift: platforms that never stop sliding, so time your release
 • Turn: pivot walls that turn when you hit them
 • Shift: portals that carry the orb across the room
 • Void: dark blocks that swallow the orb, and round bumpers
-• Spark: sparks that give you an extra bounce
 • Prism: prisms that split the orb in two
+• Spark: sparks that give you an extra bounce
 
 360 ROOMS, A STEADY CLIMB
 Every chapter has 40 rooms. They start gentle and grow harder, with the number of bounces climbing from one to eight. Every room is checked by a solver and can be cleared with one shot.
@@ -51,8 +51,8 @@ Made with Godot by Ramlakhan Madheshiya. Questions or ideas: support@theramlakha
 ## Contact details
 
 - Email: support@theramlakhan.com
-- Website: https://theramlakhan.com/one-clean-shot/
-- Privacy policy: https://theramlakhan.com/one-clean-shot/privacy/
+- Website: https://theramlakhan.com/single-shot/
+- Privacy policy: https://theramlakhan.com/single-shot/privacy/
 
 ## Graphics
 

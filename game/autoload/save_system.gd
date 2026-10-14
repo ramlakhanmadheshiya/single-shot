@@ -1,14 +1,15 @@
 extends Node
 ## Versioned local progress and settings, stored as JSON in user://.
 
-const SAVE_PATH: String = "user://one_clean_shot_save.json"
-## Saves from before the rename to One Clean Shot; moved over on first launch.
-const LEGACY_SAVE_PATH: String = "user://carom_save.json"
+const SAVE_PATH: String = "user://single_shot_save.json"
+## Saves from the game's earlier names (One Clean Shot, Carom); the newest one found
+## is moved over on first launch.
+const LEGACY_SAVE_PATHS: Array[String] = ["user://one_clean_shot_save.json", "user://carom_save.json"]
 const SAVE_VERSION: int = 3
 ## A video unlocks a cosmetic pack for this long.
 const TRIAL_SECONDS: int = 60 * 60
 ## Free keys from videos, per day.
-const VIDEO_KEYS_PER_DAY: int = 3
+const VIDEO_KEYS_PER_DAY: int = 5
 const DAILY_HINTS: int = 3
 
 var data: Dictionary = {}
@@ -23,10 +24,14 @@ func load_save() -> void:
 	data = _defaults()
 	var path: String = SAVE_PATH
 	if not FileAccess.file_exists(SAVE_PATH):
-		if not FileAccess.file_exists(LEGACY_SAVE_PATH):
+		path = ""
+		for legacy: String in LEGACY_SAVE_PATHS:
+			if FileAccess.file_exists(legacy):
+				path = legacy
+				break
+		if path.is_empty():
 			_apply_cosmetics()
 			return
-		path = LEGACY_SAVE_PATH
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return
@@ -40,9 +45,9 @@ func load_save() -> void:
 			# v3: purchases are tracked per product.
 			data["owned"]["supporter_pack"] = true
 		save()
-	if path == LEGACY_SAVE_PATH:
+	if path != SAVE_PATH:
 		save()
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(LEGACY_SAVE_PATH))
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	_apply_cosmetics()
 
 

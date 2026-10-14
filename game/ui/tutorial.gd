@@ -72,7 +72,7 @@ func _go(next: Step) -> void:
 		Step.RETRY:
 			_say("So close! Try again — drag to aim")
 		Step.DONE:
-			_say("Perfect — one clean shot!")
+			_say("Perfect — a clean shot!")
 
 
 func _say(text: String) -> void:
