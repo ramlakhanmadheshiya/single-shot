@@ -1,0 +1,115 @@
+product_id,title,description,price_inr,kind
+complete_pack,Complete pack,"No ads, every hint free, all orbs and themes, and 5 level keys.",449,pack
+supporter_pack,Supporter pack,"No banner ads, and every hint free, always.",249,pack
+orb_pack,Orb pack,"Six more orb styles, each with its own trail.",149,pack
+theme_pack,Theme pack,"Eleven colour themes, light and dark.",149,pack
+keys_1,1 level key,A key opens any locked room for good.,30,consumable
+keys_2,2 level keys,2 keys. Each opens any locked room for good.,60,consumable
+keys_3,3 level keys,3 keys. Each opens any locked room for good.,90,consumable
+keys_4,4 level keys,4 keys. Each opens any locked room for good.,120,consumable
+keys_5,5 level keys,5 keys. Each opens any locked room for good.,135,consumable
+keys_6,6 level keys,6 keys. Each opens any locked room for good.,162,consumable
+keys_7,7 level keys,7 keys. Each opens any locked room for good.,189,consumable
+keys_8,8 level keys,8 keys. Each opens any locked room for good.,216,consumable
+keys_9,9 level keys,9 keys. Each opens any locked room for good.,243,consumable
+keys_10,10 level keys,10 keys. Each opens any locked room for good.,270,consumable
+tip_10,Tip ₹10,A thank-you to the developer. Opens nothing new.,10,consumable
+tip_20,Tip ₹20,A thank-you to the developer. Opens nothing new.,20,consumable
+tip_30,Tip ₹30,A thank-you to the developer. Opens nothing new.,30,consumable
+tip_40,Tip ₹40,A thank-you to the developer. Opens nothing new.,40,consumable
+tip_50,Tip ₹50,A thank-you to the developer. Opens nothing new.,50,consumable
+tip_60,Tip ₹60,A thank-you to the developer. Opens nothing new.,60,consumable
+tip_70,Tip ₹70,A thank-you to the developer. Opens nothing new.,70,consumable
+tip_80,Tip ₹80,A thank-you to the developer. Opens nothing new.,80,consumable
+tip_90,Tip ₹90,A thank-you to the developer. Opens nothing new.,90,consumable
+tip_100,Tip ₹100,A thank-you to the developer. Opens nothing new.,100,consumable
+tip_110,Tip ₹110,A thank-you to the developer. Opens nothing new.,110,consumable
+tip_120,Tip ₹120,A thank-you to the developer. Opens nothing new.,120,consumable
+tip_130,Tip ₹130,A thank-you to the developer. Opens nothing new.,130,consumable
+tip_140,Tip ₹140,A thank-you to the developer. Opens nothing new.,140,consumable
+tip_150,Tip ₹150,A thank-you to the developer. Opens nothing new.,150,consumable
+tip_160,Tip ₹160,A thank-you to the developer. Opens nothing new.,160,consumable
+tip_170,Tip ₹170,A thank-you to the developer. Opens nothing new.,170,consumable
+tip_180,Tip ₹180,A thank-you to the developer. Opens nothing new.,180,consumable
+tip_190,Tip ₹190,A thank-you to the developer. Opens nothing new.,190,consumable
+tip_200,Tip ₹200,A thank-you to the developer. Opens nothing new.,200,consumable
+tip_210,Tip ₹210,A thank-you to the developer. Opens nothing new.,210,consumable
+tip_220,Tip ₹220,A thank-you to the developer. Opens nothing new.,220,consumable
+tip_230,Tip ₹230,A thank-you to the developer. Opens nothing new.,230,consumable
+tip_240,Tip ₹240,A thank-you to the developer. Opens nothing new.,240,consumable
+tip_250,Tip ₹250,A thank-you to the developer. Opens nothing new.,250,consumable
+tip_260,Tip ₹260,A thank-you to the developer. Opens nothing new.,260,consumable
+tip_270,Tip ₹270,A thank-you to the developer. Opens nothing new.,270,consumable
+tip_280,Tip ₹280,A thank-you to the developer. Opens nothing new.,280,consumable
+tip_290,Tip ₹290,A thank-you to the developer. Opens nothing new.,290,consumable
+tip_300,Tip ₹300,A thank-you to the developer. Opens nothing new.,300,consumable
+tip_310,Tip ₹310,A thank-you to the developer. Opens nothing new.,310,consumable
+tip_320,Tip ₹320,A thank-you to the developer. Opens nothing new.,320,consumable
+tip_330,Tip ₹330,A thank-you to the developer. Opens nothing new.,330,consumable
+tip_340,Tip ₹340,A thank-you to the developer. Opens nothing new.,340,consumable
+tip_350,Tip ₹350,A thank-you to the developer. Opens nothing new.,350,consumable
+tip_360,Tip ₹360,A thank-you to the developer. Opens nothing new.,360,consumable
+tip_370,Tip ₹370,A thank-you to the developer. Opens nothing new.,370,consumable
+tip_380,Tip ₹380,A thank-you to the developer. Opens nothing new.,380,consumable
+tip_390,Tip ₹390,A thank-you to the developer. Opens nothing new.,390,consumable
+tip_400,Tip ₹400,A thank-you to the developer. Opens nothing new.,400,consumable
+tip_410,Tip ₹410,A thank-you to the developer. Opens nothing new.,410,consumable
+tip_420,Tip ₹420,A thank-you to the developer. Opens nothing new.,420,consumable
+tip_430,Tip ₹430,A thank-you to the developer. Opens nothing new.,430,consumable
+tip_440,Tip ₹440,A thank-you to the developer. Opens nothing new.,440,consumable
+tip_450,Tip ₹450,A thank-you to the developer. Opens nothing new.,450,consumable
+tip_460,Tip ₹460,A thank-you to the developer. Opens nothing new.,460,consumable
+tip_470,Tip ₹470,A thank-you to the developer. Opens nothing new.,470,consumable
+tip_480,Tip ₹480,A thank-you to the developer. Opens nothing new.,480,consumable
+tip_490,Tip ₹490,A thank-you to the developer. Opens nothing new.,490,consumable
+tip_500,Tip ₹500,A thank-you to the developer. Opens nothing new.,500,consumable
+tip_510,Tip ₹510,A thank-you to the developer. Opens nothing new.,510,consumable
+tip_520,Tip ₹520,A thank-you to the developer. Opens nothing new.,520,consumable
+tip_530,Tip ₹530,A thank-you to the developer. Opens nothing new.,530,consumable
+tip_540,Tip ₹540,A thank-you to the developer. Opens nothing new.,540,consumable
+tip_550,Tip ₹550,A thank-you to the developer. Opens nothing new.,550,consumable
+tip_560,Tip ₹560,A thank-you to the developer. Opens nothing new.,560,consumable
+tip_570,Tip ₹570,A thank-you to the developer. Opens nothing new.,570,consumable
+tip_580,Tip ₹580,A thank-you to the developer. Opens nothing new.,580,consumable
+tip_590,Tip ₹590,A thank-you to the developer. Opens nothing new.,590,consumable
+tip_600,Tip ₹600,A thank-you to the developer. Opens nothing new.,600,consumable
+tip_610,Tip ₹610,A thank-you to the developer. Opens nothing new.,610,consumable
+tip_620,Tip ₹620,A thank-you to the developer. Opens nothing new.,620,consumable
+tip_630,Tip ₹630,A thank-you to the developer. Opens nothing new.,630,consumable
+tip_640,Tip ₹640,A thank-you to the developer. Opens nothing new.,640,consumable
+tip_650,Tip ₹650,A thank-you to the developer. Opens nothing new.,650,consumable
+tip_660,Tip ₹660,A thank-you to the developer. Opens nothing new.,660,consumable
+tip_670,Tip ₹670,A thank-you to the developer. Opens nothing new.,670,consumable
+tip_680,Tip ₹680,A thank-you to the developer. Opens nothing new.,680,consumable
+tip_690,Tip ₹690,A thank-you to the developer. Opens nothing new.,690,consumable
+tip_700,Tip ₹700,A thank-you to the developer. Opens nothing new.,700,consumable
+tip_710,Tip ₹710,A thank-you to the developer. Opens nothing new.,710,consumable
+tip_720,Tip ₹720,A thank-you to the developer. Opens nothing new.,720,consumable
+tip_730,Tip ₹730,A thank-you to the developer. Opens nothing new.,730,consumable
+tip_740,Tip ₹740,A thank-you to the developer. Opens nothing new.,740,consumable
+tip_750,Tip ₹750,A thank-you to the developer. Opens nothing new.,750,consumable
+tip_760,Tip ₹760,A thank-you to the developer. Opens nothing new.,760,consumable
+tip_770,Tip ₹770,A thank-you to the developer. Opens nothing new.,770,consumable
+tip_780,Tip ₹780,A thank-you to the developer. Opens nothing new.,780,consumable
+tip_790,Tip ₹790,A thank-you to the developer. Opens nothing new.,790,consumable
+tip_800,Tip ₹800,A thank-you to the developer. Opens nothing new.,800,consumable
+tip_810,Tip ₹810,A thank-you to the developer. Opens nothing new.,810,consumable
+tip_820,Tip ₹820,A thank-you to the developer. Opens nothing new.,820,consumable
+tip_830,Tip ₹830,A thank-you to the developer. Opens nothing new.,830,consumable
+tip_840,Tip ₹840,A thank-you to the developer. Opens nothing new.,840,consumable
+tip_850,Tip ₹850,A thank-you to the developer. Opens nothing new.,850,consumable
+tip_860,Tip ₹860,A thank-you to the developer. Opens nothing new.,860,consumable
+tip_870,Tip ₹870,A thank-you to the developer. Opens nothing new.,870,consumable
+tip_880,Tip ₹880,A thank-you to the developer. Opens nothing new.,880,consumable
+tip_890,Tip ₹890,A thank-you to the developer. Opens nothing new.,890,consumable
+tip_900,Tip ₹900,A thank-you to the developer. Opens nothing new.,900,consumable
+tip_910,Tip ₹910,A thank-you to the developer. Opens nothing new.,910,consumable
+tip_920,Tip ₹920,A thank-you to the developer. Opens nothing new.,920,consumable
+tip_930,Tip ₹930,A thank-you to the developer. Opens nothing new.,930,consumable
+tip_940,Tip ₹940,A thank-you to the developer. Opens nothing new.,940,consumable
+tip_950,Tip ₹950,A thank-you to the developer. Opens nothing new.,950,consumable
+tip_960,Tip ₹960,A thank-you to the developer. Opens nothing new.,960,consumable
+tip_970,Tip ₹970,A thank-you to the developer. Opens nothing new.,970,consumable
+tip_980,Tip ₹980,A thank-you to the developer. Opens nothing new.,980,consumable
+tip_990,Tip ₹990,A thank-you to the developer. Opens nothing new.,990,consumable
+tip_1000,Tip ₹1000,A thank-you to the developer. Opens nothing new.,1000,consumable

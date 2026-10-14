@@ -5,10 +5,19 @@ extends Node
 
 signal banner_resized(height_px: float)
 
-## Ad unit IDs. These are Google's public TEST units — replace them with your own
-## from the AdMob console before publishing (and the App ID in Project Settings > admob).
-const BANNER_ID: String = "ca-app-pub-3940256099942544/9214589741"
-const REWARDED_ID: String = "ca-app-pub-3940256099942544/5224354917"
+## Ad unit IDs come from Project Settings (one_clean_shot/ads/*), which CI fills in
+## from the repository secrets ADMOB_BANNER_ID and ADMOB_REWARDED_ID (and the App ID,
+## admob/general/android/app_id, from ADMOB_APP_ID). Without them, Google's public
+## TEST units are used, so development builds never show real ads.
+const TEST_BANNER_ID: String = "ca-app-pub-3940256099942544/9214589741"
+const TEST_REWARDED_ID: String = "ca-app-pub-3940256099942544/5224354917"
+var BANNER_ID: String = _unit("android_banner_id", TEST_BANNER_ID)
+var REWARDED_ID: String = _unit("android_rewarded_id", TEST_REWARDED_ID)
+
+
+static func _unit(key: String, fallback: String) -> String:
+	var v: String = str(ProjectSettings.get_setting("one_clean_shot/ads/" + key, ""))
+	return v if not v.strip_edges().is_empty() else fallback
 
 var _ready_to_load: bool = false
 var _banner_wanted: bool = false

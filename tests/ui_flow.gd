@@ -14,6 +14,9 @@ func _ready() -> void:
 	_backup = SaveSystem.data.duplicate(true)
 	SaveSystem.reset_progress()
 	SaveSystem.data["owned"] = {}
+	SaveSystem.data["flags"]["supporter"] = false
+	SaveSystem.data["keys"] = 0
+	SaveSystem.data["hint_day"] = ""
 	SaveSystem.data["trials"] = {}
 	SaveSystem.data["settings"]["theme"] = "chapters"
 	SaveSystem.data["settings"]["orb_style"] = "classic"

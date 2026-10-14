@@ -3,6 +3,7 @@ extends Node
 ## Run (needs a window): godot --path . res://tests/capture.tscn -- <out_dir>
 
 var out_dir: String = "user://captures"
+var _store_vp: SubViewport
 var app: Control
 var _backup: Dictionary
 
@@ -15,7 +16,17 @@ func _ready() -> void:
 	AudioManager.mute_for_tests = not OS.get_cmdline_user_args().has("--new")
 	_backup = SaveSystem.data.duplicate(true)
 	app = (load("res://game/scenes/main.tscn") as PackedScene).instantiate()
-	add_child(app)
+	if OS.get_cmdline_user_args().has("--store"):
+		# Store screenshots: a full 1080 x 1920 phone screen, whatever the monitor.
+		_store_vp = SubViewport.new()
+		_store_vp.size = Vector2i(1080, 1920)
+		_store_vp.size_2d_override = Vector2i(720, 1280)
+		_store_vp.size_2d_override_stretch = true
+		_store_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		add_child(_store_vp)
+		_store_vp.add_child(app)
+	else:
+		add_child(app)
 	_run.call_deferred()
 
 
@@ -25,7 +36,7 @@ func _wait(seconds: float) -> void:
 
 func _shot(name: String) -> void:
 	await RenderingServer.frame_post_draw
-	var img: Image = get_viewport().get_texture().get_image()
+	var img: Image = (_store_vp if _store_vp != null else get_viewport()).get_texture().get_image()
 	img.save_png(out_dir.path_join(name + ".png"))
 	print("captured ", name)
 
@@ -43,6 +54,9 @@ func _run() -> void:
 		return
 	if OS.get_cmdline_user_args().has("--marketing"):
 		await _marketing()
+		return
+	if OS.get_cmdline_user_args().has("--store"):
+		await _store()
 		return
 	if OS.get_cmdline_user_args().has("--about"):
 		await _wait(1.5)
@@ -278,3 +292,48 @@ func _find_video(n: Node) -> PromoVideo:
 		if deeper != null:
 			return deeper
 	return null
+
+
+## Google Play phone screenshots (1080 x 1920, real screens, no frames, no
+## prices, no ads) and the 1024 x 500 feature graphic.
+func _store() -> void:
+	SaveSystem.data["owned"] = {"supporter_pack": true}
+	SaveSystem.data["flags"] = {"tutorial_done": true, "intro_ch2": true, "intro_ch5": true, "intro_ch9": true, "intro_ch6": true}
+	SaveSystem.data["hints"] = 3
+	AdManager.refresh_banner()
+	for i: int in 12:
+		SaveSystem.data["levels"]["ch1_%02d" % (i + 1)] = {"stars": [3, 3, 2, 3][i % 4], "best": 1}
+	for i: int in 6:
+		SaveSystem.data["levels"]["ch9_%02d" % (i + 1)] = {"stars": 3, "best": 1}
+	await _wait(1.5)
+	app.open_home()
+	await _wait(1.8)
+	await _shot("01_home")
+	for spec: Array in [["ch1", 22, "02_dawn"], ["ch2", 14, "03_glass"], ["ch9", 11, "04_drift"], ["ch5", 12, "05_prism"]]:
+		app.open_game(spec[0], spec[1])
+		await _wait(1.2)
+		var b: Board = _board()
+		b.has_aim = true
+		b.aim_angle = deg_to_rad(float(b.level["solution"][0]))
+		b.set("_world_t", 0.0)
+		b.replay(b.aim_angle, 0.0)
+		await _wait(0.8)
+		await _shot(spec[2])
+	# A real clear (not a replay), so the result card appears.
+	app.open_game("ch1", 7)
+	await _wait(1.2)
+	var won: Board = _board()
+	won.fire(deg_to_rad(float(won.level["solution"][0])))
+	while won.playing:
+		await _wait(0.1)
+	await _wait(2.6)
+	await _shot("06_result")
+	app.open_chapters()
+	await _wait(1.8)
+	await _shot("07_chapters")
+	app.open_levels("ch1")
+	await _wait(1.6)
+	await _shot("08_levels")
+	SaveSystem.data = _backup
+	SaveSystem.save()
+	get_tree().quit()
