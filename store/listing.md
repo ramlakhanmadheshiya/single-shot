@@ -39,7 +39,7 @@ CALM BY DESIGN
 • Progress stays on your device, with no account to make
 
 SHARE YOUR SHOTS
-After a clear, save a short video of your shot or share a picture of it, and ask your friends: can you do it in one shot?
+After a clear, save or share a picture of your shot, with the room and the path you took, and ask your friends: can you do it in one shot?
 
 Made with Godot by Ramlakhan Madheshiya. Questions or ideas: support@theramlakhan.com
 

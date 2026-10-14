@@ -59,6 +59,8 @@ func _run() -> void:
 	await _wait(0.6)
 	_check(_screen_is("home_screen.gd"), "starts on the home screen")
 	_check(_find("Shop") != null, "home has a shop button")
+	_check((_find("Title") as Label).text == "Single Shot", "home shows the name, capitalised, on one line")
+	_check(_find("Play") != null and _find("Chapters") != null and _find("Continue") != null, "home keeps Play, the continue line and Chapters")
 	(_find("Play") as Button).pressed.emit()
 	await _wait(0.8)
 	var board: Board = app.current.get("board")

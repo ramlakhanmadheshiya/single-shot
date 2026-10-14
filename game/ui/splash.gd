@@ -13,7 +13,7 @@ const CORAL: Color = Color("#FF6B5B")
 const LENGTH: float = 2.6
 
 var _t: float = 0.0
-## Driven frame by frame (the share video) instead of by the clock: no sound, no
+## Driven frame by frame (e.g. for recording) instead of by the clock: no sound, no
 ## tap to skip, no fade-out.
 var manual: bool = false
 var _done: bool = false

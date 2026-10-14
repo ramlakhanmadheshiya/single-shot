@@ -49,9 +49,6 @@ func _run() -> void:
 	if OS.get_cmdline_user_args().has("--new"):
 		await _new_screens()
 		return
-	if OS.get_cmdline_user_args().has("--video"):
-		await _video()
-		return
 	if OS.get_cmdline_user_args().has("--marketing"):
 		await _marketing()
 		return
@@ -250,48 +247,6 @@ func _marketing() -> void:
 	SaveSystem.data = _backup
 	SaveSystem.save()
 	get_tree().quit()
-
-
-## Makes a share video for a cleared room (desktop writes its frames).
-func _video() -> void:
-	await _wait(1.0)
-	var chapter: String = "ch2"
-	var index: int = 9
-	for a: String in OS.get_cmdline_user_args():
-		if a.begins_with("--room="):
-			chapter = a.trim_prefix("--room=").split(":")[0]
-			index = int(a.split(":")[1])
-	app.open_game(chapter, index)
-	await _wait(1.0)
-	var b: Board = _board()
-	b.fire(deg_to_rad(float(b.level["solution"][0])))
-	while b.playing:
-		await _wait(0.1)
-	await _wait(2.5)
-	app.current.find_child("Share", true, false).emit_signal("pressed")
-	await _wait(1.0)
-	var t0: int = Time.get_ticks_msec()
-	app.find_child("Save", true, false).emit_signal("pressed")
-	var vid: PromoVideo = null
-	while vid == null:
-		await _wait(0.1)
-		vid = _find_video(app)
-	var result: Array = await vid.done
-	print("VIDEO: ", result, " in ", Time.get_ticks_msec() - t0, " ms")
-	await _shot("v_share_done")
-	SaveSystem.data = _backup
-	SaveSystem.save()
-	get_tree().quit()
-
-
-func _find_video(n: Node) -> PromoVideo:
-	for c: Node in n.get_children():
-		if c is PromoVideo:
-			return c
-		var deeper: PromoVideo = _find_video(c)
-		if deeper != null:
-			return deeper
-	return null
 
 
 ## Google Play phone screenshots (1080 x 1920, real screens, no frames, no

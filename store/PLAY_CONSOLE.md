@@ -2,7 +2,7 @@
 
 Follows `PLAY_PUBLISHING_GUIDE.md`, filled in for this exact build: Godot 4.7,
 Google AdMob (Mobile Ads SDK + User Messaging Platform), Google Play Billing, and
-a local video encoder. No analytics, no crash reporting, no accounts, no servers.
+a small share plugin (saves the share picture to the gallery). No analytics, no crash reporting, no accounts, no servers.
 
 ## Fixed facts (decide once, never change)
 
@@ -84,7 +84,7 @@ Data types (each: **required**, not optional, unless noted):
 | Device or other IDs | Yes | Yes | Advertising or marketing, Analytics, Fraud prevention, security and compliance | AdMob (advertising ID) |
 | Financial info > Purchase history | Yes | No | App functionality | Google Play Billing |
 
-Not collected: name, email, contacts, photos or videos (the share video is saved by the user to their own gallery; nothing is uploaded), files, messages, audio, health, precise location, web history, search history.
+Not collected: name, email, contacts, photos or videos (the share picture is saved by the user to their own gallery; nothing is uploaded), files, messages, audio, health, precise location, web history, search history.
 
 Re-check AdMob's own Data safety guidance (developers.google.com/admob/android/privacy/play-data-disclosure) before submitting, and update this table and the privacy policy whenever an SDK is added or changed.
 
@@ -118,7 +118,7 @@ Then add your own Gmail under Settings > License testing so you can buy with tes
 
 ## Testing
 
-1. **Internal testing:** upload the AAB from the CI artifact by hand, add yourself, install from the opt-in link, play on a real phone: the ads (real units only show test ads to you until AdMob approves the app), a purchase with a test card, Restore, Save video, and the share sheet.
+1. **Internal testing:** upload the AAB from the CI artifact by hand, add yourself, install from the opt-in link, play on a real phone: the ads (real units only show test ads to you until AdMob approves the app), a purchase with a test card, Restore, Save (the picture lands in Pictures › Single Shot), and Share.
 2. **Closed testing** (required for new personal accounts): at least **12 testers opted in for 14 days in a row**; invite 15–20. Keep notes of feedback and fixes for the production application.
 
    Message to send testers:
@@ -129,7 +129,7 @@ Then add your own Gmail under Settings > License testing so you can buy with tes
 
 Draft answers (edit with what really happened):
 
-- **About the test:** Testers were friends, family and fellow players recruited by message. They played on their own Android phones over 14 days and reported by email and chat. Feedback covered level difficulty, the moving-platform chapter's speed, sound levels and the share video; fixed in builds 1.0.x (list the real changes).
+- **About the test:** Testers were friends, family and fellow players recruited by message. They played on their own Android phones over 14 days and reported by email and chat. Feedback covered level difficulty, the moving-platform chapter's speed, sound levels and sharing; fixed in builds 1.0.x (list the real changes).
 - **About the app:** A calm, ad-light ricochet puzzle for teens and adults who like short logic puzzles. 360 hand-tuned rooms in 9 chapters, each teaching one new idea; every room is proven solvable in one shot. Expected installs in the first year: 1,000–10,000.
 - **About readiness:** All tester issues are fixed, the app has run on several phones without crashes, purchases and ads are tested, and the privacy policy and Data safety form match the SDKs in the build.
 

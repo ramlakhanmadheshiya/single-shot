@@ -1,8 +1,8 @@
 @tool
 extends EditorPlugin
-## Bundles the SingleShotVideo Android library (built by CI from plugins_src/singleshot_video)
+## Bundles the SingleShotShare Android library (built by CI from plugins_src/singleshot_share)
 ## into Android exports. Without the .aar the export still works; the game then
-## reports that video saving isn't available.
+## falls back to calling Android directly.
 
 var _export: AndroidExport
 
@@ -19,10 +19,10 @@ func _exit_tree() -> void:
 
 class AndroidExport:
 	extends EditorExportPlugin
-	const AAR: String = "singleshot_video/bin/singleshot_video-release.aar"
+	const AAR: String = "singleshot_share/bin/singleshot_share-release.aar"
 
 	func _get_name() -> String:
-		return "SingleShotVideo"
+		return "SingleShotShare"
 
 	func _supports_platform(platform: EditorExportPlatform) -> bool:
 		return platform is EditorExportPlatformAndroid

@@ -82,7 +82,13 @@ func copy_link(info: Dictionary) -> void:
 	finished.emit(true, "Link copied: paste it anywhere")
 
 
-# --- Android (JavaClassWrapper + AndroidRuntime, Godot 4.4+) -----------------
+# --- Android --------------------------------------------------------------------
+# The SingleShotShare plugin (plugins_src/singleshot_share) does the work; if it is
+# missing, the same calls are made straight from GDScript through JavaClassWrapper.
+
+func _plugin() -> Object:
+	return Engine.get_singleton("SingleShotShare") if Engine.has_singleton("SingleShotShare") else null
+
 
 func _activity() -> Object:
 	var rt: Object = Engine.get_singleton("AndroidRuntime") if Engine.has_singleton("AndroidRuntime") else null
@@ -90,6 +96,9 @@ func _activity() -> Object:
 
 
 func _android_share(path: String, text: String) -> bool:
+	var plugin: Object = _plugin()
+	if plugin != null:
+		return bool(plugin.call("share", path, "image/png", text))
 	var activity: Object = _activity()
 	if activity == null:
 		return false
@@ -121,6 +130,9 @@ func _android_share(path: String, text: String) -> bool:
 
 ## Android 10+: insert into MediaStore under Pictures/Single Shot.
 func _android_save(path: String, name: String) -> bool:
+	var plugin: Object = _plugin()
+	if plugin != null and not path.is_empty():
+		return bool(plugin.call("saveImage", path, name))
 	var activity: Object = _activity()
 	if activity == null or path.is_empty():
 		return false

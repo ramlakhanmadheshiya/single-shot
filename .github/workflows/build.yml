@@ -109,13 +109,13 @@ jobs:
         with:
           gradle-version: "8.14.3"
 
-      - name: Build the video plugin (Android library)
-        # Encodes the share video to MP4 on phones (see plugins_src/singleshot_video).
+      - name: Build the share plugin (Android library)
+        # Saves the share picture to the gallery and shares it (see plugins_src/singleshot_share).
         run: |
-          gradle -p plugins_src/singleshot_video assembleRelease --no-daemon --stacktrace
-          mkdir -p addons/singleshot_video/bin
-          cp plugins_src/singleshot_video/build/outputs/aar/singleshot_video-release.aar addons/singleshot_video/bin/
-          ls -l addons/singleshot_video/bin
+          gradle -p plugins_src/singleshot_share assembleRelease --no-daemon --stacktrace
+          mkdir -p addons/singleshot_share/bin
+          cp plugins_src/singleshot_share/build/outputs/aar/singleshot_share-release.aar addons/singleshot_share/bin/
+          ls -l addons/singleshot_share/bin
 
       - name: Cache Gradle
         uses: actions/cache@v4
