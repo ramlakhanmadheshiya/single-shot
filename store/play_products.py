@@ -24,7 +24,7 @@ CURRENCY = "INR"
 # One-time packs (kept forever, restorable).
 PACKS = [
     ("complete_pack", "Complete pack", "No ads, every hint free, all orbs and themes, and 5 level keys.", 449),
-    ("supporter_pack", "Supporter pack", "No banner ads, and every hint free, always.", 249),
+    ("supporter_pack", "Supporter pack", "No ads, and every hint free, always.", 249),
     ("orb_pack", "Orb pack", "Six more orb styles, each with its own trail.", 149),
     ("theme_pack", "Theme pack", "Eleven colour themes, light and dark.", 149),
 ]

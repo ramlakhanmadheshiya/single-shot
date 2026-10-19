@@ -175,6 +175,16 @@ func spend_hint() -> bool:
 	return true
 
 
+## Wins since the last between-levels ad (saved, so quitting doesn't skip one).
+func wins_since_ad() -> int:
+	return int(data.get("wins_since_ad", 0))
+
+
+func set_wins_since_ad(n: int) -> void:
+	data["wins_since_ad"] = maxi(0, n)
+	save()
+
+
 func is_supporter() -> bool:
 	return owns("supporter_pack")
 
@@ -322,6 +332,7 @@ func _defaults() -> Dictionary:
 		"tips": 0,
 		"hints": DAILY_HINTS,
 		"hint_day": "",
+		"wins_since_ad": 0,
 		"settings": {
 			"music_volume": 0.5,
 			"sound_volume": 0.75,

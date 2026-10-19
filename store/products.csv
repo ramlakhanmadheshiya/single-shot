@@ -1,6 +1,6 @@
 product_id,title,description,price_inr,kind
 complete_pack,Complete pack,"No ads, every hint free, all orbs and themes, and 5 level keys.",449,pack
-supporter_pack,Supporter pack,"No banner ads, and every hint free, always.",249,pack
+supporter_pack,Supporter pack,"No ads, and every hint free, always.",249,pack
 orb_pack,Orb pack,"Six more orb styles, each with its own trail.",149,pack
 theme_pack,Theme pack,"Eleven colour themes, light and dark.",149,pack
 keys_1,1 level key,A key opens any locked room for good.,30,consumable

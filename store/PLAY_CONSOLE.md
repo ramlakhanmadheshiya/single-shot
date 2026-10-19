@@ -21,10 +21,10 @@ a small share plugin (saves the share picture to the gallery). No analytics, no 
 
 ## Before the first upload (one-time setup)
 
-1. **AdMob** (admob.google.com, same Google account): add the app (Android, "not listed yet"), create a **Banner** and a **Rewarded** ad unit.
+1. **AdMob** (admob.google.com, same Google account): add the app (Android, "not listed yet"), create a **Banner**, a **Rewarded** and an **Interstitial** ad unit.
 2. **GitHub secrets** (repo > Settings > Secrets and variables > Actions):
    - `ADMOB_APP_ID`: `ca-app-pub-…~…` (App settings in AdMob)
-   - `ADMOB_BANNER_ID`, `ADMOB_REWARDED_ID`: `ca-app-pub-…/…`
+   - `ADMOB_BANNER_ID`, `ADMOB_REWARDED_ID`, `ADMOB_INTERSTITIAL_ID`: `ca-app-pub-…/…`
    - Until these exist, every build uses Google's test ads and CI prints a warning. **Never upload a build to Play that shows the warning.**
 3. **app-ads.txt:** AdMob shows a line like `google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0`. It must live at `https://theramlakhan.com/app-ads.txt` (the root of the website you list on Play). Send the line to Claude, or add it to the `ramlakhanmadheshiya.github.io` repo as `app-ads.txt`.
 4. **Optional, upload from CI:** create the service account (guide step 0.4), invite it in Play Console with release rights, and add its JSON key as the secret `PLAY_SERVICE_ACCOUNT_JSON`. From then on every push uploads the AAB to **Internal testing** automatically. The very first AAB must still be uploaded by hand.

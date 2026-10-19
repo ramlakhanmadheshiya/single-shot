@@ -2,8 +2,10 @@ extends Node
 ## All ad decisions live here so ads stay polite:
 ## - a small banner at the very bottom of every screen, with layout space reserved
 ##   so it never covers buttons;
-## - a rewarded ad only when the player agrees to watch one for +1 hint.
-## There are no interstitials. Supporters see no banners and get free hints.
+## - a rewarded ad only when the player agrees to watch one for +1 hint;
+## - one full-screen ad after every INTERSTITIAL_EVERY wins, shown only when the
+##   player taps Next (never mid-room).
+## Supporters see no banners and no full-screen ads, and get free hints.
 ## Providers: AdMob on Android (plugin), a visible mock on debug desktop builds,
 ## and nothing at all elsewhere (web, release desktop).
 
@@ -12,6 +14,7 @@ signal rewarded_finished(ok: bool)
 ## Loaded lazily: it references plugin classes that only matter on Android.
 const ADMOB_PROVIDER_PATH: String = "res://game/ads/providers/admob_provider.gd"
 const MockProvider: GDScript = preload("res://game/ads/providers/mock_ad_provider.gd")
+const INTERSTITIAL_EVERY: int = 10
 
 var provider: Node = null
 var banner_height: float = 0.0
@@ -28,6 +31,9 @@ func _ready() -> void:
 		add_child(provider)
 		provider.banner_resized.connect(_on_banner_resized)
 	Events.supporter_changed.connect(func(_on: bool) -> void: refresh_banner())
+	Events.level_completed.connect(func(_id: String, _stars: int) -> void:
+		SaveSystem.set_wins_since_ad(SaveSystem.wins_since_ad() + 1)
+	)
 
 
 func ads_enabled() -> bool:
@@ -71,3 +77,13 @@ func show_rewarded(callback: Callable) -> void:
 		rewarded_finished.emit(ok)
 		callback.call(ok)
 	)
+
+
+## Between levels: after every INTERSTITIAL_EVERY wins, shows a full-screen ad and
+## then calls go. Otherwise (or for supporters, or with no ad loaded) calls go at once.
+func between_levels(go: Callable) -> void:
+	if not ads_enabled() or SaveSystem.wins_since_ad() < INTERSTITIAL_EVERY or not provider.interstitial_ready():
+		go.call()
+		return
+	SaveSystem.set_wins_since_ad(0)
+	provider.show_interstitial(go)

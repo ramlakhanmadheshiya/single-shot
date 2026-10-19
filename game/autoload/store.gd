@@ -11,9 +11,9 @@ signal price_updated(product: String, price: String)
 ## Shop order. "tier" picks the fallback price shown until Google Play answers.
 const PRODUCTS: Dictionary = {
 	"complete_pack": {"name": "Complete pack", "tier": 3, "blurb": "Everything below, plus 5 level keys",
-		"perks": ["No banner ads, every hint free", "6 orb styles with their own trails", "11 colour themes", "5 level keys to open any room", "Yours to keep after one purchase"]},
+		"perks": ["No ads, every hint free", "6 orb styles with their own trails", "11 colour themes", "5 level keys to open any room", "Yours to keep after one purchase"]},
 	"supporter_pack": {"name": "Supporter pack", "tier": 2, "blurb": "No ads, and every hint free",
-		"perks": ["No banner ads", "Every hint free, always", "Helps new chapters get made"]},
+		"perks": ["No ads", "Every hint free, always", "Helps new chapters get made"]},
 	"orb_pack": {"name": "Orb pack", "tier": 1, "blurb": "Comet, Ember, Neon and 3 more", "trial": true,
 		"perks": ["6 more orbs, each with its own trail", "Pick one any time in Settings", "Yours to keep after one purchase"]},
 	"theme_pack": {"name": "Theme pack", "tier": 1, "blurb": "Midnight, Nord, Sepia and 8 more", "trial": true,

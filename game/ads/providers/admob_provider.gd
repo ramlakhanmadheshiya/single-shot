@@ -1,18 +1,22 @@
 extends Node
 ## Google AdMob through the Poing AdMob plugin (Android only).
 ## Flow: consent (UMP, needed for EU/UK) -> initialise -> preload a rewarded ad;
-## the bottom banner is an anchored adaptive banner. No interstitials.
+## the bottom banner is an anchored adaptive banner; an interstitial is preloaded
+## for the between-levels break (AdManager decides when).
 
 signal banner_resized(height_px: float)
 
 ## Ad unit IDs come from Project Settings (single_shot/ads/*), which CI fills in
-## from the repository secrets ADMOB_BANNER_ID and ADMOB_REWARDED_ID (and the App ID,
+## from the repository secrets ADMOB_BANNER_ID, ADMOB_REWARDED_ID and
+## ADMOB_INTERSTITIAL_ID (and the App ID,
 ## admob/general/android/app_id, from ADMOB_APP_ID). Without them, Google's public
 ## TEST units are used, so development builds never show real ads.
 const TEST_BANNER_ID: String = "ca-app-pub-3940256099942544/9214589741"
 const TEST_REWARDED_ID: String = "ca-app-pub-3940256099942544/5224354917"
+const TEST_INTERSTITIAL_ID: String = "ca-app-pub-3940256099942544/1033173712"
 var BANNER_ID: String = _unit("android_banner_id", TEST_BANNER_ID)
 var REWARDED_ID: String = _unit("android_rewarded_id", TEST_REWARDED_ID)
+var INTERSTITIAL_ID: String = _unit("android_interstitial_id", TEST_INTERSTITIAL_ID)
 
 
 static func _unit(key: String, fallback: String) -> String:
@@ -26,6 +30,9 @@ var _rewarded: RewardedAd
 var _rewarded_loader: RewardedAdLoader
 var _on_rewarded: Callable
 var _earned: bool = false
+var _interstitial: InterstitialAd
+var _interstitial_loader: InterstitialAdLoader
+var _on_interstitial: Callable
 
 
 static func is_supported() -> bool:
@@ -34,6 +41,7 @@ static func is_supported() -> bool:
 
 func _ready() -> void:
 	_rewarded_loader = RewardedAdLoader.new()
+	_interstitial_loader = InterstitialAdLoader.new()
 	var params: ConsentRequestParameters = ConsentRequestParameters.new()
 	UserMessagingPlatform.consent_information.update(params, _on_consent_updated, func(_e: FormError) -> void: _init_ads())
 
@@ -68,6 +76,7 @@ func _init_ads() -> void:
 	listener.on_initialization_complete = func(_s: InitializationStatus) -> void:
 		_ready_to_load = true
 		_load_rewarded()
+		_load_interstitial()
 		if _banner_wanted:
 			show_banner()
 	MobileAds.initialize(listener)
@@ -141,3 +150,39 @@ func _rewarded_done(failed: bool) -> void:
 	if _on_rewarded.is_valid():
 		_on_rewarded.call(_earned or failed)
 	_on_rewarded = Callable()
+
+
+# --- Interstitial --------------------------------------------------------------------
+
+func interstitial_ready() -> bool:
+	return _interstitial != null
+
+
+func show_interstitial(on_done: Callable) -> void:
+	if _interstitial == null:
+		on_done.call()
+		return
+	_on_interstitial = on_done
+	_interstitial.show()
+
+
+func _load_interstitial() -> void:
+	var cb: InterstitialAdLoadCallback = InterstitialAdLoadCallback.new()
+	cb.on_ad_loaded = func(ad: InterstitialAd) -> void:
+		_interstitial = ad
+		var fs: FullScreenContentCallback = FullScreenContentCallback.new()
+		fs.on_ad_dismissed_full_screen_content = _interstitial_done
+		fs.on_ad_failed_to_show_full_screen_content = func(_e: AdError) -> void: _interstitial_done()
+		_interstitial.full_screen_content_callback = fs
+	cb.on_ad_failed_to_load = func(e: LoadAdError) -> void: push_warning("Interstitial failed: " + e.message)
+	_interstitial_loader.load(INTERSTITIAL_ID, AdRequest.new(), cb)
+
+
+func _interstitial_done() -> void:
+	if _interstitial != null:
+		_interstitial.destroy()
+	_interstitial = null
+	_load_interstitial()
+	if _on_interstitial.is_valid():
+		_on_interstitial.call()
+	_on_interstitial = Callable()

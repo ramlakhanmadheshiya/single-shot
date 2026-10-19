@@ -33,7 +33,7 @@ Each chapter adds one new idea and opens with a short tutorial room:
 Every chapter has 40 rooms. They start gentle and grow harder, with the number of bounces climbing from one to eight. Every room is checked by a solver and can be cleared with one shot.
 
 CALM BY DESIGN
-• No full-screen ads between levels
+• Just one short ad every 10 levels, and none mid-level
 • Optional videos only when you choose them
 • Three free hints a day, and a hint shows the exact path
 • Progress stays on your device, with no account to make

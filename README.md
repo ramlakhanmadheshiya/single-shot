@@ -43,9 +43,10 @@ Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the 
   | `tip_10` … `tip_1000` | consumable tips in ₹10 steps (presets ₹20/50/100/200, or a custom amount) |
 
   Each product id must exist in the Play Console. Prices show in local currency (Google Play's localised price, or a regional fallback from the device locale).
-- **Ads (Android only, no interstitials):**
+- **Ads (Android only):**
   - a bottom banner on every screen, with layout space reserved so it never covers a button;
-  - rewarded ads only when you ask for a hint.
+  - rewarded ads only when you ask for a hint;
+  - one full-screen ad after every 10 wins, shown when you tap Next (never mid-room). The Supporter or Complete pack removes all ads.
 - **Settings** (a floating card on every screen): music and sound volume, vibration, screen shake, a longer aim guide (on by default), colour and orb pickers, How to play, Shop, About and Credits. Reset progress is hidden while you're playing a level.
 - **First play:** Dawn level 1 runs a hands-on tutorial with an animated hand. You can replay it from How to play.
 

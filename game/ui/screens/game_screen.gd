@@ -359,10 +359,12 @@ func _show_result(attempt: int) -> void:
 	var next_btn: Button = UIKit.pill("Next level" if not nxt.is_empty() else "Chapters", pal, "primary", Vector2(0, 92), 32)
 	next_btn.name = "Next"
 	next_btn.pressed.connect(func() -> void:
-		if nxt.is_empty():
-			app.open_chapters()
-		else:
-			app.open_game(str(nxt["chapter"]), int(nxt["index"]))
+		AdManager.between_levels(func() -> void:
+			if nxt.is_empty():
+				app.open_chapters()
+			else:
+				app.open_game(str(nxt["chapter"]), int(nxt["index"]))
+		)
 	)
 	sheet.add_child(next_btn)
 	var actions: HBoxContainer = HBoxContainer.new()

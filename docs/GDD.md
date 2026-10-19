@@ -60,7 +60,7 @@ Screen shake, vibration and the longer aim guide can all be toggled in Settings.
 ## Monetisation
 Ads come from AdMob through the Poing plugin, and the one purchase uses Google Play Billing. All rules live in `game/ads/ad_manager.gd`:
 - **Banner:** at the bottom of every screen, with layout space reserved so it never covers a button.
-- **No interstitials**, by design.
+- **One interstitial every 10 wins**, only on tapping Next; none for supporters.
 - **Rewarded:** +1 hint, +1 level key (5 a day), or a one-hour trial of the Orb or Theme pack (with a live countdown). The game asks before playing one, and if no ad can be shown a hint is free.
 - **Hints:** 3 free hints, refilled to 3 at local midnight.
 - **Shop** (one-time purchases, Restore in the shop and on every pack card; prices in local currency):

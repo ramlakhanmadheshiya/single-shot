@@ -51,6 +51,14 @@ func show_rewarded(on_done: Callable) -> void:
 	_fullscreen("Rewarded ad (test)", on_done)
 
 
+func interstitial_ready() -> bool:
+	return true
+
+
+func show_interstitial(on_done: Callable) -> void:
+	_fullscreen("Interstitial ad (test)", func(_ok: bool) -> void: on_done.call())
+
+
 func _fullscreen(text: String, on_done: Callable) -> void:
 	var root: ColorRect = ColorRect.new()
 	root.color = Color(0.05, 0.05, 0.08, 0.94)
