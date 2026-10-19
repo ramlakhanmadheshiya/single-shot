@@ -88,6 +88,8 @@ APK signing uses three repository secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_K
 godot --path . res://tests/capture.tscn -- /tmp/ocs_shots   # screenshots of every screen (not committed)
 ```
 
+Store graphics (`store/`): `godot --fixed-fps 60 --disable-vsync --always-on-top --path . res://tests/capture.tscn -- build/store/raw --store-raw`, then `.venv/bin/python -I tools/store_art.py install C` (needs numpy and pillow) and `godot --headless --path . -s res://tools/render_icon.gd -- store/icon_512.png`. Use `tools/store_art.py`, never the kit's compose.py.
+
 ## How it works
 
 | Piece | File |

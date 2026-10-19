@@ -96,11 +96,13 @@ Everything is in `store/listing.md` (text, checked by `python3 store/check_listi
 |---|---|
 | App icon 512 × 512 | `store/icon_512.png` |
 | Feature graphic 1024 × 500 | `store/feature_graphic.png` |
-| Phone screenshots 1080 × 1920 | `store/screenshots/01_home.png` … `08_levels.png` |
+| Phone screenshots 1080 × 1920 | `store/screenshots/01_aim.png` … `08_title.png` |
+| 7-inch tablet screenshots 1920 × 1080 | `store/screenshots/tablet7/01_aim.png` … `08_title.png` |
+| 10-inch tablet screenshots 2560 × 1440 | `store/screenshots/tablet10/01_aim.png` … `08_title.png` |
 
 Store settings: category **Games > Puzzle**, tags from `listing.md`, email support@theramlakhan.com, website https://theramlakhan.com/single-shot/. No phone number needed.
 
-Re-render the art any time: `godot --path . --disable-vsync --always-on-top --resolution 360x640 res://tests/capture.tscn -- "$PWD/store/screenshots" --store` and `godot --path . --disable-vsync --always-on-top --resolution 1024x500 res://tools/render_feature_graphic.tscn`.
+Re-render the art any time: `godot --fixed-fps 60 --disable-vsync --always-on-top --path . res://tests/capture.tscn -- build/store/raw --store-raw`, then `.venv/bin/python -I tools/store_art.py install C` and `godot --headless --path . -s res://tools/render_icon.gd -- store/icon_512.png`.
 
 ## In-app products (Monetize with Play > Products, after the first AAB is on a track)
 
