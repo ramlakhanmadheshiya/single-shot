@@ -5,17 +5,20 @@
   python3 store/play_products.py csv > products.csv    # the same, as CSV
   python3 store/play_products.py create KEY.json       # create them through the API
 
-`create` uses the Google Play Android Developer API (in-app products) with a
+  python3 store/play_products.py create KEY.json tip_10   # just these ids
+
+`create` uses the Google Play Developer API (monetization.onetimeproducts) with a
 service account JSON key (Play Console > Users and permissions: invite the service
 account with permission to manage the app's products). It needs:
   python3 -m pip install google-auth requests
-Products that already exist are skipped, so it is safe to run again.
+Existing products are updated in place, so it is safe to run again.
 
 Prices are set in Indian rupees; Play converts them for other countries.
 The product IDs must match game/autoload/store.gd.
 """
 import csv
 import json
+import re
 import sys
 
 PACKAGE = "com.theramlakhan.singleshot"
@@ -75,46 +78,80 @@ def cmd_csv():
         w.writerow([p["id"], p["title"], p["description"], p["price"], p["kind"]])
 
 
-def cmd_create(key_path):
+IN_GST = 1.18  # Play's Indian prices include 18% GST; conversion takes a tax-free base.
+
+
+def _money(cur, amount):
+    units = int(amount)
+    return {"currencyCode": cur, "units": str(units), "nanos": int(round((amount - units) * 1e9))}
+
+
+def cmd_create(key_path, only=None):
+    """Creates (or updates) every product as a one-time product with one active
+    "buy" purchase option: ₹ price in India, Play's converted prices elsewhere."""
     from google.oauth2 import service_account
     from google.auth.transport.requests import AuthorizedSession
 
     creds = service_account.Credentials.from_service_account_file(
         key_path, scopes=["https://www.googleapis.com/auth/androidpublisher"])
     session = AuthorizedSession(creds)
-    base = f"https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{PACKAGE}/inappproducts"
-    existing = set()
-    token = None
-    while True:
-        r = session.get(base, params={"token": token} if token else {})
-        r.raise_for_status()
-        data = r.json()
-        existing |= {p["sku"] for p in data.get("inappproduct", [])}
-        token = data.get("tokenPagination", {}).get("nextPageToken")
-        if not token:
-            break
-    made = 0
+    app = f"https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{PACKAGE}"
+    made, failed = 0, 0
     for p in products():
-        if p["id"] in existing:
-            print(f"skip   {p['id']} (exists)")
+        if only and p["id"] not in only:
             continue
+        conv = session.post(f"{app}/pricing:convertRegionPrices",
+                            json={"price": _money(CURRENCY, p["price"] / IN_GST)})
+        if not conv.ok:
+            print(f"FAILED {p['id']} (prices): {conv.status_code} {conv.text[:300]}")
+            failed += 1
+            continue
+        c = conv.json()
+        regions = []
+        for code, rp in sorted(c.get("convertedRegionPrices", {}).items()):
+            price = _money(CURRENCY, p["price"]) if code == "IN" else rp["price"]
+            regions.append({"regionCode": code, "price": price, "availability": "AVAILABLE"})
+        other = c.get("convertedOtherRegionsPrice", {})
+        option = {
+            "purchaseOptionId": "buy",
+            "buyOption": {"legacyCompatible": True, "multiQuantityEnabled": False},
+            "regionalPricingAndAvailabilityConfigs": regions,
+        }
+        if other:
+            option["newRegionsConfig"] = {"usdPrice": other["usdPrice"], "eurPrice": other["eurPrice"], "availability": "AVAILABLE"}
         body = {
             "packageName": PACKAGE,
-            "sku": p["id"],
-            "status": "active",
-            "purchaseType": "managedUser",
-            "defaultLanguage": "en-US",
-            "listings": {"en-US": {"title": p["title"], "description": p["description"]}},
-            "defaultPrice": {"priceMicros": str(p["price"] * 1_000_000), "currency": CURRENCY},
+            "productId": p["id"],
+            "listings": [{"languageCode": "en-US", "title": p["title"], "description": p["description"]}],
+            "purchaseOptions": [option],
         }
-        r = session.post(base, params={"autoConvertMissingPrices": "true"}, data=json.dumps(body),
-                         headers={"Content-Type": "application/json"})
-        if r.ok:
-            made += 1
-            print(f"create {p['id']} ₹{p['price']}")
-        else:
-            print(f"FAILED {p['id']}: {r.status_code} {r.text[:300]}")
-    print(f"\nCreated {made}, skipped {len(existing & {p['id'] for p in products()})}.")
+        # Small tips fall under some countries' minimum price: Play names the
+        # region and its range, so lift that region to the minimum and retry.
+        for _ in range(60):
+            r = session.patch(f"{app}/onetimeproducts/{p['id']}", json=body, params={
+                "allowMissing": "true", "updateMask": "listings,purchaseOptions",
+                "regionsVersion.version": c["regionVersion"]["version"],
+                "latencyTolerance": "PRODUCT_UPDATE_LATENCY_TOLERANCE_LATENCY_TOLERANT"})
+            m = None if r.ok else re.search(r"Price for (\w+) must be between \D*([\d.,]+)", r.text)
+            if not m:
+                break
+            for reg in regions:
+                if reg["regionCode"] == m.group(1):
+                    reg["price"] = _money(reg["price"]["currencyCode"], float(m.group(2).replace(",", "")))
+        if not r.ok:
+            print(f"FAILED {p['id']}: {r.status_code} {r.text[:400]}")
+            failed += 1
+            continue
+        act = session.post(f"{app}/oneTimeProducts/{p['id']}/purchaseOptions:batchUpdateStates", json={"requests": [
+            {"activatePurchaseOptionRequest": {"packageName": PACKAGE, "productId": p["id"], "purchaseOptionId": "buy",
+                                               "latencyTolerance": "PRODUCT_UPDATE_LATENCY_TOLERANCE_LATENCY_TOLERANT"}}]})
+        if not act.ok:
+            print(f"FAILED {p['id']} (activate): {act.status_code} {act.text[:300]}")
+            failed += 1
+            continue
+        made += 1
+        print(f"ok     {p['id']} ₹{p['price']}")
+    print(f"\nDone: {made} ready, {failed} failed.")
 
 
 if __name__ == "__main__":
@@ -122,8 +159,8 @@ if __name__ == "__main__":
         cmd_list()
     elif sys.argv[1] == "csv":
         cmd_csv()
-    elif sys.argv[1] == "create" and len(sys.argv) == 3:
-        cmd_create(sys.argv[2])
+    elif sys.argv[1] == "create" and len(sys.argv) >= 3:
+        cmd_create(sys.argv[2], set(sys.argv[3:]) or None)
     else:
         print(__doc__)
         sys.exit(1)
