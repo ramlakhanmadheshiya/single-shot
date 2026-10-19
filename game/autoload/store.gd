@@ -32,12 +32,15 @@ const KEY_UNIT: Dictionary = {
 	"PH": ["₱", 25.0, 0], "TR": ["₺", 15.99, 2], "MX": ["MX$", 9.0, 0],
 }
 ## Tip jar: consumable, opens nothing. Preset amounts plus any custom amount in
-## steps of 10 (Google Play sells fixed prices, so each amount is its own product,
-## tip_10 ... tip_1000, priced in rupees and converted by Play elsewhere).
+## steps of 10 up to 1,000, then steps of 100 up to 10,000 (Google Play sells fixed
+## prices, so each amount is its own product, tip_10 ... tip_10000, priced in rupees
+## and converted by Play elsewhere).
 const TIP_PRESETS: Array = [20, 50, 100, 200]
 const TIP_MIN: int = 10
-const TIP_MAX: int = 1000
+const TIP_MAX: int = 10000
 const TIP_STEP: int = 10
+const TIP_BIG_FROM: int = 1000
+const TIP_BIG_STEP: int = 100
 
 ## Fallback prices by tier, per region, kept in line with the Play Console.
 ## Tiers: 0 = $0.99, 1 = $1.99, 2 = $2.99, 3 = $5.99, 4 = $9.99, 5 = $19.99.
@@ -70,7 +73,7 @@ func _ready() -> void:
 		prices[id] = regional_price(tier_of(id))
 	for n: int in range(1, KEY_MAX + 1):
 		prices["keys_%d" % n] = keys_price(n)
-	for n: int in range(TIP_MIN, TIP_MAX + 1, TIP_STEP):
+	for n: int in tip_amounts():
 		prices["tip_%d" % n] = tip_price(n)
 	# Only create the client where the native plugin exists (Android builds).
 	if Engine.has_singleton("GodotGooglePlayBilling"):
@@ -88,9 +91,29 @@ static func key_ids() -> Array:
 
 static func tip_ids() -> Array:
 	var out: Array = []
-	for n: int in range(TIP_MIN, TIP_MAX + 1, TIP_STEP):
+	for n: int in tip_amounts():
 		out.append("tip_%d" % n)
 	return out
+
+
+## Every amount sold as a tip, in rupees.
+static func tip_amounts() -> Array:
+	var out: Array = range(TIP_MIN, TIP_BIG_FROM + 1, TIP_STEP)
+	out.append_array(range(TIP_BIG_FROM + TIP_BIG_STEP, TIP_MAX + 1, TIP_BIG_STEP))
+	return out
+
+
+## The nearest amount that exists as a product.
+static func snap_tip(rupees: int) -> int:
+	var step: int = TIP_STEP if rupees <= TIP_BIG_FROM else TIP_BIG_STEP
+	var r: int = int(round(float(rupees) / float(step))) * step
+	return clampi(r, TIP_MIN, TIP_MAX)
+
+
+## The next amount up (dir 1) or down (dir -1) from a valid amount.
+static func nudge_tip(rupees: int, dir: int) -> int:
+	var step: int = TIP_BIG_STEP if (rupees > TIP_BIG_FROM or (rupees == TIP_BIG_FROM and dir > 0)) else TIP_STEP
+	return clampi(rupees + dir * step, TIP_MIN, TIP_MAX)
 
 
 static func all_ids() -> Array:

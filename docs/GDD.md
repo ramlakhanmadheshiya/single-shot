@@ -68,4 +68,4 @@ Ads come from AdMob through the Poing plugin, and the one purchase uses Google P
   - Supporter pack (`supporter_pack`, $2.99 / ₹249): no banner, every hint free.
   - Level keys (`keys_1`…`keys_10`, ₹30 each, 10% off for 5+): a key opens any one locked room for good. (No "open everything" pack: the climb is the game.)
   - Orb pack (`orb_pack`, $1.99 / ₹149) and Theme pack (`theme_pack`, $1.99 / ₹149): cosmetic, picked in Settings.
-  - Tip jar (`tip_10`…`tip_1000` in ₹10 steps; presets ₹20/50/100/200 or a custom amount): consumable, opens nothing.
+  - Tip jar (`tip_10`…`tip_10000`: ₹10 steps to ₹1,000, then ₹100 steps; presets ₹20/50/100/200 or a custom amount): consumable, opens nothing.

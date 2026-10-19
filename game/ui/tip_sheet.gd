@@ -38,7 +38,7 @@ func build() -> void:
 	body.add_child(row)
 	var minus: Button = UIKit.icon_button("minus", pal, 68.0)
 	minus.name = "TipMinus"
-	minus.pressed.connect(func() -> void: _nudge(-Store.TIP_STEP))
+	minus.pressed.connect(func() -> void: _nudge(-1))
 	row.add_child(minus)
 	_amount = LineEdit.new()
 	_amount.name = "TipAmount"
@@ -46,7 +46,7 @@ func build() -> void:
 	_amount.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_amount.custom_minimum_size = Vector2(200, 72)
 	_amount.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
-	_amount.max_length = 4
+	_amount.max_length = 5
 	_amount.add_theme_font_override("font", UIKit.font(500))
 	_amount.add_theme_font_size_override("font_size", 34)
 	_amount.add_theme_color_override("font_color", pal["ink"])
@@ -64,7 +64,7 @@ func build() -> void:
 	row.add_child(_amount)
 	var plus: Button = UIKit.icon_button("plus", pal, 68.0)
 	plus.name = "TipPlus"
-	plus.pressed.connect(func() -> void: _nudge(Store.TIP_STEP))
+	plus.pressed.connect(func() -> void: _nudge(1))
 	row.add_child(plus)
 	_custom_btn = UIKit.pill("", pal, "accent", Vector2(0, 86), 28)
 	_custom_btn.name = "TipCustom"
@@ -87,15 +87,13 @@ func build() -> void:
 	)
 
 
-## The typed amount, rounded to the nearest 10 and kept in range.
+## The typed amount, rounded to an amount Play sells and kept in range.
 func _custom() -> int:
-	var raw: int = int(_amount.text.to_int())
-	var r: int = int(round(float(raw) / float(Store.TIP_STEP))) * Store.TIP_STEP
-	return clampi(r, Store.TIP_MIN, Store.TIP_MAX)
+	return Store.snap_tip(int(_amount.text.to_int()))
 
 
-func _nudge(by: int) -> void:
-	_amount.text = str(clampi(_custom() + by, Store.TIP_MIN, Store.TIP_MAX))
+func _nudge(dir: int) -> void:
+	_amount.text = str(Store.nudge_tip(_custom(), dir))
 	_refresh_custom()
 
 
@@ -104,7 +102,7 @@ func _refresh_custom() -> void:
 	_custom_btn.text = "Tip %s" % Store.price("tip_%d" % v)
 	var typed: int = int(_amount.text.to_int())
 	if typed > 0 and typed != v:
-		_status.text = "Google Play takes amounts in steps of %d, so that's %s" % [Store.TIP_STEP, Store.price("tip_%d" % v)]
+		_status.text = "Google Play takes amounts in steps of %d (%d above %d), so that's %s" % [Store.TIP_STEP, Store.TIP_BIG_STEP, Store.TIP_BIG_FROM, Store.price("tip_%d" % v)]
 
 
 func _tip(rupees: int) -> void:

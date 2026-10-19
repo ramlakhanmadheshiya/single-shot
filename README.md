@@ -40,7 +40,7 @@ Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the 
   | `keys_1` … `keys_10` | consumable level keys, ₹30 each, 10% off for 5+ (one also comes from a video, 5 a day) |
   | `orb_pack` | 6 orb styles with their own trails (1-hour trial from a video) |
   | `theme_pack` | 11 colour themes (1-hour trial from a video) |
-  | `tip_10` … `tip_1000` | consumable tips in ₹10 steps (presets ₹20/50/100/200, or a custom amount) |
+  | `tip_10` … `tip_10000` | consumable tips in ₹10 steps up to ₹1,000, then ₹100 steps (presets ₹20/50/100/200, or a custom amount) |
 
   Each product id must exist in the Play Console. Prices show in local currency (Google Play's localised price, or a regional fallback from the device locale).
 - **Ads (Android only):**

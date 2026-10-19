@@ -33,7 +33,8 @@ KEY_PRICE = 30          # per key
 KEY_BULK = 5            # buying this many or more ...
 KEY_DISCOUNT = 0.10     # ... takes 10% off
 KEY_MAX = 10
-TIP_MIN, TIP_MAX, TIP_STEP = 10, 1000, 10
+TIP_MIN, TIP_MAX, TIP_STEP = 10, 10000, 10
+TIP_BIG_FROM, TIP_BIG_STEP = 1000, 100  # steps of 100 above 1,000
 
 
 def products():
@@ -49,7 +50,8 @@ def products():
             "price": round(price),
             "kind": "consumable",
         })
-    for r in range(TIP_MIN, TIP_MAX + 1, TIP_STEP):
+    tips = list(range(TIP_MIN, TIP_BIG_FROM + 1, TIP_STEP)) + list(range(TIP_BIG_FROM + TIP_BIG_STEP, TIP_MAX + 1, TIP_BIG_STEP))
+    for r in tips:
         out.append({
             "id": f"tip_{r}",
             "title": f"Tip ₹{r}",
