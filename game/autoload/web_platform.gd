@@ -54,6 +54,13 @@ func over_cap(chapter_id: String, index: int) -> bool:
 	return true
 
 
+## Where to stream an asset that the web pack leaves out ("music/ch1.ogg"), or "".
+func asset_url(rel: String) -> String:
+	if _bn == null:
+		return ""
+	return str(_bn.assetUrl(rel))
+
+
 ## Shows the page's "get the full game" card over the game.
 func show_full_game() -> void:
 	if _bn != null:

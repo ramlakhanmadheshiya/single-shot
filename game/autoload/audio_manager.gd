@@ -1,5 +1,7 @@
 extends Node
 ## Crossfading music per chapter plus a pooled, pitchable sound-effect player.
+## In the browser the music isn't in the game's pack (so the game opens fast):
+## each track streams in the background as Ogg Vorbis and starts when it arrives.
 
 const MUSIC_DIR: String = "res://assets/audio/music/"
 const SFX_DIR: String = "res://assets/audio/sfx/"
@@ -17,6 +19,9 @@ var _cache: Dictionary = {}
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _unlocked: bool = false
 var _last_play_msec: Dictionary = {}
+## Web: tracks still downloading, and the order to fetch the rest in.
+var _streaming: Dictionary = {}
+var _stream_queue: Array[String] = []
 
 
 func _ready() -> void:
@@ -41,6 +46,8 @@ func _ready() -> void:
 	_unlocked = not OS.has_feature("web")
 	Events.setting_changed.connect(_on_setting)
 	_apply_settings()
+	# Deferred: WebPlatform (an autoload after this one) isn't ready yet.
+	_queue_web_music.call_deferred()
 
 
 func _input(event: InputEvent) -> void:
@@ -75,6 +82,7 @@ func play_music(track: String) -> void:
 		return
 	var stream: AudioStream = _load(MUSIC_DIR + track + ".wav")
 	if stream == null:
+		_stream_music(track)
 		return
 	if stream is AudioStreamWAV:
 		var wav: AudioStreamWAV = stream
@@ -92,6 +100,55 @@ func play_music(track: String) -> void:
 	tw.tween_property(new, "volume_db", MUSIC_DB, 1.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	tw.tween_property(old, "volume_db", -60.0, 1.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	tw.chain().tween_callback(old.stop)
+
+
+## Web: the menu and first chapter first, then (if every level is playable here)
+## the other chapters, one at a time, while the player plays.
+func _queue_web_music() -> void:
+	if not WebPlatform.active():
+		return
+	var tracks: Array[String] = ["menu"]
+	for c: Dictionary in Levels.chapters:
+		tracks.append(str(c["id"]))
+		if WebPlatform.level_cap() > 0:
+			break
+	_stream_queue = tracks
+	_stream_next()
+
+
+func _stream_next() -> void:
+	while not _stream_queue.is_empty():
+		var t: String = _stream_queue.pop_front()
+		if _cache.get(MUSIC_DIR + t + ".wav") == null and not _streaming.has(t):
+			_stream_music(t)
+			return
+
+
+func _stream_music(track: String) -> void:
+	if _streaming.has(track) or not WebPlatform.active():
+		return
+	var url: String = WebPlatform.asset_url("music/%s.ogg" % track)
+	if url.is_empty():
+		return
+	var req: HTTPRequest = HTTPRequest.new()
+	add_child(req)
+	_streaming[track] = req
+	req.request_completed.connect(func(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+		req.queue_free()
+		_streaming.erase(track)
+		if result == HTTPRequest.RESULT_SUCCESS and code == 200:
+			var ogg: AudioStreamOggVorbis = AudioStreamOggVorbis.load_from_buffer(body)
+			if ogg != null:
+				ogg.loop = true
+				_cache[MUSIC_DIR + track + ".wav"] = ogg
+				if track == _current_track:
+					_current_track = ""
+					play_music(track)
+		_stream_next()
+	)
+	if req.request(url) != OK:
+		req.queue_free()
+		_streaming.erase(track)
 
 
 ## Plays a one-shot effect. pitch < 0 means a small random variation.
