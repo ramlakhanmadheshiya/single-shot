@@ -6,14 +6,16 @@ extends Node
 ## - one full-screen ad after every INTERSTITIAL_EVERY wins, shown only when the
 ##   player taps Next (never mid-room).
 ## Supporters see no banners and no full-screen ads, and get free hints.
-## Providers: AdMob on Android (plugin), a visible mock on debug desktop builds,
-## and nothing at all elsewhere (web, release desktop).
+## Providers: AdMob on Android (plugin), the Brainnova Studio play page in the
+## browser (WebPlatform; it decides which ad types this device gets), a visible
+## mock on debug desktop builds, and nothing at all elsewhere.
 
 signal rewarded_finished(ok: bool)
 
 ## Loaded lazily: it references plugin classes that only matter on Android.
 const ADMOB_PROVIDER_PATH: String = "res://game/ads/providers/admob_provider.gd"
 const MockProvider: GDScript = preload("res://game/ads/providers/mock_ad_provider.gd")
+const WebProvider: GDScript = preload("res://game/ads/providers/web_provider.gd")
 const INTERSTITIAL_EVERY: int = 10
 
 var provider: Node = null
@@ -24,6 +26,8 @@ var _banner_on: bool = false
 func _ready() -> void:
 	if Engine.has_singleton("PoingGodotAdMob"):
 		provider = (load(ADMOB_PROVIDER_PATH) as GDScript).new()
+	elif WebPlatform.active():
+		provider = WebProvider.new()
 	elif OS.is_debug_build() and not OS.has_feature("mobile") and not OS.has_feature("web") and DisplayServer.get_name() != "headless":
 		provider = MockProvider.new()
 	if provider != null:

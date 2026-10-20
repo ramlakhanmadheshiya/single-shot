@@ -104,6 +104,10 @@ func open_shop() -> void:
 
 
 func open_game(chapter_id: String, index: int) -> void:
+	# In a browser that only gets the free levels, the rest is on Google Play.
+	if WebPlatform.over_cap(chapter_id, index):
+		WebPlatform.show_full_game()
+		return
 	_route = open_game.bind(chapter_id, index)
 	var s: Screen = GameScreen.new()
 	s.set("chapter_id", chapter_id)

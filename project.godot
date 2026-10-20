@@ -33,6 +33,7 @@ Haptics="*res://game/autoload/haptics.gd"
 AudioManager="*res://game/autoload/audio_manager.gd"
 Levels="*res://game/autoload/levels.gd"
 Store="*res://game/autoload/store.gd"
+WebPlatform="*res://game/autoload/web_platform.gd"
 AdManager="*res://game/ads/ad_manager.gd"
 ShareService="*res://game/autoload/share_service.gd"
 
