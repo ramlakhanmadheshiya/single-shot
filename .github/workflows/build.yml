@@ -173,6 +173,24 @@ jobs:
           test -s build/android/single-shot.aab
           ls -lh build/android
 
+      - name: Slim web engine (Brainnova)
+        # A 2D-only Godot web template built by BrainnovaStudio's "Build slim web
+        # engine" workflow: about half the download, so the game opens faster.
+        run: |
+          url="https://github.com/ramlakhanmadheshiya/BrainnovaStudio/releases/download/engine-${GODOT_RELEASE}/web_nothreads_release.zip"
+          if curl -fsSL -o "$RUNNER_TEMP/web_slim.zip" "$url"; then
+            python3 - "$RUNNER_TEMP/web_slim.zip" <<'EOF'
+          import re, sys
+          s = open("export_presets.cfg").read()
+          i = s.index('platform="Web"'); j = s.index("custom_template/release=", i)
+          s = s[:j] + re.sub(r'custom_template/release="[^"]*"', f'custom_template/release="{sys.argv[1]}"', s[j:], count=1)
+          open("export_presets.cfg", "w").write(s)
+          EOF
+            echo "Using the slim web engine."
+          else
+            echo "::warning::No slim engine for ${GODOT_RELEASE}; using the stock one. Run BrainnovaStudio's 'Build slim web engine'."
+          fi
+
       - name: Export web build
         run: |
           mkdir -p build/web
