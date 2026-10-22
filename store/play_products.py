@@ -57,7 +57,7 @@ def products():
     for r in tips:
         out.append({
             "id": f"tip_{r}",
-            "title": f"Tip ₹{r}",
+            "title": "Tip jar",
             "description": "A thank-you to the developer. Opens nothing new.",
             "price": r,
             "kind": "consumable",
