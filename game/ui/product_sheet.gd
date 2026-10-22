@@ -85,6 +85,7 @@ func build() -> void:
 		Store.buy(product)
 	)
 	body.add_child(_buy)
+	body.add_child(UIKit.refund_note(pal))
 	_first_focus = _buy
 	if bool(info.get("trial", false)) and not SaveSystem.bought(product):
 		var trial: Button = UIKit.pill("Try it free for 1 hour with a video", pal, "ghost", Vector2(0, 84), 24)

@@ -43,6 +43,8 @@ After a clear, save or share a picture of your shot, with the room and the path 
 
 Made with Godot by Ramlakhan Madheshiya. Questions or ideas: support@theramlakhan.com
 
+Purchases are made through Google Play and can't be refunded or undone.
+
 ## Category and tags
 
 - Category: Games > Puzzle

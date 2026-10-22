@@ -63,6 +63,7 @@ func build() -> void:
 		Store.buy("keys_%d" % _count)
 	)
 	body.add_child(_buy)
+	body.add_child(UIKit.refund_note(pal))
 	_first_focus = _buy
 	var video: Button = UIKit.pill("", pal, "ghost", Vector2(0, 80), 24)
 	video.name = "VideoKey"

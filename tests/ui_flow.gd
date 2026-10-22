@@ -178,9 +178,15 @@ func _run() -> void:
 		_check(_find("Product_" + id) != null, "shop lists %s" % id)
 	_check(_find("Product_keys") != null and _find("Product_all_levels") == null, "shop sells level keys, not every level")
 	_check(_find("TipJar") != null and _find("Restore") != null, "shop has a tip jar and restore")
+	_check(_find("RefundNote") != null and (_find("RefundNote") as Label).text == UIKit.REFUND_NOTE, "shop says purchases can't be refunded")
+	var tip_ids: Array = Store.tip_ids()
+	_check(tip_ids.size() == 190 and tip_ids[0] == "tip_10" and tip_ids[99] == "tip_1000" and tip_ids[100] == "tip_1100" and tip_ids[-1] == "tip_10000", "190 tips, ₹10 to ₹10,000")
+	var all_ids: Array = Store.all_ids()
+	_check(tip_ids.all(func(t: String) -> bool: return all_ids.has(t)), "every tip's price is asked of Play")
 	(_find("Product_orb_pack") as Button).pressed.emit()
 	await _wait(0.4)
 	_check(_find("Product") != null and _find("Buy") != null and _find("Trial") != null, "a cosmetic pack card offers buy and a video trial")
+	_check(app.find_child("Product", true, false).find_child("RefundNote", true, false) != null, "the buy card says purchases can't be refunded")
 	(_find("Buy") as Button).pressed.emit()
 	await _wait(0.3)
 	_check(SaveSystem.bought("orb_pack"), "buying the orb pack (simulated in debug) unlocks it")
@@ -233,10 +239,24 @@ func _run() -> void:
 	_check(_screen_is("game_screen.gd"), "and plays it straight away")
 	app.open_tips()
 	await _wait(0.3)
-	_check(_find("Tip_20") != null and _find("Tip_200") != null and _find("TipAmount") != null, "tip jar has preset amounts and a custom one")
-	(_find("TipAmount") as LineEdit).text = "563"
-	(_find("TipAmount") as LineEdit).text_changed.emit("563")
-	_check(int(_find("Tips").call("_custom")) == 560 and (_find("TipCustom") as Button).text.contains(Store.price("tip_560")), "a custom tip rounds to Play's steps")
+	_check(_find("Tip_20") != null and _find("Tip_200") != null and _find("TipPrice") != null and _find("TipSlider") != null, "tip jar has preset amounts and a picker")
+	var tips: Node = _find("Tips")
+	var tip_slider: HSlider = _find("TipSlider") as HSlider
+	_check(int(tips.call("_custom")) == 500 and (_find("TipPrice") as Label).text == Store.price("tip_500"), "the picker starts at the 500 tip, in local currency")
+	(_find("TipPlus") as Button).pressed.emit()
+	_check(int(tips.call("_custom")) == 510 and (_find("TipCustom") as Button).text == "Tip %s" % Store.price("tip_510"), "plus steps one amount and the button shows its local price")
+	(_find("TipMinus") as Button).pressed.emit()
+	(_find("TipMinus") as Button).pressed.emit()
+	_check(int(tips.call("_custom")) == 490, "minus steps one amount")
+	tip_slider.value = tip_slider.max_value
+	_check(int(tips.call("_custom")) == 10000 and (_find("TipPrice") as Label).text == Store.price("tip_10000"), "the slider reaches the largest tip")
+	tip_slider.value = 0
+	_check(int(tips.call("_custom")) == 10, "the slider reaches the smallest tip")
+	Store.prices["tip_10"] = "$0.12"
+	Store.price_updated.emit("tip_10", "$0.12")
+	_check((_find("TipPrice") as Label).text == "$0.12", "Play's price replaces the fallback live")
+	Store.prices["tip_10"] = Store.tip_price(10)
+	_check(tips.find_child("RefundNote", true, false) != null, "the tip jar says purchases can't be refunded")
 	app.close_settings()
 
 	# Out of hints with no ad available: the hint is given free, never a dead end.

@@ -40,9 +40,9 @@ Made with Godot 4.7.2 (GDScript, Compatibility renderer, so it also runs on the 
   | `keys_1` … `keys_10` | consumable level keys, ₹30 each, 10% off for 5+ (one also comes from a video, 5 a day) |
   | `orb_pack` | 6 orb styles with their own trails (1-hour trial from a video) |
   | `theme_pack` | 11 colour themes (1-hour trial from a video) |
-  | `tip_10` … `tip_10000` | consumable tips in ₹10 steps up to ₹1,000, then ₹100 steps (presets ₹20/50/100/200, or a custom amount) |
+  | `tip_10` … `tip_10000` | 190 consumable tips, priced in ₹ in Play Console: ₹10 steps up to ₹1,000, then ₹100 steps to ₹10,000. The tip jar shows four presets and a picker (minus / price / plus, with a slider across every amount, starting at the ₹500 product), all labelled in the player's own currency |
 
-  Each product id must exist in the Play Console. Prices show in local currency (Google Play's localised price, or a regional fallback from the device locale).
+  Each product id must exist in the Play Console. Every price on screen comes from `Store.price(id)`: Google Play's localised price (the buyer's own currency), or a regional fallback from the device locale until Play answers; no rupee amount is hard-coded in the UI. The shop, every buy card and the tip jar show a small line: "Purchases are made through Google Play. Sorry, we can't refund or undo a purchase." (also on the help page and in the store listing).
 - **Ads (Android only):**
   - a bottom banner on every screen, with layout space reserved so it never covers a button;
   - rewarded ads only when you ask for a hint;

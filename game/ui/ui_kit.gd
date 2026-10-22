@@ -40,6 +40,18 @@ static func label(text: String, size: int, color: Color, weight: int = 400, alig
 	return l
 
 
+## The "no refunds" line under every buy button: small, muted, centred, wrapped.
+const REFUND_NOTE: String = "Purchases are made through Google Play. Sorry, we can't refund or undo a purchase."
+
+
+static func refund_note(pal: Dictionary) -> Label:
+	var l: Label = label(REFUND_NOTE, 16, pal["muted"], 400)
+	l.name = "RefundNote"
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(200, 0)
+	return l
+
+
 ## The floating card used by every overlay (settings, shop, results...).
 static func card_style(pal: Dictionary) -> StyleBoxFlat:
 	var sb: StyleBoxFlat = StyleBoxFlat.new()
@@ -263,11 +275,22 @@ static func slider_row(text: String, value: float, pal: Dictionary, on_change: C
 	var l: Label = label(text, 28, pal["ink"], 500, HORIZONTAL_ALIGNMENT_LEFT)
 	l.custom_minimum_size = Vector2(130, 0)
 	row.add_child(l)
-	var s: HSlider = HSlider.new()
+	var s: HSlider = slider(pal)
 	s.min_value = 0.0
 	s.max_value = 1.0
 	s.step = 0.05
 	s.value = value
+	s.value_changed.connect(func(v: float) -> void:
+		on_change.call(v)
+		AudioManager.play("ui_toggle", 1.0)
+	)
+	row.add_child(s)
+	return row
+
+
+## An HSlider in the house style (accent fill, round knob). Range is up to the caller.
+static func slider(pal: Dictionary) -> HSlider:
+	var s: HSlider = HSlider.new()
 	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	s.focus_mode = Control.FOCUS_ALL
@@ -285,12 +308,7 @@ static func slider_row(text: String, value: float, pal: Dictionary, on_change: C
 	s.add_theme_icon_override("grabber", knob)
 	s.add_theme_icon_override("grabber_highlight", _knob_texture(pal, true))
 	s.add_theme_icon_override("grabber_disabled", knob)
-	s.value_changed.connect(func(v: float) -> void:
-		on_change.call(v)
-		AudioManager.play("ui_toggle", 1.0)
-	)
-	row.add_child(s)
-	return row
+	return s
 
 
 static func _knob_texture(pal: Dictionary, focused: bool) -> Texture2D:

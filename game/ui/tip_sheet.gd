@@ -1,11 +1,16 @@
 extends Overlay
 ## The tip jar: say thanks, as often as you like. A tip opens nothing new.
-## Four quick amounts, or type your own (Google Play sells fixed prices, so a
-## custom tip rounds to the nearest 10).
+## Four quick amounts, or pick your own with minus/plus or the slider. Every
+## amount is shown in the player's own currency (Store.price); the rupee amount
+## only names the product.
+
+const DEFAULT_TIP: int = 500
 
 var _status: Label
-var _amount: LineEdit
+var _price: Label
+var _slider: HSlider
 var _custom_btn: Button
+var _amounts: Array = Store.tip_amounts()
 
 
 func build() -> void:
@@ -31,7 +36,7 @@ func build() -> void:
 		if _first_focus == null:
 			_first_focus = b
 	add_gap(4)
-	body.add_child(UIKit.caption("Or your own amount", pal, 16, HORIZONTAL_ALIGNMENT_CENTER))
+	body.add_child(UIKit.caption("Or pick your own", pal, 16, HORIZONTAL_ALIGNMENT_CENTER))
 	var row: HBoxContainer = HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 14)
@@ -40,43 +45,33 @@ func build() -> void:
 	minus.name = "TipMinus"
 	minus.pressed.connect(func() -> void: _nudge(-1))
 	row.add_child(minus)
-	_amount = LineEdit.new()
-	_amount.name = "TipAmount"
-	_amount.text = "500"
-	_amount.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_amount.custom_minimum_size = Vector2(200, 72)
-	_amount.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
-	_amount.max_length = 5
-	_amount.add_theme_font_override("font", UIKit.font(500))
-	_amount.add_theme_font_size_override("font_size", 34)
-	_amount.add_theme_color_override("font_color", pal["ink"])
-	var box: StyleBoxFlat = StyleBoxFlat.new()
-	box.bg_color = Color(pal["ink"], 0.06)
-	box.set_corner_radius_all(36)
-	box.border_color = Color(pal["ink"], 0.15)
-	box.set_border_width_all(2)
-	_amount.add_theme_stylebox_override("normal", box)
-	var focus: StyleBoxFlat = box.duplicate()
-	focus.border_color = pal["accent"]
-	_amount.add_theme_stylebox_override("focus", focus)
-	_amount.text_changed.connect(func(_t: String) -> void: _refresh_custom())
-	_amount.text_submitted.connect(func(_t: String) -> void: _amount.text = str(_custom()))
-	row.add_child(_amount)
+	_price = UIKit.label("", 34, pal["ink"], 600)
+	_price.name = "TipPrice"
+	_price.custom_minimum_size = Vector2(220, 72)
+	row.add_child(_price)
 	var plus: Button = UIKit.icon_button("plus", pal, 68.0)
 	plus.name = "TipPlus"
 	plus.pressed.connect(func() -> void: _nudge(1))
 	row.add_child(plus)
+	_slider = UIKit.slider(pal)
+	_slider.name = "TipSlider"
+	_slider.min_value = 0.0
+	_slider.max_value = float(_amounts.size() - 1)
+	_slider.step = 1.0
+	_slider.custom_minimum_size = Vector2(0, 48)
+	_slider.value = float(maxi(_amounts.find(DEFAULT_TIP), 0))
+	_slider.value_changed.connect(func(_v: float) -> void: _refresh_custom())
+	body.add_child(_slider)
 	_custom_btn = UIKit.pill("", pal, "accent", Vector2(0, 86), 28)
 	_custom_btn.name = "TipCustom"
-	_custom_btn.pressed.connect(func() -> void:
-		_amount.text = str(_custom())
-		_tip(_custom())
-	)
+	_custom_btn.pressed.connect(func() -> void: _tip(_custom()))
 	body.add_child(_custom_btn)
 	_status = UIKit.label(_thanks(), 20, pal["accent"], 600)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_child(_status)
+	body.add_child(UIKit.refund_note(pal))
 	_refresh_custom()
+	Store.price_updated.connect(func(_id: String, _p: String) -> void: _refresh_prices())
 	Store.purchase_finished.connect(func(ok: bool, msg: String, id: String) -> void:
 		if not is_inside_tree() or not (Store.is_tip(id) or id.is_empty()):
 			return
@@ -87,22 +82,31 @@ func build() -> void:
 	)
 
 
-## The typed amount, rounded to an amount Play sells and kept in range.
+## The selected amount (in rupees, the product id's unit; never shown as rupees).
 func _custom() -> int:
-	return Store.snap_tip(int(_amount.text.to_int()))
+	return int(_amounts[clampi(int(_slider.value), 0, _amounts.size() - 1)])
 
 
 func _nudge(dir: int) -> void:
-	_amount.text = str(Store.nudge_tip(_custom(), dir))
+	_slider.value = clampf(_slider.value + float(dir), 0.0, _slider.max_value)
 	_refresh_custom()
 
 
 func _refresh_custom() -> void:
-	var v: int = _custom()
-	_custom_btn.text = "Tip %s" % Store.price("tip_%d" % v)
-	var typed: int = int(_amount.text.to_int())
-	if typed > 0 and typed != v:
-		_status.text = "Google Play takes amounts in steps of %d (%d above %d), so that's %s" % [Store.TIP_STEP, Store.TIP_BIG_STEP, Store.TIP_BIG_FROM, Store.price("tip_%d" % v)]
+	var p: String = Store.price("tip_%d" % _custom())
+	_price.text = p
+	_custom_btn.text = "Tip %s" % p
+
+
+## Play's real prices replace the fallbacks as they arrive.
+func _refresh_prices() -> void:
+	if not is_inside_tree():
+		return
+	for amount: int in Store.TIP_PRESETS:
+		var b: Button = find_child("Tip_%d" % amount, true, false) as Button
+		if b != null:
+			b.text = Store.price("tip_%d" % amount)
+	_refresh_custom()
 
 
 func _tip(rupees: int) -> void:

@@ -47,6 +47,7 @@ func _ready() -> void:
 	var foot: Label = UIKit.label("One-time purchases through Google Play. No subscriptions.", 18, pal["muted"], 400)
 	foot.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	list.add_child(foot)
+	list.add_child(UIKit.refund_note(pal))
 	var spacer: Control = Control.new()
 	spacer.custom_minimum_size = Vector2(0, 20)
 	list.add_child(spacer)
