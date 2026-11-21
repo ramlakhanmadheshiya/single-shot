@@ -10,7 +10,17 @@ const SAVE_VERSION: int = 3
 const TRIAL_SECONDS: int = 60 * 60
 ## Free keys from videos, per day.
 const VIDEO_KEYS_PER_DAY: int = 5
-const DAILY_HINTS: int = 3
+const DAILY_HINTS: int = 5
+
+## Milestones for unlocking cosmetic orb styles with stars
+const ORB_UNLOCK_STARS: Dictionary = {
+	"comet": 15,
+	"pearl": 45,
+	"ember": 100,
+	"neon": 200,
+	"planet": 320,
+	"eclipse": 500,
+}
 
 var data: Dictionary = {}
 
@@ -78,7 +88,33 @@ func _apply_cosmetics() -> void:
 
 func orb_style() -> String:
 	var id: String = str(get_setting("orb_style", "classic"))
-	return id if OrbStyles.is_free(id) or owns("orb_pack") else "classic"
+	return id if is_orb_unlocked(id) else "classic"
+
+
+func is_orb_unlocked(id: String) -> bool:
+	if OrbStyles.is_free(id) or owns("orb_pack"):
+		return true
+	var req: int = int(ORB_UNLOCK_STARS.get(id, 999999))
+	return total_stars() >= req
+
+
+func next_orb_unlock() -> Dictionary:
+	var stars: int = total_stars()
+	var best_id: String = ""
+	var best_req: int = 999999
+	for id: String in ["comet", "pearl", "ember", "neon", "planet", "eclipse"]:
+		var req: int = int(ORB_UNLOCK_STARS.get(id, 999999))
+		if stars < req and req < best_req:
+			best_req = req
+			best_id = id
+	if best_id.is_empty():
+		return {}
+	return {
+		"id": best_id,
+		"name": OrbStyles.display_name(best_id),
+		"needed": best_req - stars,
+		"target": best_req,
+	}
 
 
 func level_record(level_id: String) -> Dictionary:
@@ -173,6 +209,38 @@ func spend_hint() -> bool:
 	save()
 	Events.hints_changed.emit(int(data["hints"]))
 	return true
+
+
+# --- Daily Streak & Retention ------------------------------------------------
+
+func daily_streak() -> int:
+	return int(data.get("streak", 0))
+
+
+func record_daily_play() -> Dictionary:
+	var today: String = Time.get_date_string_from_system()
+	var last_day: String = str(data.get("streak_day", ""))
+	var cur: int = int(data.get("streak", 0))
+	var increased: bool = false
+	if last_day == today:
+		return {"streak": cur, "increased": false}
+	if last_day.is_empty():
+		cur = 1
+		increased = true
+	else:
+		var now_unix: int = int(Time.get_unix_time_from_system())
+		var last_unix: int = int(Time.get_unix_time_from_datetime_string(last_day + "T00:00:00Z"))
+		var day_diff: int = (now_unix - last_unix) / 86400
+		if day_diff <= 1:
+			cur += 1
+			increased = true
+		else:
+			cur = 1
+			increased = true
+	data["streak"] = cur
+	data["streak_day"] = today
+	save()
+	return {"streak": cur, "increased": increased}
 
 
 ## Wins since the last between-levels ad (saved, so quitting doesn't skip one).
@@ -332,6 +400,8 @@ func _defaults() -> Dictionary:
 		"tips": 0,
 		"hints": DAILY_HINTS,
 		"hint_day": "",
+		"streak": 0,
+		"streak_day": "",
 		"wins_since_ad": 0,
 		"settings": {
 			"music_volume": 0.5,

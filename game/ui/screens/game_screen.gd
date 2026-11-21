@@ -301,17 +301,20 @@ func _show_hint_now() -> bool:
 func _ask_for_ad() -> void:
 	var sheet: VBoxContainer = _open_sheet()
 	sheet.add_child(UIKit.label("Out of hints", 44, pal["ink"], 600))
-	var note: Label = UIKit.label("Watch a short video to get 1 hint?\nFree hints refill to 3 at midnight.", 24, pal["muted"], 400)
+	var note: Label = UIKit.label("Watch a short video to get +2 hints?\nFree hints refill to 5 at midnight.", 24, pal["muted"], 400)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	sheet.add_child(note)
-	var watch: Button = UIKit.pill("Watch a video", pal, "primary", Vector2(0, 88), 30)
+	var watch: Button = UIKit.pill("Watch a video (+2 Hints)", pal, "primary", Vector2(0, 88), 30)
 	watch.name = "WatchAd"
 	watch.pressed.connect(func() -> void:
 		_close_sheet()
 		AdManager.show_rewarded(func(ok: bool) -> void:
 			if ok:
 				AudioManager.play("unlock", 1.0)
-				_show_hint_now()
+				SaveSystem.add_hints(2)
+				if _show_hint_now():
+					SaveSystem.spend_hint()
+					_show_toast("+2 Hints (1 used, 1 saved!)", 2.5)
 			_refresh()
 		)
 	)
@@ -355,6 +358,20 @@ func _show_result(attempt: int) -> void:
 	row.play(_stars)
 	sheet.add_child(UIKit.label(_verdict(attempt), 28, pal["ink"], 500))
 	sheet.add_child(UIKit.label(_stats_line(), 22, pal["muted"], 500))
+
+	# Daily streak and milestone progression
+	var streak_data: Dictionary = SaveSystem.record_daily_play()
+	var cur_streak: int = int(streak_data.get("streak", 0))
+	if cur_streak > 0:
+		var s_text: String = "🔥 %d DAY STREAK" % cur_streak
+		if bool(streak_data.get("increased", false)):
+			s_text += " (EXTENDED!)"
+		sheet.add_child(UIKit.caption(s_text, {"muted": Color("#FF8C00")}, 20, HORIZONTAL_ALIGNMENT_CENTER))
+
+	var next_orb: Dictionary = SaveSystem.next_orb_unlock()
+	if not next_orb.is_empty():
+		var orb_teaser: String = "✨ Next Orb Unlock: %s in %d ★" % [str(next_orb["name"]), int(next_orb["needed"])]
+		sheet.add_child(UIKit.caption(orb_teaser, {"muted": pal["accent"]}, 18, HORIZONTAL_ALIGNMENT_CENTER))
 	var nxt: Dictionary = Levels.next_after(chapter_id, index)
 	var next_btn: Button = UIKit.pill("Next level" if not nxt.is_empty() else "Chapters", pal, "primary", Vector2(0, 92), 32)
 	next_btn.name = "Next"

@@ -36,7 +36,9 @@ const TARGETS: Dictionary = {0: [1, 1], 1: [1, 2], 2: [1, 3], 3: [2, 3], 4: [2, 
 const ARCHETYPES: Array[String] = [
 	"chambers", "nested", "pocket", "zigzag", "funnel",
 	"corridor", "diagonals", "pillars", "shelves", "mirror",
-	"asymmetric", "crossroad", "frame", "scatter"
+	"asymmetric", "crossroad", "frame", "scatter",
+	"chevron", "pinwheel", "bifurcate", "slant_maze", "island_grid",
+	"crescent", "keyhole", "alcove", "periscope", "gate_lattice"
 ]
 
 ## Per-chapter rules. Ranges are [early, late] across the chapter. "late" extras are
@@ -206,33 +208,52 @@ func _assign(result: Array, pool: Dictionary) -> Array:
 				var c: Dictionary = cands[idx]
 				var penalty: float = 0.0
 
-				# 1. Structural similarity against recent levels (last 6 levels)
+				# 1. No duplicate wall positions against ANY previous level in the chapter
+				var has_dup_wall: bool = false
+				var c_walls: Array = c.get("walls", [])
+				for prev_lv: Dictionary in result:
+					var p_walls: Array = prev_lv.get("walls", [])
+					for cw: Array in c_walls:
+						var cp: Vector2 = Vector2(float(cw[0]), float(cw[1]))
+						var ca: float = float(cw[4]) if cw.size() >= 5 else 0.0
+						for pw: Array in p_walls:
+							var pp: Vector2 = Vector2(float(pw[0]), float(pw[1]))
+							var pa: float = float(pw[4]) if pw.size() >= 5 else 0.0
+							if cp.distance_to(pp) < 45.0 and absf(fmod(absf(ca - pa), 180.0)) < 15.0:
+								has_dup_wall = true
+								break
+						if has_dup_wall:
+							break
+					if has_dup_wall:
+						break
+				if has_dup_wall:
+					penalty += 750.0
+
+				# 2. Structural similarity against ALL previous levels in the chapter
 				var max_sim: float = 0.0
-				var check_start: int = maxi(0, result.size() - 6)
-				for k: int in range(check_start, result.size()):
+				for k: int in range(result.size()):
 					var sim: float = structural_similarity(c, result[k])
 					if sim > max_sim:
 						max_sim = sim
-				if max_sim > 0.55:
-					penalty += (max_sim - 0.55) * 80.0
+				if max_sim > 0.40:
+					penalty += (max_sim - 0.40) * 120.0
 
-				# 2. Archetype repetition penalty
-				if str(c["arch"]) == str(prev.get("arch", "")):
-					penalty += 45.0
-				elif str(c["arch"]) == str(prev2.get("arch", "")):
-					penalty += 18.0
+				# 3. Archetype repetition penalty across last 4 levels
+				for back: int in range(1, mini(5, result.size() + 1)):
+					if str(c.get("arch", "")) == str(result[-back].get("arch", "")):
+						penalty += 50.0 / float(back)
 
-				# 3. Aim direction repetition penalty
+				# 4. Aim direction repetition penalty
 				if int(c["dir"]) == int(prev.get("dir", -99)):
 					penalty += 25.0
 
-				# 4. Signature repetition penalty
+				# 5. Signature repetition penalty
 				if used_sigs.has(str(c["sig"])):
-					penalty += 60.0
+					penalty += 80.0
 
-				# 5. Favor pure single-solution rooms (exactly 1 winning window)
+				# 6. Favor pure single-solution rooms (exactly 1 winning window)
 				if int(c.get("windows", 1)) == 1:
-					penalty -= 12.0
+					penalty -= 15.0
 
 				# 6. Pacing and puzzle quality fit
 				if is_breather:
@@ -494,172 +515,268 @@ func _layout(arch: String, count: int, level: Dictionary) -> Array:
 	var walls: Array = []
 	match arch:
 		"chambers":
-			# Interconnected chambers with defined transit doorway apertures
-			var y_div: float = _snap(rng.randf_range(400.0, 500.0))
-			var gap_w: float = _snap(rng.randf_range(110.0, 140.0))
-			var gap_x: float = _snap(rng.randf_range(200.0, 440.0))
+			var cy: float = _snap(rng.randf_range(380.0, 480.0))
+			var gap_w: float = _snap(rng.randf_range(110.0, 150.0))
+			var gap_x: float = _snap(rng.randf_range(180.0, 460.0))
 			var left_w: float = gap_x - gap_w * 0.5
 			var right_w: float = 640.0 - (gap_x + gap_w * 0.5)
 			if left_w > 50.0:
-				walls.append(_wall(left_w * 0.5, y_div, left_w, 16.0))
+				walls.append(_wall(left_w * 0.5, cy, left_w, 16.0))
 			if right_w > 50.0:
-				walls.append(_wall(gap_x + gap_w * 0.5 + right_w * 0.5, y_div, right_w, 16.0))
-			# Chamber deflector plates
-			var ang: float = [35.0, -35.0, 45.0, -45.0, 0.0][rng.randi_range(0, 4)]
-			walls.append(_wall(rng.randf_range(180.0, 460.0), rng.randf_range(180.0, 300.0), _snap(rng.randf_range(140.0, 220.0)), 16.0, ang))
+				walls.append(_wall(gap_x + gap_w * 0.5 + right_w * 0.5, cy, right_w, 16.0))
+			var ang: float = [30.0, -30.0, 45.0, -45.0, 60.0, -60.0][rng.randi_range(0, 5)]
+			walls.append(_wall(rng.randf_range(180.0, 460.0), rng.randf_range(180.0, 320.0), _snap(rng.randf_range(130.0, 210.0)), 16.0, ang))
 			if count >= 3:
-				walls.append(_wall([120.0, 520.0][rng.randi_range(0, 1)], 240.0, 16.0, 180.0))
+				walls.append(_wall([110.0, 530.0][rng.randi_range(0, 1)], cy - rng.randf_range(100.0, 160.0), 16.0, _snap(rng.randf_range(140.0, 200.0))))
 
 		"nested":
-			# Concentric inner sanctum court with outer transit corridors
-			var cy: float = _snap(rng.randf_range(380.0, 450.0))
-			var bw: float = _snap(rng.randf_range(240.0, 280.0))
-			var bh: float = _snap(rng.randf_range(200.0, 240.0))
-			var gap: float = 110.0
-			# Top opening
-			walls.append(_wall(320.0 - gap * 0.5, cy - bh * 0.5, bw - gap, 16.0))
-			# Bottom opening offset to other side
-			walls.append(_wall(320.0 + gap * 0.5, cy + bh * 0.5, bw - gap, 16.0))
-			# Left and right side barriers
-			walls.append(_wall(320.0 - bw * 0.5, cy, 16.0, bh))
-			walls.append(_wall(320.0 + bw * 0.5, cy, 16.0, bh))
+			var cx: float = _snap(rng.randf_range(280.0, 360.0))
+			var cy: float = _snap(rng.randf_range(340.0, 460.0))
+			var bw: float = _snap(rng.randf_range(220.0, 300.0))
+			var bh: float = _snap(rng.randf_range(180.0, 260.0))
+			var gap: float = _snap(rng.randf_range(100.0, 140.0))
+			walls.append(_wall(cx - gap * 0.5, cy - bh * 0.5, bw - gap, 16.0))
+			walls.append(_wall(cx + gap * 0.5, cy + bh * 0.5, bw - gap, 16.0))
+			walls.append(_wall(cx - bw * 0.5, cy, 16.0, bh))
+			walls.append(_wall(cx + bw * 0.5, cy, 16.0, bh))
 			if count >= 4:
-				walls.append(_wall([90.0, 550.0][rng.randi_range(0, 1)], cy, 16.0, 260.0))
+				walls.append(_wall([90.0, 550.0][rng.randi_range(0, 1)], cy, 16.0, _snap(rng.randf_range(200.0, 280.0))))
 
 		"pocket":
-			# Enclosed alcove pocket with an angled deflector guiding the shot
 			var on_left: bool = rng.randf() < 0.5
-			var px: float = 200.0 if on_left else 440.0
-			var py: float = _snap(rng.randf_range(220.0, 320.0))
-			var pw: float = 180.0
-			var ph: float = 180.0
+			var px: float = rng.randf_range(160.0, 240.0) if on_left else rng.randf_range(400.0, 480.0)
+			var py: float = _snap(rng.randf_range(220.0, 360.0))
+			var pw: float = _snap(rng.randf_range(150.0, 200.0))
+			var ph: float = _snap(rng.randf_range(150.0, 200.0))
 			walls.append(_wall(px, py, 16.0, ph))
 			walls.append(_wall(px - pw * 0.5 if on_left else px + pw * 0.5, py - ph * 0.5, pw, 16.0))
-			var defl_x: float = 360.0 if on_left else 280.0
-			walls.append(_wall(defl_x, py + 160.0, _snap(rng.randf_range(140.0, 200.0)), 16.0, -45.0 if on_left else 45.0))
+			var defl_x: float = px + (140.0 if on_left else -140.0)
+			walls.append(_wall(defl_x, py + rng.randf_range(120.0, 180.0), _snap(rng.randf_range(130.0, 190.0)), 16.0, -45.0 if on_left else 45.0))
 			if count >= 3:
-				walls.append(_wall(320.0, 600.0, _snap(rng.randf_range(160.0, 240.0)), 16.0))
+				walls.append(_wall(rng.randf_range(260.0, 380.0), py + rng.randf_range(220.0, 300.0), _snap(rng.randf_range(160.0, 240.0)), 16.0))
 
 		"zigzag":
-			# Staggered alternating cantilevered baffles (slalom course)
 			var n_baffles: int = clampi(count + 1, 3, 4)
-			var y_start: float = 640.0
-			var y_step: float = (y_start - 180.0) / float(n_baffles - 1)
+			var y_start: float = _snap(rng.randf_range(580.0, 660.0))
+			var y_end: float = _snap(rng.randf_range(180.0, 260.0))
+			var y_step: float = (y_start - y_end) / float(n_baffles - 1)
 			for i: int in n_baffles:
 				var is_left: bool = (i % 2 == 0)
-				var len_b: float = _snap(rng.randf_range(240.0, 300.0))
+				var len_b: float = _snap(rng.randf_range(230.0, 310.0))
 				var wx: float = len_b * 0.5 if is_left else 640.0 - len_b * 0.5
-				walls.append(_wall(wx, y_start - y_step * float(i), len_b, 16.0))
+				var rot_b: float = rng.randf_range(-12.0, 12.0)
+				walls.append(_wall(wx, y_start - y_step * float(i), len_b, 16.0, rot_b))
 
 		"funnel":
-			# Converging guide walls with a narrow throat and dispersal deflector
-			var fy: float = _snap(rng.randf_range(380.0, 480.0))
-			var ang: float = 40.0
-			var flen: float = _snap(rng.randf_range(180.0, 220.0))
-			walls.append(_wall(210.0, fy, flen, 16.0, ang))
-			walls.append(_wall(430.0, fy, flen, 16.0, -ang))
-			walls.append(_wall(320.0, fy + 120.0, _snap(rng.randf_range(180.0, 240.0)), 16.0))
+			var fy: float = _snap(rng.randf_range(340.0, 480.0))
+			var ang: float = rng.randf_range(32.0, 50.0)
+			var flen: float = _snap(rng.randf_range(160.0, 240.0))
+			var fx: float = _snap(rng.randf_range(180.0, 240.0))
+			walls.append(_wall(fx, fy, flen, 16.0, ang))
+			walls.append(_wall(640.0 - fx, fy, flen, 16.0, -ang))
+			walls.append(_wall(rng.randf_range(280.0, 360.0), fy + rng.randf_range(100.0, 150.0), _snap(rng.randf_range(160.0, 240.0)), 16.0))
 			if count >= 4:
-				walls.append(_wall(320.0, fy - 180.0, 180.0, 16.0, 45.0 if rng.randf() < 0.5 else -45.0))
+				walls.append(_wall(320.0, fy - rng.randf_range(140.0, 200.0), 180.0, 16.0, 45.0 if rng.randf() < 0.5 else -45.0))
 
 		"corridor":
-			# Twin parallel reflection channel with deflection cap
-			var cy: float = _snap(rng.randf_range(380.0, 460.0))
-			var gap: float = _snap(rng.randf_range(170.0, 220.0))
-			var chgt: float = _snap(rng.randf_range(280.0, 360.0))
-			walls.append(_wall(320.0 - gap * 0.5, cy, 16.0, chgt))
-			walls.append(_wall(320.0 + gap * 0.5, cy, 16.0, chgt))
-			walls.append(_wall(320.0, cy - chgt * 0.5 - 60.0, _snap(rng.randf_range(160.0, 220.0)), 16.0, [30.0, -30.0, 45.0, -45.0][rng.randi_range(0, 3)]))
+			var cx: float = _snap(rng.randf_range(280.0, 360.0))
+			var cy: float = _snap(rng.randf_range(340.0, 460.0))
+			var gap: float = _snap(rng.randf_range(160.0, 230.0))
+			var chgt: float = _snap(rng.randf_range(260.0, 350.0))
+			walls.append(_wall(cx - gap * 0.5, cy, 16.0, chgt))
+			walls.append(_wall(cx + gap * 0.5, cy, 16.0, chgt))
+			walls.append(_wall(cx, cy - chgt * 0.5 - rng.randf_range(40.0, 80.0), _snap(rng.randf_range(150.0, 210.0)), 16.0, [25.0, -25.0, 45.0, -45.0][rng.randi_range(0, 3)]))
 			if count >= 4:
-				walls.append(_wall(100.0 if rng.randf() < 0.5 else 540.0, cy, 16.0, 180.0))
+				walls.append(_wall([90.0, 550.0][rng.randi_range(0, 1)], cy, 16.0, _snap(rng.randf_range(160.0, 220.0))))
 
 		"diagonals":
-			# Diamond constellation or chevron array
-			var cy: float = _snap(rng.randf_range(360.0, 440.0))
-			var spread: float = _snap(rng.randf_range(110.0, 140.0))
-			var dlen: float = _snap(rng.randf_range(140.0, 180.0))
-			walls.append(_wall(320.0 - spread, cy - 80.0, dlen, 16.0, 45.0))
-			walls.append(_wall(320.0 + spread, cy - 80.0, dlen, 16.0, -45.0))
-			walls.append(_wall(320.0 - spread, cy + 80.0, dlen, 16.0, -45.0))
-			walls.append(_wall(320.0 + spread, cy + 80.0, dlen, 16.0, 45.0))
+			var cy: float = _snap(rng.randf_range(340.0, 460.0))
+			var spread: float = _snap(rng.randf_range(100.0, 150.0))
+			var dlen: float = _snap(rng.randf_range(130.0, 190.0))
+			var dang: float = [35.0, 45.0, 55.0][rng.randi_range(0, 2)]
+			walls.append(_wall(320.0 - spread, cy - 80.0, dlen, 16.0, dang))
+			walls.append(_wall(320.0 + spread, cy - 80.0, dlen, 16.0, -dang))
+			walls.append(_wall(320.0 - spread, cy + 80.0, dlen, 16.0, -dang))
+			walls.append(_wall(320.0 + spread, cy + 80.0, dlen, 16.0, dang))
 
 		"pillars":
-			# Symmetrical 4-column column formation with grid avenues
-			var cy: float = _snap(rng.randf_range(380.0, 460.0))
-			var sx: float = _snap(rng.randf_range(110.0, 140.0))
-			var sy: float = _snap(rng.randf_range(100.0, 120.0))
-			var ps: float = [50.0, 60.0, 70.0][rng.randi_range(0, 2)]
-			walls.append(_wall(320.0 - sx, cy - sy, ps, ps))
-			walls.append(_wall(320.0 + sx, cy - sy, ps, ps))
-			walls.append(_wall(320.0 - sx, cy + sy, ps, ps))
-			walls.append(_wall(320.0 + sx, cy + sy, ps, ps))
+			var cx: float = _snap(rng.randf_range(280.0, 360.0))
+			var cy: float = _snap(rng.randf_range(340.0, 460.0))
+			var sx: float = _snap(rng.randf_range(100.0, 150.0))
+			var sy: float = _snap(rng.randf_range(90.0, 130.0))
+			var ps: float = [45.0, 55.0, 65.0, 75.0][rng.randi_range(0, 3)]
+			walls.append(_wall(cx - sx, cy - sy, ps, ps))
+			walls.append(_wall(cx + sx, cy - sy, ps, ps))
+			walls.append(_wall(cx - sx, cy + sy, ps, ps))
+			walls.append(_wall(cx + sx, cy + sy, ps, ps))
 			if count >= 5:
-				walls.append(_wall(320.0, cy - sy - 120.0, 160.0, 16.0))
+				walls.append(_wall(cx, cy - sy - 110.0, _snap(rng.randf_range(140.0, 200.0)), 16.0))
 
 		"shelves":
-			# Tiered platform architecture with alternating offset doorways
-			var y1: float = _snap(rng.randf_range(540.0, 600.0))
-			var y2: float = _snap(rng.randf_range(380.0, 440.0))
-			var y3: float = _snap(rng.randf_range(200.0, 260.0))
-			walls.append(_wall(220.0, y1, 380.0, 16.0))
-			walls.append(_wall(420.0, y2, 380.0, 16.0))
-			walls.append(_wall(320.0, y3, 260.0, 16.0))
+			var y1: float = _snap(rng.randf_range(520.0, 620.0))
+			var y2: float = _snap(rng.randf_range(340.0, 440.0))
+			var y3: float = _snap(rng.randf_range(180.0, 270.0))
+			var w1: float = _snap(rng.randf_range(300.0, 400.0))
+			var w2: float = _snap(rng.randf_range(300.0, 400.0))
+			var w3: float = _snap(rng.randf_range(220.0, 300.0))
+			var x1: float = _snap(rng.randf_range(170.0, 250.0))
+			var x2: float = _snap(rng.randf_range(390.0, 470.0))
+			walls.append(_wall(x1, y1, w1, 16.0))
+			walls.append(_wall(x2, y2, w2, 16.0))
+			walls.append(_wall(rng.randf_range(260.0, 380.0), y3, w3, 16.0))
 			if count >= 4:
-				walls.append(_wall(100.0 if rng.randf() < 0.5 else 540.0, y2, 16.0, 160.0))
+				walls.append(_wall([100.0, 540.0][rng.randi_range(0, 1)], y2, 16.0, 160.0))
 
 		"mirror":
-			# Bilateral architectural symmetry
-			var cy: float = _snap(rng.randf_range(360.0, 460.0))
-			var ang: float = [30.0, 45.0, 60.0][rng.randi_range(0, 2)]
-			var mlen: float = _snap(rng.randf_range(160.0, 220.0))
-			walls.append(_wall(180.0, cy, mlen, 16.0, ang))
-			walls.append(_wall(460.0, cy, mlen, 16.0, -ang))
-			walls.append(_wall(100.0, cy - 140.0, 16.0, 160.0))
-			walls.append(_wall(540.0, cy - 140.0, 16.0, 160.0))
+			var cy: float = _snap(rng.randf_range(340.0, 460.0))
+			var mx: float = _snap(rng.randf_range(160.0, 230.0))
+			var ang: float = [25.0, 35.0, 45.0, 55.0, 65.0][rng.randi_range(0, 4)]
+			var mlen: float = _snap(rng.randf_range(150.0, 220.0))
+			walls.append(_wall(mx, cy, mlen, 16.0, ang))
+			walls.append(_wall(640.0 - mx, cy, mlen, 16.0, -ang))
+			if count >= 3:
+				var sx: float = rng.randf_range(80.0, 120.0)
+				walls.append(_wall(sx, cy - rng.randf_range(110.0, 160.0), 16.0, 150.0))
+				walls.append(_wall(640.0 - sx, cy - rng.randf_range(110.0, 160.0), 16.0, 150.0))
 
 		"asymmetric":
-			# High-contrast balance: dense pocket vs expansive reflection rail
-			var cy: float = _snap(rng.randf_range(380.0, 460.0))
+			var cy: float = _snap(rng.randf_range(340.0, 480.0))
 			var left_dense: bool = rng.randf() < 0.5
-			var dense_x: float = 180.0 if left_dense else 460.0
+			var dense_x: float = rng.randf_range(160.0, 220.0) if left_dense else rng.randf_range(420.0, 480.0)
 			var open_x: float = 540.0 if left_dense else 100.0
-			walls.append(_wall(dense_x, cy, 180.0, 16.0, 30.0 if left_dense else -30.0))
-			walls.append(_wall(dense_x, cy - 140.0, 16.0, 160.0))
-			walls.append(_wall(open_x, cy + 40.0, 16.0, _snap(rng.randf_range(280.0, 360.0))))
+			var ang_dense: float = rng.randf_range(20.0, 45.0) * (1.0 if left_dense else -1.0)
+			walls.append(_wall(dense_x, cy, _snap(rng.randf_range(160.0, 220.0)), 16.0, ang_dense))
+			walls.append(_wall(dense_x, cy - rng.randf_range(120.0, 160.0), 16.0, 160.0))
+			walls.append(_wall(open_x, cy + rng.randf_range(20.0, 60.0), 16.0, _snap(rng.randf_range(260.0, 340.0))))
 			if count >= 4:
-				walls.append(_wall(320.0, 200.0, 180.0, 16.0))
+				walls.append(_wall(rng.randf_range(260.0, 380.0), rng.randf_range(180.0, 240.0), 180.0, 16.0))
 
 		"crossroad":
-			# Central cross-partition dividing the board into 4 quadrants
-			var cy: float = _snap(rng.randf_range(380.0, 450.0))
-			walls.append(_wall(140.0, cy, 180.0, 16.0))
-			walls.append(_wall(500.0, cy, 180.0, 16.0))
-			walls.append(_wall(320.0, cy - 170.0, 16.0, 160.0))
-			walls.append(_wall(320.0, cy + 170.0, 16.0, 160.0))
+			var cx: float = _snap(rng.randf_range(260.0, 380.0))
+			var cy: float = _snap(rng.randf_range(340.0, 470.0))
+			var arm_w: float = _snap(rng.randf_range(130.0, 190.0))
+			var arm_h: float = _snap(rng.randf_range(120.0, 180.0))
+			var off_x: float = rng.randf_range(35.0, 65.0)
+			var off_y: float = rng.randf_range(35.0, 65.0)
+			walls.append(_wall(cx - arm_w * 0.5 - off_x, cy, arm_w, 16.0))
+			walls.append(_wall(cx + arm_w * 0.5 + off_x, cy, arm_w, 16.0))
+			walls.append(_wall(cx, cy - arm_h * 0.5 - off_y, 16.0, arm_h))
+			walls.append(_wall(cx, cy + arm_h * 0.5 + off_y, 16.0, arm_h))
 
 		"frame":
-			# Inset perimeter guide rails with central deflector
-			var cy: float = _snap(rng.randf_range(360.0, 460.0))
-			var inset: float = _snap(rng.randf_range(80.0, 110.0))
-			walls.append(_wall(inset, cy, 16.0, _snap(rng.randf_range(240.0, 320.0))))
-			walls.append(_wall(640.0 - inset, cy, 16.0, _snap(rng.randf_range(240.0, 320.0))))
-			walls.append(_wall(320.0, 160.0, _snap(rng.randf_range(220.0, 280.0)), 16.0))
-			walls.append(_wall(320.0, cy, _snap(rng.randf_range(130.0, 180.0)), 16.0, [45.0, -45.0, 0.0][rng.randi_range(0, 2)]))
+			var cy: float = _snap(rng.randf_range(340.0, 460.0))
+			var inset: float = _snap(rng.randf_range(75.0, 120.0))
+			walls.append(_wall(inset, cy, 16.0, _snap(rng.randf_range(230.0, 310.0))))
+			walls.append(_wall(640.0 - inset, cy, 16.0, _snap(rng.randf_range(230.0, 310.0))))
+			walls.append(_wall(320.0, rng.randf_range(140.0, 200.0), _snap(rng.randf_range(210.0, 270.0)), 16.0))
+			walls.append(_wall(320.0, cy, _snap(rng.randf_range(120.0, 180.0)), 16.0, [45.0, -45.0, 0.0, 30.0, -30.0][rng.randi_range(0, 4)]))
 
-		"scatter":
-			# Controlled geometric constellation
+		"chevron":
+			var apex_x: float = _snap(rng.randf_range(240.0, 400.0))
+			var apex_y: float = _snap(rng.randf_range(300.0, 440.0))
+			var wing_len: float = _snap(rng.randf_range(150.0, 230.0))
+			var wing_ang: float = rng.randf_range(30.0, 55.0)
+			walls.append(_wall(apex_x - wing_len * 0.38, apex_y + 40.0, wing_len, 16.0, wing_ang))
+			walls.append(_wall(apex_x + wing_len * 0.38, apex_y + 40.0, wing_len, 16.0, -wing_ang))
+			walls.append(_wall(apex_x, apex_y - rng.randf_range(120.0, 170.0), _snap(rng.randf_range(150.0, 230.0)), 16.0))
+
+		"pinwheel":
+			var cx: float = _snap(rng.randf_range(260.0, 380.0))
+			var cy: float = _snap(rng.randf_range(320.0, 470.0))
+			var r_blade: float = _snap(rng.randf_range(75.0, 115.0))
+			var b_len: float = _snap(rng.randf_range(120.0, 170.0))
+			var base_ang: float = rng.randf_range(0.0, 80.0)
+			for k: int in 4:
+				var a: float = deg_to_rad(base_ang + float(k) * 90.0)
+				var bp: Vector2 = Vector2(cx, cy) + Vector2.from_angle(a) * r_blade
+				walls.append(_wall(bp.x, bp.y, b_len, 16.0, rad_to_deg(a) + 30.0))
+
+		"bifurcate":
+			var cx: float = _snap(rng.randf_range(280.0, 360.0))
+			var cy: float = _snap(rng.randf_range(340.0, 460.0))
+			var wedge_s: float = [55.0, 65.0, 75.0][rng.randi_range(0, 2)]
+			walls.append(_wall(cx, cy, wedge_s, wedge_s, 45.0))
+			var flank_x: float = rng.randf_range(150.0, 210.0)
+			walls.append(_wall(cx - flank_x, cy, 16.0, _snap(rng.randf_range(210.0, 290.0))))
+			walls.append(_wall(cx + flank_x, cy, 16.0, _snap(rng.randf_range(210.0, 290.0))))
+
+		"slant_maze":
+			var y_top: float = _snap(rng.randf_range(220.0, 300.0))
+			var y_bot: float = _snap(rng.randf_range(480.0, 580.0))
+			var s_ang: float = [30.0, 45.0, -30.0, -45.0][rng.randi_range(0, 3)]
+			walls.append(_wall(rng.randf_range(160.0, 250.0), y_top, _snap(rng.randf_range(170.0, 250.0)), 16.0, s_ang))
+			walls.append(_wall(rng.randf_range(390.0, 480.0), y_top + 90.0, _snap(rng.randf_range(170.0, 250.0)), 16.0, -s_ang))
+			walls.append(_wall(rng.randf_range(230.0, 410.0), y_bot, _snap(rng.randf_range(190.0, 280.0)), 16.0, s_ang))
+
+		"island_grid":
+			var cy: float = _snap(rng.randf_range(320.0, 480.0))
+			var off_x: float = _snap(rng.randf_range(120.0, 170.0))
+			var off_y: float = _snap(rng.randf_range(80.0, 130.0))
+			walls.append(_wall(320.0 - off_x, cy - off_y, 70.0, 30.0, rng.randf_range(-20.0, 20.0)))
+			walls.append(_wall(320.0 + off_x, cy - off_y, 70.0, 30.0, rng.randf_range(-20.0, 20.0)))
+			walls.append(_wall(320.0, cy + off_y, 110.0, 30.0))
+
+		"crescent":
+			var cx: float = _snap(rng.randf_range(280.0, 360.0))
+			var cy: float = _snap(rng.randf_range(310.0, 420.0))
+			var r_arc: float = _snap(rng.randf_range(150.0, 210.0))
+			for k: int in 3:
+				var a: float = deg_to_rad(-55.0 + float(k) * 55.0)
+				var p: Vector2 = Vector2(cx, cy) + Vector2.from_angle(a) * r_arc
+				walls.append(_wall(p.x, p.y, 130.0, 16.0, rad_to_deg(a) + 90.0))
+
+		"keyhole":
+			var cy: float = _snap(rng.randf_range(350.0, 470.0))
+			var neck_w: float = _snap(rng.randf_range(95.0, 135.0))
+			var neck_h: float = _snap(rng.randf_range(110.0, 170.0))
+			walls.append(_wall(320.0 - neck_w * 0.5 - 60.0, cy, 120.0, 16.0))
+			walls.append(_wall(320.0 + neck_w * 0.5 + 60.0, cy, 120.0, 16.0))
+			walls.append(_wall(320.0 - neck_w * 0.5, cy + neck_h * 0.5, 16.0, neck_h))
+			walls.append(_wall(320.0 + neck_w * 0.5, cy + neck_h * 0.5, 16.0, neck_h))
+
+		"alcove":
+			var y_tier: float = _snap(rng.randf_range(300.0, 460.0))
+			var d_depth: float = _snap(rng.randf_range(100.0, 150.0))
+			walls.append(_wall(d_depth * 0.5, y_tier, d_depth, 16.0))
+			walls.append(_wall(d_depth, y_tier - 70.0, 16.0, 140.0))
+			walls.append(_wall(640.0 - d_depth * 0.5, y_tier + 120.0, d_depth, 16.0))
+			walls.append(_wall(640.0 - d_depth, y_tier + 190.0, 16.0, 140.0))
+
+		"periscope":
+			var y1: float = _snap(rng.randf_range(230.0, 320.0))
+			var y2: float = _snap(rng.randf_range(440.0, 550.0))
+			var x1: float = _snap(rng.randf_range(150.0, 240.0))
+			var x2: float = _snap(rng.randf_range(400.0, 490.0))
+			walls.append(_wall(x1, y1, 170.0, 16.0, 45.0))
+			walls.append(_wall(x2, y2, 170.0, 16.0, -45.0))
+			walls.append(_wall(320.0, (y1 + y2) * 0.5, 16.0, absf(y2 - y1) * 0.75))
+
+		"gate_lattice":
+			var cy: float = _snap(rng.randf_range(320.0, 460.0))
+			var step_y: float = rng.randf_range(70.0, 100.0)
+			for i: int in 3:
+				var is_l: bool = (i % 2 == 0)
+				var w_len: float = _snap(rng.randf_range(220.0, 300.0))
+				var wx: float = w_len * 0.5 if is_l else 640.0 - w_len * 0.5
+				walls.append(_wall(wx, cy + float(i - 1) * step_y, w_len, 16.0))
+
+		"scatter", _:
 			for i: int in count:
-				var w: Array = _random_wall(level, walls)
-				if not w.is_empty():
-					walls.append(w)
+				var w_sc: Array = _random_wall(level, walls)
+				if not w_sc.is_empty():
+					walls.append(w_sc)
 
-		_:
-			for i: int in count:
-				var w6: Array = _random_wall(level, walls)
-				if not w6.is_empty():
-					walls.append(w6)
+	# Dynamic room translation jitter & mirror
+	var shift_x: float = rng.randf_range(-25.0, 25.0)
+	var shift_y: float = rng.randf_range(-35.0, 35.0)
+	var do_mirror: bool = rng.randf() < 0.5
+	for w: Array in walls:
+		w[0] = _snap(float(w[0]) + shift_x)
+		w[1] = _snap(float(w[1]) + shift_y)
+		if do_mirror:
+			w[0] = 640.0 - float(w[0])
+			w[4] = -float(w[4])
 
-	return walls.filter(func(w: Array) -> bool: return _wall_ok(w, level))
 	return walls.filter(func(w: Array) -> bool: return _wall_ok(w, level))
 
 

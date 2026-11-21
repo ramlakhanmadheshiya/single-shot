@@ -38,11 +38,18 @@ func build() -> void:
 	body.add_child(grid)
 	var ids: Array = OrbStyles.ids() if mode == "orbs" else Palette.theme_ids()
 	for id: String in ids:
-		var free: bool = OrbStyles.is_free(id) if mode == "orbs" else id == "chapters"
-		var locked: bool = not free and not owned
+		var locked: bool = false
+		if mode == "orbs":
+			locked = not SaveSystem.is_orb_unlocked(id)
+		else:
+			var free: bool = id == "chapters"
+			locked = not free and not owned
 		var tile: Button = _tile(id, id == current, locked)
 		tile.pressed.connect(func() -> void:
 			if locked:
+				if mode == "orbs":
+					var need_stars: int = int(SaveSystem.ORB_UNLOCK_STARS.get(id, 0))
+					app.open_toast("Earn ★ %d stars (or get the pack) to unlock!" % need_stars)
 				app.open_product(product, func() -> void: app.open_picker(mode))
 				return
 			SaveSystem.set_setting("orb_style" if mode == "orbs" else "theme", id)
@@ -98,9 +105,13 @@ func _tile(id: String, selected: bool, locked: bool) -> Button:
 	name_l.offset_bottom = -10
 	b.add_child(name_l)
 	if locked:
-		var lock: TextureRect = UIKit.icon_rect("lock", 22.0, Color(pal["ink"], 0.45))
+		var lock: TextureRect = UIKit.icon_rect("lock", 20.0, Color(pal["ink"], 0.45))
 		lock.position = Vector2(14, 12)
 		b.add_child(lock)
+		if mode == "orbs" and SaveSystem.ORB_UNLOCK_STARS.has(id):
+			var badge: Label = UIKit.label("★ %d" % int(SaveSystem.ORB_UNLOCK_STARS[id]), 17, Color(pal["accent"], 0.9), 600)
+			badge.position = Vector2(38, 11)
+			b.add_child(badge)
 	return b
 
 

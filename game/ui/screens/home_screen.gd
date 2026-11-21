@@ -103,7 +103,11 @@ func _ready() -> void:
 	chip.name = "Continue"
 	chip.pal = pal
 	chip.dot = cpal["accent"]
-	chip.text = "%s  ·  LEVEL %d" % [str(cpal["name"]).to_upper(), int(target["index"]) + 1]
+	var strk: int = SaveSystem.daily_streak()
+	if strk > 0:
+		chip.text = "%s · LVL %d · 🔥 %dD" % [str(cpal["name"]).to_upper(), int(target["index"]) + 1, strk]
+	else:
+		chip.text = "%s  ·  LEVEL %d" % [str(cpal["name"]).to_upper(), int(target["index"]) + 1]
 	chip.stars = SaveSystem.total_stars()
 	chip.custom_minimum_size = Vector2(0, 40)
 	bottom.add_child(chip)
