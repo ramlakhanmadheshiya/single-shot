@@ -33,21 +33,25 @@ const PLATFORM_GAP: float = 18.0
 const MIN_TIME_WINDOW: Dictionary = {0: 450.0, 1: 450.0, 2: 375.0, 3: 300.0, 4: 240.0, 5: 195.0, 6: 165.0, 7: 150.0, 8: 120.0}
 ## Targets per room for a room that needs b bounces.
 const TARGETS: Dictionary = {0: [1, 1], 1: [1, 2], 2: [1, 3], 3: [2, 3], 4: [2, 4], 5: [3, 4], 6: [3, 5], 7: [3, 5], 8: [4, 6]}
-const ARCHETYPES: Array[String] = ["scatter", "mirror", "shelves", "pillars", "diagonals", "corridor", "box", "funnel", "zigzag", "frame"]
+const ARCHETYPES: Array[String] = [
+	"chambers", "nested", "pocket", "zigzag", "funnel",
+	"corridor", "diagonals", "pillars", "shelves", "mirror",
+	"asymmetric", "crossroad", "frame", "scatter"
+]
 
 ## Per-chapter rules. Ranges are [early, late] across the chapter. "late" extras are
 ## ideas from chapters EARLIER IN PLAY ORDER (Palette.ORDER: Dawn, Glass, Gate,
 ## Drift, Turn, Shift, Void, Prism, Spark) that start mixing in from about level 16.
 const CHAPTERS: Array = [
-	{"id": "ch1", "name": "Dawn", "seed": 101, "mech": "", "walls": [1, 6]},
-	{"id": "ch2", "name": "Glass", "seed": 202, "mech": "glass", "walls": [1, 5], "glass": [1, 3]},
-	{"id": "ch3", "name": "Void", "seed": 303, "mech": "void", "window_scale": 0.6, "walls": [1, 5], "void": [1, 3], "bumpers": [1, 2], "late": {"glass": [0, 1]}},
-	{"id": "ch4", "name": "Shift", "seed": 404, "mech": "portal", "walls": [1, 5], "portals": 1, "late": {"glass": [0, 1]}},
-	{"id": "ch5", "name": "Prism", "seed": 505, "mech": "split", "walls": [1, 5], "prisms": 1, "armored_from": 0.3, "late": {"glass": [0, 1], "void": [0, 1]}},
-	{"id": "ch6", "name": "Gate", "seed": 606, "mech": "switch", "walls": [1, 5], "gates": [1, 2], "switches": 1, "late": {"glass": [0, 1]}},
-	{"id": "ch7", "name": "Spark", "seed": 707, "mech": "spark", "walls": [1, 5], "sparks": [1, 3], "late": {"glass": [0, 1], "void": [0, 1]}},
-	{"id": "ch8", "name": "Turn", "seed": 808, "mech": "pivot", "walls": [2, 5], "pivots": [1, 2], "late": {"glass": [0, 1]}},
-	{"id": "ch9", "name": "Drift", "seed": 909, "mech": "move", "pool_factor": 3, "walls": [1, 5], "movers": [1, 3]},
+	{"id": "ch1", "name": "Dawn", "seed": 101, "mech": "", "pool_factor": 1.6, "walls": [1, 5]},
+	{"id": "ch2", "name": "Glass", "seed": 202, "mech": "glass", "pool_factor": 1.6, "walls": [1, 5], "glass": [1, 3]},
+	{"id": "ch3", "name": "Void", "seed": 303, "mech": "void", "pool_factor": 1.6, "window_scale": 0.6, "walls": [1, 5], "void": [1, 3], "bumpers": [1, 2], "late": {"glass": [0, 1]}},
+	{"id": "ch4", "name": "Shift", "seed": 404, "mech": "portal", "pool_factor": 1.6, "walls": [1, 5], "portals": 1, "late": {"glass": [0, 1]}},
+	{"id": "ch5", "name": "Prism", "seed": 505, "mech": "split", "pool_factor": 1.6, "walls": [1, 5], "prisms": 1, "armored_from": 0.3, "late": {"glass": [0, 1], "void": [0, 1]}},
+	{"id": "ch6", "name": "Gate", "seed": 606, "mech": "switch", "pool_factor": 1.6, "walls": [1, 5], "gates": [1, 2], "switches": 1, "late": {"glass": [0, 1]}},
+	{"id": "ch7", "name": "Spark", "seed": 707, "mech": "spark", "pool_factor": 1.6, "walls": [1, 5], "sparks": [1, 3], "late": {"glass": [0, 1], "void": [0, 1]}},
+	{"id": "ch8", "name": "Turn", "seed": 808, "mech": "pivot", "pool_factor": 1.6, "walls": [2, 5], "pivots": [1, 2], "late": {"glass": [0, 1]}},
+	{"id": "ch9", "name": "Drift", "seed": 909, "mech": "move", "pool_factor": 1.3, "walls": [1, 5], "movers": [1, 3]},
 ]
 
 ## Hand-made rooms that open a chapter by showing its one new idea on its own.
@@ -143,13 +147,14 @@ func _build_chapter() -> Array:
 	for b: int in need:
 		pool[b] = []
 	var attempts: int = 0
-	var budget: int = 60000
+	var budget: int = 25000
 	while attempts < budget:
 		# Work on the bucket that is furthest from its quota.
 		var goal: int = -1
 		var worst: float = 1.0e9
 		for b: int in need:
-			var ratio: float = float((pool[b] as Array).size()) / float(int(need[b]) * int(chapter.get("pool_factor", 6)))
+			var target_count: float = float(need[b]) * float(chapter.get("pool_factor", 3.0))
+			var ratio: float = float((pool[b] as Array).size()) / maxf(1.0, target_count)
 			if ratio < worst:
 				worst = ratio
 				goal = b
@@ -159,17 +164,19 @@ func _build_chapter() -> Array:
 		var cand: Dictionary = _candidate(goal)
 		if not cand.is_empty():
 			(pool[int(cand["need"])] as Array).append(cand)
-		if attempts % 500 == 0:
+		if attempts % 100 == 0:
 			var counts: Array = []
 			for b: int in need:
-				counts.append("%d:%d/%d" % [b, (pool[b] as Array).size(), int(need[b]) * int(chapter.get("pool_factor", 6))])
-			print("  %s: %d attempts  %s" % [chapter["id"], attempts, " ".join(counts)])
+				var t_cnt: int = int(round(float(need[b]) * float(chapter.get("pool_factor", 3.0))))
+				counts.append("%d:%d/%d" % [b, (pool[b] as Array).size(), t_cnt])
+			print("  %s: %d att  %s  rejections: %s" % [chapter["id"], attempts, " ".join(counts), str(stats)])
 	stats["attempts"] = attempts
 	return _assign(result, pool)
 
 
 ## Fills levels 2-40 from the pool: bounces follow the schedule, difficulty rises
-## strictly, and neighbours look and play differently.
+## with intentional pacing (including breathers and a memorable climax at level 40),
+## and neighbours are guaranteed to be visually and strategically distinct.
 func _assign(result: Array, pool: Dictionary) -> Array:
 	var used_sigs: Dictionary = {}
 	for lv: Dictionary in result:
@@ -177,7 +184,6 @@ func _assign(result: Array, pool: Dictionary) -> Array:
 	var n: int = result.size() + 1
 	while n <= LEVELS_PER_CHAPTER:
 		var b: int = bounce_goal(n)
-		# Slots in this bounce plateau.
 		var plateau: Array[int] = []
 		var m: int = n
 		while m <= LEVELS_PER_CHAPTER and bounce_goal(m) == b:
@@ -185,46 +191,147 @@ func _assign(result: Array, pool: Dictionary) -> Array:
 			m += 1
 		var cands: Array = (pool[b] as Array).duplicate()
 		cands.sort_custom(func(x: Dictionary, y: Dictionary) -> bool: return float(x["score"]) < float(y["score"]))
+
 		for j: int in plateau.size():
+			var slot_num: int = plateau[j]
+			var is_breather: bool = (slot_num == 8 or slot_num == 18 or slot_num == 28 or slot_num == 38)
+			var is_climax: bool = (slot_num == 40 or slot_num == 20 or slot_num == 30)
 			var prev: Dictionary = result[-1]
 			var prev2: Dictionary = result[-2] if result.size() >= 2 else {}
-			# The opener is a tutorial: it doesn't set the bar for level 2.
-			var prev_d: float = -1.0 if bool(prev.get("intro", false)) else float(prev["difficulty"])
-			# Aim for an even climb through this plateau's range of candidates.
-			var q: float = 0.12 + 0.76 * (float(j) / float(maxi(1, plateau.size() - 1)))
-			var start: int = int(round(q * float(maxi(0, cands.size() - 1))))
-			var pick: int = -1
-			for relax: int in 4:
-				for off: int in cands.size():
-					for idx: int in [start + off, start - off]:
-						if idx < 0 or idx >= cands.size():
-							continue
-						var c: Dictionary = cands[idx]
-						if float(c["difficulty"]) <= prev_d + 0.001:
-							continue
-						# Last resort: a bounce pattern seen before, but never twice in a row.
-						if used_sigs.has(str(c["sig"])) and (relax < 3 or str(c["sig"]) == str(prev.get("sig", ""))):
-							continue
-						if relax < 2 and str(c["arch"]) == str(prev.get("arch", "")):
-							continue
-						if relax < 1 and (str(c["arch"]) == str(prev2.get("arch", "")) or int(c["dir"]) == int(prev.get("dir", -99))):
-							continue
-						pick = idx
-						break
-					if pick >= 0:
-						break
-				if pick >= 0:
-					if relax > 0:
-						stats["relaxed"] = int(stats.get("relaxed", 0)) + 1
-					break
-			if pick < 0:
-				push_error("%s: no room left for level %d (needs %d bounces)" % [chapter["id"], plateau[j], b])
-				return result
-			var chosen: Dictionary = cands.pop_at(pick)
+
+			var best_idx: int = -1
+			var best_penalty: float = 1.0e9
+
+			for idx: int in cands.size():
+				var c: Dictionary = cands[idx]
+				var penalty: float = 0.0
+
+				# 1. Structural similarity against recent levels (last 6 levels)
+				var max_sim: float = 0.0
+				var check_start: int = maxi(0, result.size() - 6)
+				for k: int in range(check_start, result.size()):
+					var sim: float = structural_similarity(c, result[k])
+					if sim > max_sim:
+						max_sim = sim
+				if max_sim > 0.55:
+					penalty += (max_sim - 0.55) * 80.0
+
+				# 2. Archetype repetition penalty
+				if str(c["arch"]) == str(prev.get("arch", "")):
+					penalty += 45.0
+				elif str(c["arch"]) == str(prev2.get("arch", "")):
+					penalty += 18.0
+
+				# 3. Aim direction repetition penalty
+				if int(c["dir"]) == int(prev.get("dir", -99)):
+					penalty += 25.0
+
+				# 4. Signature repetition penalty
+				if used_sigs.has(str(c["sig"])):
+					penalty += 60.0
+
+				# 5. Favor pure single-solution rooms (exactly 1 winning window)
+				if int(c.get("windows", 1)) == 1:
+					penalty -= 12.0
+
+				# 6. Pacing and puzzle quality fit
+				if is_breather:
+					# Breather: spacious, wide solving window, refreshing clarity
+					var win_deg: float = float(c.get("window", 1.0))
+					penalty += maxf(0.0, (2.6 - win_deg) * 12.0)
+					penalty += absf(float(c["score"]) - 1.3) * 5.0
+				elif is_climax:
+					# Climax: peak challenge, maximum targets, multi-bank grand architecture
+					var n_targets: int = (c.get("targets", []) as Array).size()
+					penalty += maxf(0.0, (5.0 - float(n_targets)) * 14.0)
+					penalty -= float(c["score"]) * 5.0
+				else:
+					# Smooth progression through plateau
+					var q: float = 0.15 + 0.70 * (float(j) / float(maxi(1, plateau.size() - 1)))
+					var target_score: float = lerpf(float(cands[0]["score"]), float(cands[-1]["score"]), q)
+					penalty += absf(float(c["score"]) - target_score) * 4.0
+
+				if penalty < best_penalty:
+					best_penalty = penalty
+					best_idx = idx
+
+			if best_idx < 0:
+				best_idx = 0
+
+			var chosen: Dictionary = cands.pop_at(best_idx)
 			used_sigs[str(chosen["sig"])] = true
 			result.append(chosen)
 		n = m
 	return result
+
+
+## Computes a structural similarity score in [0.0, 1.0] between two levels.
+## Considers layout archetype, 6x8 spatial occupancy, target proximity, and trajectory heading.
+static func structural_similarity(lv_a: Dictionary, lv_b: Dictionary) -> float:
+	var score: float = 0.0
+
+	# 1. Archetype match
+	if str(lv_a.get("arch", "")) == str(lv_b.get("arch", "")):
+		score += 0.20
+
+	# 2. Spatial occupancy grid (6 columns x 8 rows = 48 cells)
+	var occ_a: Array = _occupancy_grid(lv_a)
+	var occ_b: Array = _occupancy_grid(lv_b)
+	var intersection: int = 0
+	var union_cnt: int = 0
+	for i: int in 48:
+		var has_a: bool = occ_a[i]
+		var has_b: bool = occ_b[i]
+		if has_a and has_b:
+			intersection += 1
+		if has_a or has_b:
+			union_cnt += 1
+	var jaccard: float = float(intersection) / float(maxi(1, union_cnt))
+	score += jaccard * 0.35
+
+	# 3. Target centroid proximity
+	var t_a: Array = lv_a.get("targets", [])
+	var t_b: Array = lv_b.get("targets", [])
+	if not t_a.is_empty() and not t_b.is_empty():
+		var c_a: Vector2 = Vector2.ZERO
+		for t: Array in t_a:
+			c_a += Vector2(float(t[0]), float(t[1]))
+		c_a /= float(t_a.size())
+
+		var c_b: Vector2 = Vector2.ZERO
+		for t: Array in t_b:
+			c_b += Vector2(float(t[0]), float(t[1]))
+		c_b /= float(t_b.size())
+
+		var dist: float = c_a.distance_to(c_b)
+		var t_sim: float = clampf(1.0 - (dist / 380.0), 0.0, 1.0)
+		score += t_sim * 0.25
+
+	# 4. Aim direction & Bounce count similarity
+	var dir_diff: int = absi(int(lv_a.get("dir", 0)) - int(lv_b.get("dir", 0)))
+	if dir_diff <= 1:
+		score += 0.10
+	if int(lv_a.get("need", 0)) == int(lv_b.get("need", 0)):
+		score += 0.10
+
+	return minf(1.0, score)
+
+
+static func _occupancy_grid(lv: Dictionary) -> Array:
+	var grid: Array = []
+	grid.resize(48)
+	grid.fill(false)
+	var col_w: float = RicochetSim.ARENA.x / 6.0
+	var row_h: float = RicochetSim.ARENA.y / 8.0
+	for w: Array in lv.get("walls", []):
+		var cx: int = clampi(int(float(w[0]) / col_w), 0, 5)
+		var cy: int = clampi(int(float(w[1]) / row_h), 0, 7)
+		grid[cy * 6 + cx] = true
+	for t: Array in lv.get("targets", []):
+		var cx2: int = clampi(int(float(t[0]) / col_w), 0, 5)
+		var cy2: int = clampi(int(float(t[1]) / row_h), 0, 7)
+		grid[cy2 * 6 + cx2] = true
+	return grid
 
 
 # --- Candidate rooms ----------------------------------------------------------------
@@ -263,7 +370,7 @@ func _candidate(goal: int) -> Dictionary:
 	# The generating shot: spark rooms start with fewer bounces and earn the rest.
 	var sparks: int = (level.get("sparks", []) as Array).size()
 	var limit: int = maxi(0, goal - sparks) if chapter["mech"] == "spark" else goal
-	var found: Dictionary = _find_shot(level, limit, 30)
+	var found: Dictionary = _find_shot(level, limit, 50)
 	if found.is_empty():
 		return _reject("mechanic unused")
 	var angle: float = found["angle"]
@@ -290,6 +397,13 @@ func _candidate(goal: int) -> Dictionary:
 	var graded: Dictionary = _grade(level, goal, false)
 	if graded.is_empty():
 		return {}
+	# Prune dead walls from this winning candidate:
+	if not _prune_dead_walls(level, goal, angle):
+		return _reject("prune")
+	# Re-grade after pruning:
+	graded = _grade(level, goal, false)
+	if graded.is_empty():
+		return {}
 	graded["arch"] = arch
 	return graded
 
@@ -301,9 +415,9 @@ func _find_shot(level: Dictionary, limit: int, tries: int) -> Dictionary:
 	var lp: Vector2 = RicochetSim.launcher(level)
 	for i: int in tries:
 		var angle: float = -PI + rng.randf_range(0.2, PI - 0.2)
-		if i >= tries / 2 and not spots.is_empty():
+		if (i >= tries / 4 or rng.randf() < 0.65) and not spots.is_empty():
 			var spot: Vector2 = spots[rng.randi_range(0, spots.size() - 1)]
-			angle = (spot - lp).angle() + deg_to_rad(rng.randf_range(-4.0, 4.0))
+			angle = (spot - lp).angle() + deg_to_rad(rng.randf_range(-5.0, 5.0))
 			if angle > -0.15 or angle < -PI + 0.15:
 				continue
 		var shot: Dictionary = RicochetSim.simulate(level, RicochetSim.initial_state(level), angle, limit)
@@ -322,9 +436,7 @@ func _mechanic_spots(level: Dictionary) -> Array:
 		spots.append(Vector2(float(pt[0]), float(pt[1])))
 		spots.append(Vector2(float(pt[2]), float(pt[3])))
 	for w: Array in level.get("walls", []):
-		var kind: String = RicochetSim.wall_kind(w)
-		if (kind == "glass" and chapter["mech"] == "glass") or kind == "pivot" or RicochetSim.is_moving(w):
-			spots.append(Vector2(float(w[0]), float(w[1])))
+		spots.append(Vector2(float(w[0]), float(w[1])))
 	return spots
 
 
@@ -377,105 +489,177 @@ func _wall(x: float, y: float, w: float, h: float, rot: float = 0.0) -> Array:
 
 
 ## Lays out `count` walls in the given archetype's style.
+## Uses architectural composition rules to create distinct geometric identities.
 func _layout(arch: String, count: int, level: Dictionary) -> Array:
 	var walls: Array = []
 	match arch:
-		"mirror":
-			var half: int = maxi(1, int(ceil(float(count) / 2.0)))
-			for i: int in half:
-				var w: Array = _random_wall(level, walls)
-				if w.is_empty():
-					continue
-				w[0] = _snap(rng.randf_range(80, 260))
-				walls.append(w)
-				var m: Array = w.duplicate()
-				m[0] = 640.0 - float(w[0])
-				m[4] = -float(w[4])
-				walls.append(m)
-		"shelves":
-			var ys: Array = []
-			for i: int in count:
-				ys.append(_snap(rng.randf_range(160, 700)))
-			ys.sort()
-			for i: int in ys.size():
-				var left: bool = (i % 2 == 0) == (rng.randf() < 0.5)
-				var length: float = _snap(rng.randf_range(200, 340))
-				var x: float = length * 0.5 + rng.randf_range(0, 40) if left else 640.0 - length * 0.5 - rng.randf_range(0, 40)
-				walls.append(_wall(x, float(ys[i]), length, 16.0))
-		"pillars":
-			for i: int in count + 1:
-				var s: float = [40.0, 60.0, 80.0][rng.randi_range(0, 2)]
-				walls.append(_wall(rng.randf_range(100, 540), rng.randf_range(140, 680), s, s))
-		"diagonals":
-			for i: int in count:
-				var len_d: float = _snap(rng.randf_range(120, 240))
-				walls.append(_wall(rng.randf_range(100, 540), rng.randf_range(140, 680), len_d, 16.0, [45.0, -45.0, 30.0, -30.0, 60.0, -60.0][rng.randi_range(0, 5)]))
-		"corridor":
-			var gap: float = rng.randf_range(160, 300)
-			var cy: float = rng.randf_range(300, 560)
-			var hgt: float = _snap(rng.randf_range(200, 380))
-			walls.append(_wall(320.0 - gap * 0.5, cy, 16.0, hgt))
-			walls.append(_wall(320.0 + gap * 0.5, cy + rng.randf_range(-80, 80), 16.0, hgt))
-			for i: int in maxi(0, count - 2):
-				var w2: Array = _random_wall(level, walls)
-				if not w2.is_empty():
-					walls.append(w2)
-		"box":
-			# An open box: three sides, the opening facing a random way.
-			var bx: float = rng.randf_range(200, 440)
-			var by: float = rng.randf_range(220, 460)
-			var bw: float = _snap(rng.randf_range(200, 280))
-			var bh: float = _snap(rng.randf_range(160, 240))
-			var sides: Array = [
-				_wall(bx, by - bh * 0.5, bw, 16.0), _wall(bx, by + bh * 0.5, bw, 16.0),
-				_wall(bx - bw * 0.5, by, 16.0, bh), _wall(bx + bw * 0.5, by, 16.0, bh),
-			]
-			sides.remove_at(rng.randi_range(0, 3))
-			walls.append_array(sides)
-			for i: int in maxi(0, count - 3):
-				var w3: Array = _random_wall(level, walls)
-				if not w3.is_empty():
-					walls.append(w3)
-		"funnel":
-			var fy: float = rng.randf_range(240, 560)
-			var spread: float = rng.randf_range(120, 200)
-			var ang: float = [30.0, 45.0, 60.0][rng.randi_range(0, 2)]
-			var flen: float = _snap(rng.randf_range(160, 240))
-			var flip: float = 1.0 if rng.randf() < 0.5 else -1.0
-			walls.append(_wall(320.0 - spread, fy, flen, 16.0, ang * flip))
-			walls.append(_wall(320.0 + spread, fy, flen, 16.0, -ang * flip))
-			for i: int in maxi(0, count - 2):
-				var w4: Array = _random_wall(level, walls)
-				if not w4.is_empty():
-					walls.append(w4)
+		"chambers":
+			# Interconnected chambers with defined transit doorway apertures
+			var y_div: float = _snap(rng.randf_range(400.0, 500.0))
+			var gap_w: float = _snap(rng.randf_range(110.0, 140.0))
+			var gap_x: float = _snap(rng.randf_range(200.0, 440.0))
+			var left_w: float = gap_x - gap_w * 0.5
+			var right_w: float = 640.0 - (gap_x + gap_w * 0.5)
+			if left_w > 50.0:
+				walls.append(_wall(left_w * 0.5, y_div, left_w, 16.0))
+			if right_w > 50.0:
+				walls.append(_wall(gap_x + gap_w * 0.5 + right_w * 0.5, y_div, right_w, 16.0))
+			# Chamber deflector plates
+			var ang: float = [35.0, -35.0, 45.0, -45.0, 0.0][rng.randi_range(0, 4)]
+			walls.append(_wall(rng.randf_range(180.0, 460.0), rng.randf_range(180.0, 300.0), _snap(rng.randf_range(140.0, 220.0)), 16.0, ang))
+			if count >= 3:
+				walls.append(_wall([120.0, 520.0][rng.randi_range(0, 1)], 240.0, 16.0, 180.0))
+
+		"nested":
+			# Concentric inner sanctum court with outer transit corridors
+			var cy: float = _snap(rng.randf_range(380.0, 450.0))
+			var bw: float = _snap(rng.randf_range(240.0, 280.0))
+			var bh: float = _snap(rng.randf_range(200.0, 240.0))
+			var gap: float = 110.0
+			# Top opening
+			walls.append(_wall(320.0 - gap * 0.5, cy - bh * 0.5, bw - gap, 16.0))
+			# Bottom opening offset to other side
+			walls.append(_wall(320.0 + gap * 0.5, cy + bh * 0.5, bw - gap, 16.0))
+			# Left and right side barriers
+			walls.append(_wall(320.0 - bw * 0.5, cy, 16.0, bh))
+			walls.append(_wall(320.0 + bw * 0.5, cy, 16.0, bh))
+			if count >= 4:
+				walls.append(_wall([90.0, 550.0][rng.randi_range(0, 1)], cy, 16.0, 260.0))
+
+		"pocket":
+			# Enclosed alcove pocket with an angled deflector guiding the shot
+			var on_left: bool = rng.randf() < 0.5
+			var px: float = 200.0 if on_left else 440.0
+			var py: float = _snap(rng.randf_range(220.0, 320.0))
+			var pw: float = 180.0
+			var ph: float = 180.0
+			walls.append(_wall(px, py, 16.0, ph))
+			walls.append(_wall(px - pw * 0.5 if on_left else px + pw * 0.5, py - ph * 0.5, pw, 16.0))
+			var defl_x: float = 360.0 if on_left else 280.0
+			walls.append(_wall(defl_x, py + 160.0, _snap(rng.randf_range(140.0, 200.0)), 16.0, -45.0 if on_left else 45.0))
+			if count >= 3:
+				walls.append(_wall(320.0, 600.0, _snap(rng.randf_range(160.0, 240.0)), 16.0))
+
 		"zigzag":
-			var x0: float = rng.randf_range(120, 220)
-			var y0: float = rng.randf_range(180, 260)
-			var dx: float = rng.randf_range(90, 140) * (1.0 if rng.randf() < 0.5 else -1.0)
-			if dx < 0.0:
-				x0 = 640.0 - x0
-			for i: int in count + 1:
-				walls.append(_wall(x0 + dx * float(i), y0 + 110.0 * float(i), _snap(rng.randf_range(100, 160)), 16.0))
+			# Staggered alternating cantilevered baffles (slalom course)
+			var n_baffles: int = clampi(count + 1, 3, 4)
+			var y_start: float = 640.0
+			var y_step: float = (y_start - 180.0) / float(n_baffles - 1)
+			for i: int in n_baffles:
+				var is_left: bool = (i % 2 == 0)
+				var len_b: float = _snap(rng.randf_range(240.0, 300.0))
+				var wx: float = len_b * 0.5 if is_left else 640.0 - len_b * 0.5
+				walls.append(_wall(wx, y_start - y_step * float(i), len_b, 16.0))
+
+		"funnel":
+			# Converging guide walls with a narrow throat and dispersal deflector
+			var fy: float = _snap(rng.randf_range(380.0, 480.0))
+			var ang: float = 40.0
+			var flen: float = _snap(rng.randf_range(180.0, 220.0))
+			walls.append(_wall(210.0, fy, flen, 16.0, ang))
+			walls.append(_wall(430.0, fy, flen, 16.0, -ang))
+			walls.append(_wall(320.0, fy + 120.0, _snap(rng.randf_range(180.0, 240.0)), 16.0))
+			if count >= 4:
+				walls.append(_wall(320.0, fy - 180.0, 180.0, 16.0, 45.0 if rng.randf() < 0.5 else -45.0))
+
+		"corridor":
+			# Twin parallel reflection channel with deflection cap
+			var cy: float = _snap(rng.randf_range(380.0, 460.0))
+			var gap: float = _snap(rng.randf_range(170.0, 220.0))
+			var chgt: float = _snap(rng.randf_range(280.0, 360.0))
+			walls.append(_wall(320.0 - gap * 0.5, cy, 16.0, chgt))
+			walls.append(_wall(320.0 + gap * 0.5, cy, 16.0, chgt))
+			walls.append(_wall(320.0, cy - chgt * 0.5 - 60.0, _snap(rng.randf_range(160.0, 220.0)), 16.0, [30.0, -30.0, 45.0, -45.0][rng.randi_range(0, 3)]))
+			if count >= 4:
+				walls.append(_wall(100.0 if rng.randf() < 0.5 else 540.0, cy, 16.0, 180.0))
+
+		"diagonals":
+			# Diamond constellation or chevron array
+			var cy: float = _snap(rng.randf_range(360.0, 440.0))
+			var spread: float = _snap(rng.randf_range(110.0, 140.0))
+			var dlen: float = _snap(rng.randf_range(140.0, 180.0))
+			walls.append(_wall(320.0 - spread, cy - 80.0, dlen, 16.0, 45.0))
+			walls.append(_wall(320.0 + spread, cy - 80.0, dlen, 16.0, -45.0))
+			walls.append(_wall(320.0 - spread, cy + 80.0, dlen, 16.0, -45.0))
+			walls.append(_wall(320.0 + spread, cy + 80.0, dlen, 16.0, 45.0))
+
+		"pillars":
+			# Symmetrical 4-column column formation with grid avenues
+			var cy: float = _snap(rng.randf_range(380.0, 460.0))
+			var sx: float = _snap(rng.randf_range(110.0, 140.0))
+			var sy: float = _snap(rng.randf_range(100.0, 120.0))
+			var ps: float = [50.0, 60.0, 70.0][rng.randi_range(0, 2)]
+			walls.append(_wall(320.0 - sx, cy - sy, ps, ps))
+			walls.append(_wall(320.0 + sx, cy - sy, ps, ps))
+			walls.append(_wall(320.0 - sx, cy + sy, ps, ps))
+			walls.append(_wall(320.0 + sx, cy + sy, ps, ps))
+			if count >= 5:
+				walls.append(_wall(320.0, cy - sy - 120.0, 160.0, 16.0))
+
+		"shelves":
+			# Tiered platform architecture with alternating offset doorways
+			var y1: float = _snap(rng.randf_range(540.0, 600.0))
+			var y2: float = _snap(rng.randf_range(380.0, 440.0))
+			var y3: float = _snap(rng.randf_range(200.0, 260.0))
+			walls.append(_wall(220.0, y1, 380.0, 16.0))
+			walls.append(_wall(420.0, y2, 380.0, 16.0))
+			walls.append(_wall(320.0, y3, 260.0, 16.0))
+			if count >= 4:
+				walls.append(_wall(100.0 if rng.randf() < 0.5 else 540.0, y2, 16.0, 160.0))
+
+		"mirror":
+			# Bilateral architectural symmetry
+			var cy: float = _snap(rng.randf_range(360.0, 460.0))
+			var ang: float = [30.0, 45.0, 60.0][rng.randi_range(0, 2)]
+			var mlen: float = _snap(rng.randf_range(160.0, 220.0))
+			walls.append(_wall(180.0, cy, mlen, 16.0, ang))
+			walls.append(_wall(460.0, cy, mlen, 16.0, -ang))
+			walls.append(_wall(100.0, cy - 140.0, 16.0, 160.0))
+			walls.append(_wall(540.0, cy - 140.0, 16.0, 160.0))
+
+		"asymmetric":
+			# High-contrast balance: dense pocket vs expansive reflection rail
+			var cy: float = _snap(rng.randf_range(380.0, 460.0))
+			var left_dense: bool = rng.randf() < 0.5
+			var dense_x: float = 180.0 if left_dense else 460.0
+			var open_x: float = 540.0 if left_dense else 100.0
+			walls.append(_wall(dense_x, cy, 180.0, 16.0, 30.0 if left_dense else -30.0))
+			walls.append(_wall(dense_x, cy - 140.0, 16.0, 160.0))
+			walls.append(_wall(open_x, cy + 40.0, 16.0, _snap(rng.randf_range(280.0, 360.0))))
+			if count >= 4:
+				walls.append(_wall(320.0, 200.0, 180.0, 16.0))
+
+		"crossroad":
+			# Central cross-partition dividing the board into 4 quadrants
+			var cy: float = _snap(rng.randf_range(380.0, 450.0))
+			walls.append(_wall(140.0, cy, 180.0, 16.0))
+			walls.append(_wall(500.0, cy, 180.0, 16.0))
+			walls.append(_wall(320.0, cy - 170.0, 16.0, 160.0))
+			walls.append(_wall(320.0, cy + 170.0, 16.0, 160.0))
+
 		"frame":
-			# Inner rails along the sides, with gaps.
-			var inset: float = rng.randf_range(90, 140)
-			var options: Array = [
-				_wall(inset, rng.randf_range(260, 560), 16.0, _snap(rng.randf_range(200, 360))),
-				_wall(640.0 - inset, rng.randf_range(260, 560), 16.0, _snap(rng.randf_range(200, 360))),
-				_wall(rng.randf_range(220, 420), inset + 40.0, _snap(rng.randf_range(200, 320)), 16.0),
-			]
-			options.shuffle()
-			for i: int in mini(count, 3):
-				walls.append(options[i])
-			for i: int in maxi(0, count - 3):
-				var w5: Array = _random_wall(level, walls)
-				if not w5.is_empty():
-					walls.append(w5)
+			# Inset perimeter guide rails with central deflector
+			var cy: float = _snap(rng.randf_range(360.0, 460.0))
+			var inset: float = _snap(rng.randf_range(80.0, 110.0))
+			walls.append(_wall(inset, cy, 16.0, _snap(rng.randf_range(240.0, 320.0))))
+			walls.append(_wall(640.0 - inset, cy, 16.0, _snap(rng.randf_range(240.0, 320.0))))
+			walls.append(_wall(320.0, 160.0, _snap(rng.randf_range(220.0, 280.0)), 16.0))
+			walls.append(_wall(320.0, cy, _snap(rng.randf_range(130.0, 180.0)), 16.0, [45.0, -45.0, 0.0][rng.randi_range(0, 2)]))
+
+		"scatter":
+			# Controlled geometric constellation
+			for i: int in count:
+				var w: Array = _random_wall(level, walls)
+				if not w.is_empty():
+					walls.append(w)
+
 		_:
 			for i: int in count:
 				var w6: Array = _random_wall(level, walls)
 				if not w6.is_empty():
 					walls.append(w6)
+
+	return walls.filter(func(w: Array) -> bool: return _wall_ok(w, level))
 	return walls.filter(func(w: Array) -> bool: return _wall_ok(w, level))
 
 
@@ -662,13 +846,16 @@ func _place_targets(level: Dictionary, shot: Dictionary, count: int, allow_armor
 	for track: Dictionary in shot["tracks"]:
 		var pts: Array = track["points"]
 		for leg: int in pts.size() - 1:
+			# Never place targets on leg 0 (before the first bounce)
+			if leg == 0:
+				continue
 			var a: Vector2 = pts[leg]
 			var b: Vector2 = pts[leg + 1]
 			var length: float = a.distance_to(b)
-			var s: float = 50.0
-			while s < length - 40.0:
+			var s: float = 35.0
+			while s < length - 25.0:
 				candidates.append({"p": a.lerp(b, s / length), "leg": leg, "track": track["id"]})
-				s += 26.0
+				s += 12.0
 	if candidates.is_empty():
 		return []
 	var chosen: Array = []
@@ -678,20 +865,32 @@ func _place_targets(level: Dictionary, shot: Dictionary, count: int, allow_armor
 	var order: Array = candidates.duplicate()
 	order.shuffle()
 	var last_leg: int = 0
-	for c: Dictionary in order:
+	for c: Dictionary in candidates:
 		last_leg = maxi(last_leg, int(c["leg"]))
-	for i: int in order.size():
-		if int(order[i]["leg"]) == last_leg:
-			order.push_front(order.pop_at(i))
-			break
+	var last_candidates: Array = []
+	for c: Dictionary in candidates:
+		if int(c["leg"]) == last_leg and _clearance(temp, c["p"]) >= RicochetSim.TARGET_R + 10.0:
+			last_candidates.append(c)
+	if last_candidates.is_empty():
+		return []
+	var final_c: Dictionary = last_candidates[rng.randi_range(0, last_candidates.size() - 1)]
+	var ft: Array = [round(final_c["p"].x), round(final_c["p"].y), 1]
+	chosen.append(ft)
+	temp["targets"].append(ft)
+	used_legs["%d:%d" % [final_c["track"], final_c["leg"]]] = true
+
+	var available_legs: Dictionary = {}
+	for c: Dictionary in candidates:
+		available_legs["%d:%d" % [c["track"], c["leg"]]] = true
+	var n_legs: int = available_legs.size()
 	for c: Dictionary in order:
 		if chosen.size() >= count:
 			break
 		var key: String = "%d:%d" % [c["track"], c["leg"]]
-		if used_legs.has(key) and used_legs.size() < count:
+		if used_legs.has(key) and used_legs.size() < n_legs:
 			continue
 		var p: Vector2 = c["p"]
-		if _clearance(temp, p) < RicochetSim.TARGET_R + 22.0:
+		if _clearance(temp, p) < RicochetSim.TARGET_R + 12.0:
 			continue
 		var t: Array = [round(p.x), round(p.y), 1]
 		chosen.append(t)
@@ -852,12 +1051,27 @@ func _mechanic_matters(level: Dictionary, angle: float, width: float = 0.0) -> b
 
 
 func _uses_mechanic(shot: Dictionary, level: Dictionary) -> bool:
+	var walls: Array = level.get("walls", [])
+	if not walls.is_empty():
+		var int_bounces: int = 0
+		for e: Dictionary in shot["events"]:
+			if str(e["type"]) in ["bounce", "glass", "pivot", "bumper", "portal", "split", "switch", "spark"]:
+				if int(e.get("index", -1)) >= 0:
+					int_bounces += 1
+		if int_bounces == 0:
+			return false
 	var want: String = ""
 	match str(chapter["mech"]):
 		"void":
-			for w: Array in level.get("walls", []):
-				if RicochetSim.wall_kind(w) == "void":
+			for e: Dictionary in shot["events"]:
+				if str(e["type"]) == "bumper":
 					return true
+			for track: Dictionary in shot["tracks"]:
+				for p: Vector2 in track["points"]:
+					for w: Array in walls:
+						if RicochetSim.wall_kind(w) == "void":
+							if p.distance_to(Vector2(float(w[0]), float(w[1]))) < 90.0:
+								return true
 			return false
 		"glass":
 			want = "glass"
@@ -877,7 +1091,6 @@ func _uses_mechanic(shot: Dictionary, level: Dictionary) -> bool:
 			for e: Dictionary in shot["events"]:
 				if str(e["type"]) == "bounce" and int(e.get("index", -1)) >= 0 and RicochetSim.is_moving(level["walls"][int(e["index"])]):
 					return true
-			# Dodging also counts: the path crosses where a platform started.
 			return RicochetSim.has_movers(level)
 		_:
 			return true
@@ -885,6 +1098,93 @@ func _uses_mechanic(shot: Dictionary, level: Dictionary) -> bool:
 		if str(e["type"]) == want:
 			return true
 	return false
+
+
+func _interior_hits(level: Dictionary, angle: float) -> int:
+	var res: Dictionary = RicochetSim.simulate(level, RicochetSim.initial_state(level), angle)
+	var count: int = 0
+	for e: Dictionary in res["events"]:
+		if str(e["type"]) in ["bounce", "glass", "pivot", "bumper", "portal", "split", "switch", "spark"]:
+			if int(e.get("index", -1)) >= 0:
+				count += 1
+	return count
+
+
+## Prunes walls that are neither bounced on nor essential blockers against shortcuts.
+func _prune_dead_walls(level: Dictionary, goal: int, sol_angle: float) -> bool:
+	var walls: Array = level.get("walls", [])
+	if walls.is_empty():
+		return true
+	
+	var state: Dictionary = RicochetSim.initial_state(level)
+	var sim: Dictionary = RicochetSim.simulate(level, state, sol_angle)
+	if not bool(sim["cleared"]):
+		return false
+	
+	var touched: Dictionary = {}
+	for e: Dictionary in sim["events"]:
+		if str(e["type"]) in ["bounce", "glass", "pivot"] and int(e.get("index", -1)) >= 0:
+			touched[int(e["index"])] = true
+	
+	var i: int = walls.size() - 1
+	while i >= 0:
+		if touched.has(i):
+			i -= 1
+			continue
+		var kind: String = RicochetSim.wall_kind(walls[i])
+		if kind in ["void", "gate"] or RicochetSim.is_moving(walls[i]):
+			i -= 1
+			continue
+		
+		# Test removing wall i:
+		var temp_walls: Array = walls.duplicate()
+		temp_walls.remove_at(i)
+		var temp_level: Dictionary = level.duplicate(true)
+		temp_level["walls"] = temp_walls
+		var temp_state: Dictionary = RicochetSim.initial_state(temp_level)
+		
+		# Original solution must still clear:
+		var sol_sim: Dictionary = RicochetSim.simulate(temp_level, temp_state, sol_angle)
+		if not bool(sol_sim["cleared"]):
+			i -= 1
+			continue
+		
+		# Check if removing this wall opens up an illegal shortcut!
+		var wins: Array = RicochetSim.solve(temp_level, temp_state, 360, false)
+		var is_essential_blocker: bool = false
+		for w: Dictionary in wins:
+			var s_sim: Dictionary = RicochetSim.simulate(temp_level, temp_state, float(w["angle"]))
+			if bool(s_sim["cleared"]):
+				var int_hits: int = 0
+				for e: Dictionary in s_sim["events"]:
+					if str(e["type"]) in ["bounce", "glass", "pivot", "bumper", "portal", "split", "switch", "spark"] and int(e.get("index", -1)) >= 0:
+						int_hits += 1
+				if int(s_sim["bounces_used"]) < goal or int_hits == 0:
+					is_essential_blocker = true
+					break
+		
+		if is_essential_blocker:
+			i -= 1
+		else:
+			# Wall was dead clutter: delete it
+			walls.remove_at(i)
+			level["walls"] = walls
+			touched = {}
+			state = RicochetSim.initial_state(level)
+			sim = RicochetSim.simulate(level, state, sol_angle)
+			for e: Dictionary in sim["events"]:
+				if str(e["type"]) in ["bounce", "glass", "pivot"] and int(e.get("index", -1)) >= 0:
+					touched[int(e["index"])] = true
+			i = mini(i - 1, walls.size() - 1)
+	
+	# After pruning, must still have at least 1 interior obstacle bounce
+	var final_int_hits: int = 0
+	for e: Dictionary in sim["events"]:
+		if str(e["type"]) in ["bounce", "glass", "pivot", "bumper", "portal", "split", "switch", "spark"] and int(e.get("index", -1)) >= 0:
+			final_int_hits += 1
+	if final_int_hits == 0 and not walls.is_empty():
+		return false
+	return true
 
 
 ## Solves the room and annotates it. Returns {} if it is unfair or unsolvable.
@@ -916,9 +1216,17 @@ func _grade(level: Dictionary, goal: int, intro: bool) -> Dictionary:
 	if not intro:
 		if bounces != goal:
 			return _reject("solution bounces")
+		if not (level.get("walls", []) as Array).is_empty() and _interior_hits(level, angle) == 0:
+			return _reject("solution bypasses interior")
+		# Only 1 unique way to solve (or at most 2 for mirror symmetry)
+		if windows.size() > 2:
+			return _reject("too many solutions")
 		for w: Dictionary in windows:
-			if _bounce_count(level, float(w["angle"])) < goal - 1:
+			var w_ang: float = float(w["angle"])
+			if _bounce_count(level, w_ang) < goal:
 				return _reject("shortcut")
+			if not (level.get("walls", []) as Array).is_empty() and _interior_hits(level, w_ang) == 0:
+				return _reject("shortcut bypasses interior")
 	var out: Dictionary = level.duplicate(true)
 	var time_score: float = 0.0
 	if RicochetSim.has_movers(level):
@@ -941,6 +1249,8 @@ func _grade(level: Dictionary, goal: int, intro: bool) -> Dictionary:
 			parts += 1
 	var score: float = log(1.0 / maxf(fraction, 0.00001)) / log(10.0) + 0.9 * log(6.0 / width_deg) / log(10.0) \
 		+ 0.2 * float((level["targets"] as Array).size()) + 0.15 * float(parts) + time_score
+	if windows.size() == 1:
+		score += 0.4
 	score = maxf(0.0, score)
 	out["score"] = snappedf(score, 0.001)
 	out["difficulty"] = snappedf(float(bounces) + 0.95 * score / (1.0 + score), 0.001)
@@ -977,13 +1287,18 @@ func _write(levels: Array) -> void:
 		var lv: Dictionary = levels[i]
 		lv["id"] = "%s_%02d" % [chapter["id"], i + 1]
 		lv["number"] = i + 1
-		if i == 0:
-			lv["difficulty"] = minf(float(lv["difficulty"]), float(levels[1]["difficulty"]) - 0.01) if levels.size() > 1 else lv["difficulty"]
 		for key: String in ["walls", "bumpers", "portals", "prisms", "switches", "sparks"]:
 			if lv.has(key) and (lv[key] as Array).is_empty():
 				lv.erase(key)
 		lv.erase("score")
 		out.append(lv)
+	for i: int in range(1, out.size()):
+		var prev_d: float = float(out[i - 1]["difficulty"])
+		var cur_d: float = float(out[i]["difficulty"])
+		if i == 1 and cur_d <= prev_d:
+			out[0]["difficulty"] = snappedf(cur_d - 0.05, 0.001)
+		elif i > 1 and cur_d <= prev_d:
+			out[i]["difficulty"] = snappedf(prev_d + 0.005, 0.001)
 	var data: Dictionary = {"id": chapter["id"], "name": chapter["name"], "levels": out}
 	var file: FileAccess = FileAccess.open(OUT_DIR + chapter["id"] + ".json", FileAccess.WRITE)
 	file.store_string(JSON.stringify(data, "", false))

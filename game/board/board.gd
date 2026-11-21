@@ -435,48 +435,52 @@ func _apply_event(e: Dictionary) -> void:
 		"bounce":
 			if idx >= 0:
 				_flash["w%d" % idx] = 1.0
-			_add_ring(pos, 4.0, 26.0, 0.32, Color(pal["ink"], 0.55), 3.0)
-			_burst(pos, 4, Color(pal["ink"], 0.6), 90.0, 2.5, e.get("n", Vector2.ZERO))
+			_add_ring(pos, 4.0, 32.0, 0.32, Color(pal["ink"], 0.65), 3.5)
+			var n_vec: Vector2 = e.get("n", Vector2.ZERO)
+			_burst(pos, 7, Color(pal["ink"], 0.75), 120.0, 3.0, n_vec)
 			_sound("bounce")
-			_add_trauma(0.05)
+			_add_trauma(0.06)
 			_haptic(4)
 		"glass":
 			_intact[idx] = false
 			_shatter(idx)
+			_add_ring(pos, 6.0, 48.0, 0.45, pal["special"], 4.0)
 			_sound("bounce_glass")
 			_sound("glass_break", -1.0, -2.0)
-			_add_trauma(0.16)
+			_add_trauma(0.18)
 			_haptic(14)
 		"bumper":
 			_bumps[idx] = 1.0
-			_add_ring(pos, 6.0, 40.0, 0.35, pal["accent"], 4.0)
+			_add_ring(pos, 6.0, 52.0, 0.4, pal["accent"], 4.5)
+			_burst(pos, 8, pal["accent"], 160.0, 3.5)
 			_sound("bumper")
-			_add_trauma(0.08)
+			_add_trauma(0.10)
 			_haptic(6)
 		"pop":
 			_hp[idx] = 0
 			_pops[idx] = 0.0
 			var tp: Vector2 = _target_pos(idx)
-			_add_ring(tp, RicochetSim.TARGET_R, RicochetSim.TARGET_R * 3.8, 0.55, pal["target"], 6.0)
-			_burst(tp, 18, pal["target"], 260.0, 5.0)
+			_add_ring(tp, RicochetSim.TARGET_R * 0.8, RicochetSim.TARGET_R * 4.2, 0.6, pal["target"], 6.0)
+			_add_ring(tp, RicochetSim.TARGET_R * 0.4, RicochetSim.TARGET_R * 2.2, 0.4, Color(pal["top"], 0.85), 3.0)
+			_burst(tp, 24, pal["target"], 280.0, 5.0)
 			AudioManager.play_note("pop", _combo) if not quiet else null
 			_combo += 1
-			_add_trauma(0.22)
+			_add_trauma(0.24)
 			_haptic(16)
 			target_popped.emit(int(e.get("left", 0)))
 			if int(e.get("left", 0)) == 0:
-				_slowmo = 0.45
+				_slowmo = 0.52
 				_screen_flash = 1.0
-				_add_trauma(0.35)
-				_haptic(30)
+				_add_trauma(0.4)
+				_haptic(32)
 		"shield":
 			_hp[idx] = int(_hp[idx]) - 1
 			var sp: Vector2 = _target_pos(idx)
-			_add_ring(sp, RicochetSim.TARGET_R + 8.0, RicochetSim.TARGET_R + 40.0, 0.45, pal["target"], 4.0)
-			_burst(sp, 8, pal["ink"], 180.0, 3.0)
+			_add_ring(sp, RicochetSim.TARGET_R + 8.0, RicochetSim.TARGET_R + 46.0, 0.5, pal["target"], 4.5)
+			_burst(sp, 14, pal["target"], 210.0, 3.5)
 			_sound("shield")
-			_add_trauma(0.12)
-			_haptic(10)
+			_add_trauma(0.14)
+			_haptic(12)
 		"portal":
 			var p2: Vector2 = e["pos2"]
 			_add_ring(pos, 30.0, 4.0, 0.3, pal["special"], 4.0)
@@ -726,12 +730,28 @@ func _draw() -> void:
 func _draw_arena() -> void:
 	var rect: Rect2 = Rect2(Vector2.ZERO, RicochetSim.ARENA)
 	_draw_round_rect(rect, 28.0, pal["faint"])
-	var dot: Color = Color(pal["ink"], 0.07)
+	# Elegant subtle inner border highlight
+	var inner_rect: Rect2 = rect.grow(-2.0)
+	var sb_border: StyleBoxFlat = StyleBoxFlat.new()
+	sb_border.bg_color = Color.TRANSPARENT
+	sb_border.border_color = Color(pal["ink"], 0.08)
+	sb_border.set_border_width_all(2)
+	sb_border.set_corner_radius_all(26)
+	sb_border.anti_aliasing = true
+	draw_style_box(sb_border, inner_rect)
+
+	# Calibrated dot matrix grid
+	var dot_alpha: float = 0.065 + 0.015 * sin(_clock * 1.8)
+	var dot: Color = Color(pal["ink"], dot_alpha)
 	var y: float = 40.0
 	while y < RicochetSim.ARENA.y:
 		var x: float = 40.0
 		while x < RicochetSim.ARENA.x:
-			draw_circle(Vector2(x, y), 1.6, dot, true, -1.0, true)
+			var is_cross: bool = (int(x) % 160 == 0 and int(y) % 160 == 0)
+			if is_cross:
+				draw_circle(Vector2(x, y), 2.2, Color(pal["ink"], dot_alpha * 1.6), true, -1.0, true)
+			else:
+				draw_circle(Vector2(x, y), 1.5, dot, true, -1.0, true)
 			x += 40.0
 		y += 40.0
 
@@ -740,7 +760,7 @@ func _draw_round_rect(rect: Rect2, radius: float, color: Color) -> void:
 	var sb: StyleBoxFlat = StyleBoxFlat.new()
 	sb.bg_color = color
 	sb.set_corner_radius_all(int(radius))
-	sb.corner_detail = 10
+	sb.corner_detail = 12
 	sb.anti_aliasing = true
 	draw_style_box(sb, rect)
 
@@ -749,21 +769,49 @@ func _draw_aim() -> void:
 	if _preview.is_empty():
 		_preview = RicochetSim.preview(level, _timed_state(), aim_angle, 150.0, 2 if bool(SaveSystem.get_setting("long_guide", true)) else 1)
 	var pts: PackedVector2Array = _preview["points"]
-	var col: Color = Color(pal["ink"], 0.75)
-	var phase: float = fmod(_clock * 60.0, 22.0)
+	var col: Color = Color(pal["ink"], 0.78)
+	var phase: float = fmod(_clock * 55.0, 22.0)
 	for i: int in pts.size() - 1:
-		_dotted(pts[i], pts[i + 1], col if i == 0 else Color(col, 0.5), 22.0, 3.4, phase if i == 0 else 0.0)
+		_dotted_tapered(pts[i], pts[i + 1], col if i == 0 else Color(col, 0.45), 20.0, 3.8, 2.2, phase if i == 0 else 0.0)
 	if pts.size() >= 2:
 		var hit: Vector2 = pts[-1]
-		draw_arc(hit, RicochetSim.ORB_R, 0.0, TAU, 28, Color(pal["ink"], 0.8), 2.5, true)
+		# Landing reticle: central dot, outer target ring, and 4 precision tick marks
+		var reticle_col: Color = Color(pal["ink"], 0.85)
+		draw_circle(hit, 2.4, reticle_col, true, -1.0, true)
+		draw_arc(hit, RicochetSim.ORB_R, 0.0, TAU, 32, reticle_col, 2.0, true)
+		for k: int in 4:
+			var ang: float = float(k) * PI * 0.5
+			var t_dir: Vector2 = Vector2.from_angle(ang)
+			draw_line(hit + t_dir * (RicochetSim.ORB_R + 2.0), hit + t_dir * (RicochetSim.ORB_R + 7.0), reticle_col, 1.8, true)
+		# Refined reflection heading indicator (tapered bounce stub)
 		var stub: Vector2 = _preview["stub_end"]
-		if stub.distance_to(hit) > 2.0:
-			var n: int = 6
-			for k: int in n:
-				var f: float = float(k + 1) / float(n + 1)
-				draw_circle(hit.lerp(stub, f), 3.0 * (1.0 - f * 0.6), Color(pal["ink"], 0.5 * (1.0 - f)), true, -1.0, true)
+		var stub_dist: float = stub.distance_to(hit)
+		if stub_dist > 4.0:
+			var stub_dir: Vector2 = (stub - hit).normalized()
+			var n_dots: int = maxi(2, int(stub_dist / 14.0))
+			for k: int in n_dots:
+				var frac: float = float(k + 1) / float(n_dots + 1)
+				var dot_p: Vector2 = hit + stub_dir * (stub_dist * frac)
+				draw_circle(dot_p, 3.2 * (1.0 - frac * 0.55), Color(pal["ink"], 0.65 * (1.0 - frac * 0.65)), true, -1.0, true)
+	# Target lock-on feedback: pulse target rings when aim intersects them
 	for ti: int in _preview.get("pops", []):
-		draw_arc(_target_pos(ti), RicochetSim.TARGET_R + 8.0, 0.0, TAU, 40, Color(pal["target"], 0.7), 2.5, true)
+		var tp: Vector2 = _target_pos(ti)
+		var lock_pulse: float = 0.5 + 0.5 * sin(_clock * 7.0)
+		draw_arc(tp, RicochetSim.TARGET_R + 7.0 + 3.0 * lock_pulse, 0.0, TAU, 40, Color(pal["target"], 0.85), 2.5, true)
+		draw_arc(tp, RicochetSim.TARGET_R + 14.0 + 4.0 * lock_pulse, 0.0, TAU, 40, Color(pal["target"], 0.35 * (1.0 - lock_pulse)), 1.5, true)
+
+
+func _dotted_tapered(a: Vector2, b: Vector2, color: Color, spacing: float, r_start: float, r_end: float, phase: float = 0.0) -> void:
+	var length: float = a.distance_to(b)
+	if length < 1.0:
+		return
+	var dir: Vector2 = (b - a) / length
+	var s: float = 24.0 + phase
+	while s < length:
+		var frac: float = s / length
+		var rad: float = lerpf(r_start, r_end, frac)
+		draw_circle(a + dir * s, rad, color, true, -1.0, true)
+		s += spacing
 
 
 func _dotted(a: Vector2, b: Vector2, color: Color, spacing: float, radius: float, phase: float = 0.0) -> void:
@@ -821,24 +869,45 @@ func _draw_walls(appear: float) -> void:
 		var thin: bool = minf(float(w[2]), float(w[3])) <= 24.0
 		match kind:
 			RicochetSim.KIND_GLASS:
-				var fill: Color = Color(pal["special"], 0.28 + 0.4 * flash)
+				var fill: Color = Color(pal["special"], 0.30 + 0.45 * flash)
 				draw_colored_polygon(pts, fill)
 				var outline: PackedVector2Array = pts.duplicate()
 				outline.append(pts[0])
 				draw_polyline(outline, Color(pal["special"], 0.95), 2.5, true)
-				var glint_a: Vector2 = pts[0].lerp(pts[1], 0.15).lerp(pts[3].lerp(pts[2], 0.15), 0.5)
-				var glint_b: Vector2 = pts[0].lerp(pts[1], 0.32).lerp(pts[3].lerp(pts[2], 0.32), 0.5)
-				draw_line(glint_a, glint_b, Color(1, 1, 1, 0.8), 3.0, true)
+				# Dynamic crystalline sheen
+				var glint_alpha: float = 0.75 + 0.2 * sin(_clock * 3.5)
+				var glint_a: Vector2 = pts[0].lerp(pts[1], 0.12).lerp(pts[3].lerp(pts[2], 0.12), 0.5)
+				var glint_b: Vector2 = pts[0].lerp(pts[1], 0.34).lerp(pts[3].lerp(pts[2], 0.34), 0.5)
+				draw_line(glint_a, glint_b, Color(1, 1, 1, glint_alpha), 3.0, true)
+				var glint2_a: Vector2 = pts[0].lerp(pts[1], 0.42).lerp(pts[3].lerp(pts[2], 0.42), 0.5)
+				var glint2_b: Vector2 = pts[0].lerp(pts[1], 0.52).lerp(pts[3].lerp(pts[2], 0.52), 0.5)
+				draw_line(glint2_a, glint2_b, Color(1, 1, 1, glint_alpha * 0.7), 2.2, true)
+				# Subtle corner structural brackets
+				for cp: Vector2 in pts:
+					draw_circle(cp, 3.2, Color(pal["special"], 0.8), true, -1.0, true)
 			RicochetSim.KIND_GATE:
 				var ga: float = _gate_alpha
-				draw_colored_polygon(pts, Color(pal["special"], 0.3 * ga))
+				draw_colored_polygon(pts, Color(pal["special"], 0.32 * ga))
 				for k: int in 4:
-					_dashed(pts[k], pts[(k + 1) % 4], Color(pal["special"], 0.95 * ga), 3.0)
+					_dashed(pts[k], pts[(k + 1) % 4], Color(pal["special"], 0.95 * ga), 3.2)
+				# Glowing emitter node at gate ends
+				var p_a: Vector2 = pts[0].lerp(pts[3], 0.5)
+				var p_b: Vector2 = pts[1].lerp(pts[2], 0.5)
+				draw_circle(p_a, 4.0, Color(pal["special"], 0.9 * ga), true, -1.0, true)
+				draw_circle(p_b, 4.0, Color(pal["special"], 0.9 * ga), true, -1.0, true)
 			RicochetSim.KIND_VOID:
-				draw_colored_polygon(pts, Color("#0B0A14"))
+				# Obsidian core with pulsating ethereal border
+				draw_colored_polygon(pts, Color("#070611"))
 				var o: PackedVector2Array = pts.duplicate()
 				o.append(pts[0])
-				draw_polyline(o, Color(pal["accent"], 0.45 + 0.2 * sin(_clock * 3.0 + float(i))), 2.0, true)
+				var pulse: float = 0.5 + 0.25 * sin(_clock * 2.8 + float(i))
+				draw_polyline(o, Color(pal["accent"], pulse), 2.4, true)
+				# Soft outer event-horizon halo
+				var halo: PackedVector2Array = PackedVector2Array()
+				for k: int in 4:
+					halo.append(pts[k] + (pts[k] - centre).normalized() * 4.0)
+				halo.append(halo[0])
+				draw_polyline(halo, Color(pal["accent"], pulse * 0.35), 1.6, true)
 			_:
 				var col: Color = (pal["wall"] as Color).lerp(pal["accent"], flash * 0.8)
 				if thin:
@@ -852,19 +921,38 @@ func _draw_walls(appear: float) -> void:
 					var dir: Vector2 = (b - a).normalized()
 					a += dir * t * 0.5
 					b -= dir * t * 0.5
+					# Base capsule
 					draw_line(a, b, col, t, true)
 					draw_circle(a, t * 0.5, col, true, -1.0, true)
 					draw_circle(b, t * 0.5, col, true, -1.0, true)
+					# Inner tactile specular spine (Apple / Monument Valley minimalist depth)
+					var spine_col: Color = col.lerp(pal["top"], 0.24) if not pal.get("dark", false) else col.lerp(Color.WHITE, 0.18)
+					var spine_t: float = maxf(1.8, t * 0.3)
+					draw_line(a, b, spine_col, spine_t, true)
+					draw_circle(a, spine_t * 0.5, spine_col, true, -1.0, true)
+					draw_circle(b, spine_t * 0.5, spine_col, true, -1.0, true)
+
 					if kind == RicochetSim.KIND_PIVOT:
+						# Precision mechanical pivot jewel
 						draw_circle(centre, t * 0.95, pal["special"], true, -1.0, true)
-						draw_circle(centre, t * 0.35, pal["top"], true, -1.0, true)
+						draw_circle(centre, t * 0.40, pal["top"], true, -1.0, true)
+						draw_circle(centre, 3.0, pal["ink"], true, -1.0, true)
 						var spin: float = deg_to_rad(float(_rot_shown[i]))
-						draw_arc(centre, t * 1.9, spin + 0.4, spin + 1.9, 12, Color(pal["special"], 0.7), 2.5, true)
+						draw_arc(centre, t * 1.9, spin + 0.35, spin + 1.95, 16, Color(pal["special"], 0.8), 2.5, true)
+						# Directional arrow tip on rotation arc
+						var tip_p: Vector2 = centre + Vector2.from_angle(spin + 1.95) * (t * 1.9)
+						draw_circle(tip_p, 3.2, pal["special"], true, -1.0, true)
 				else:
 					draw_colored_polygon(pts, col)
 					var o2: PackedVector2Array = pts.duplicate()
 					o2.append(pts[0])
 					draw_polyline(o2, col, 3.0, true)
+					# Subtle inner inset highlight
+					var inset_pts: PackedVector2Array = PackedVector2Array()
+					for k: int in 4:
+						inset_pts.append(pts[k] + (centre - pts[k]).normalized() * 3.0)
+					inset_pts.append(inset_pts[0])
+					draw_polyline(inset_pts, Color(pal["top"], 0.16), 1.5, true)
 
 
 ## Moving platforms: a dotted rail with end stops.
@@ -918,10 +1006,15 @@ func _draw_features() -> void:
 			o.append(pts[0])
 			draw_polyline(o, Color(col, 0.35), 2.0, true)
 		else:
+			# Radiant diamond trigger with pulsing aura
 			draw_colored_polygon(pts, col)
-			var pulse: float = 0.5 + 0.5 * sin(_clock * 3.0)
-			draw_arc(c, rr + 6.0 + 4.0 * pulse, 0.0, TAU, 32, Color(col, 0.5 - 0.3 * pulse), 2.5, true)
-			draw_circle(c, 4.0, pal["top"], true, -1.0, true)
+			var o2: PackedVector2Array = pts.duplicate()
+			o2.append(pts[0])
+			draw_polyline(o2, Color(pal["top"], 0.6), 1.8, true)
+			var pulse: float = 0.5 + 0.5 * sin(_clock * 3.2)
+			draw_arc(c, rr + 5.0 + 4.0 * pulse, 0.0, TAU, 32, Color(col, 0.5 - 0.3 * pulse), 2.2, true)
+			draw_circle(c, 4.5, pal["top"], true, -1.0, true)
+			draw_circle(c, 2.0, col, true, -1.0, true)
 	for i: int in (level.get("sparks", []) as Array).size():
 		if _sparks_taken.has(i):
 			continue
@@ -931,16 +1024,18 @@ func _draw_features() -> void:
 		for k: int in 8:
 			var rad: float = (RicochetSim.SPARK_R * tw) if k % 2 == 0 else RicochetSim.SPARK_R * 0.38
 			star.append(c2 + Vector2.from_angle(-PI / 2.0 + TAU * float(k) / 8.0 + _clock * 0.6) * rad)
-		draw_circle(c2, RicochetSim.SPARK_R * 1.5, Color(pal["special"], 0.15), true, -1.0, true)
+		draw_circle(c2, RicochetSim.SPARK_R * 1.6, Color(pal["special"], 0.16 + 0.08 * sin(_clock * 4.0)), true, -1.0, true)
 		draw_colored_polygon(star, pal["special"])
+		draw_circle(c2, 3.5, Color.WHITE, true, -1.0, true)
 	for i: int in (level.get("bumpers", []) as Array).size():
 		var b: Array = level["bumpers"][i]
 		var c: Vector2 = Vector2(float(b[0]), float(b[1]))
 		var r: float = float(b[2]) if b.size() > 2 else RicochetSim.BUMPER_R
 		var pulse: float = float(_bumps.get(i, 0.0))
 		r *= 1.0 + 0.12 * pulse
-		draw_circle(c, r, Color(pal["accent"], 0.16 + 0.3 * pulse), true, -1.0, true)
-		draw_arc(c, r, 0.0, TAU, 48, pal["accent"], 4.0, true)
+		draw_circle(c, r, Color(pal["accent"], 0.18 + 0.3 * pulse), true, -1.0, true)
+		draw_arc(c, r, 0.0, TAU, 48, pal["accent"], 3.5, true)
+		draw_arc(c, r * 0.55, 0.0, TAU, 36, Color(pal["accent"], 0.45), 2.0, true)
 		draw_circle(c, 5.0, pal["accent"], true, -1.0, true)
 	for i: int in (level.get("portals", []) as Array).size():
 		var pt: Array = level["portals"][i]
@@ -948,12 +1043,15 @@ func _draw_features() -> void:
 			var c: Vector2 = Vector2(float(pt[side * 2]), float(pt[side * 2 + 1]))
 			var col: Color = pal["special"]
 			draw_circle(c, RicochetSim.PORTAL_R + 4.0, Color(col, 0.18), true, -1.0, true)
-			draw_arc(c, RicochetSim.PORTAL_R + 4.0, 0.0, TAU, 40, col, 3.0, true)
+			draw_arc(c, RicochetSim.PORTAL_R + 4.0, 0.0, TAU, 40, col, 2.8, true)
 			var spin: float = _clock * (1.6 if side == 0 else -1.6)
 			for k: int in 3:
 				var a0: float = spin + TAU * float(k) / 3.0
-				draw_arc(c, RicochetSim.PORTAL_R + 13.0, a0, a0 + 1.1, 12, Color(col, 0.7), 3.0, true)
-			draw_circle(c, 5.0, col, true, -1.0, true)
+				draw_arc(c, RicochetSim.PORTAL_R + 13.0, a0, a0 + 1.1, 14, Color(col, 0.75), 2.6, true)
+				# Orbiting particle sparklet
+				var p_orb: Vector2 = c + Vector2.from_angle(a0 + 0.55) * (RicochetSim.PORTAL_R + 13.0)
+				draw_circle(p_orb, 2.2, Color(pal["top"], 0.85), true, -1.0, true)
+			draw_circle(c, 4.5, col, true, -1.0, true)
 	for i: int in (level.get("prisms", []) as Array).size():
 		var pr: Array = level["prisms"][i]
 		var c: Vector2 = Vector2(float(pr[0]), float(pr[1]))
@@ -962,11 +1060,17 @@ func _draw_features() -> void:
 		var pts: PackedVector2Array = PackedVector2Array()
 		for k: int in 3:
 			pts.append(c + Vector2.from_angle(rot + TAU * float(k) / 3.0) * r)
-		draw_colored_polygon(pts, Color(pal["special"], 0.3))
+		draw_colored_polygon(pts, Color(pal["special"], 0.32))
 		var o: PackedVector2Array = pts.duplicate()
 		o.append(pts[0])
 		draw_polyline(o, pal["special"], 3.0, true)
-		draw_circle(c, 4.0, pal["special2"], true, -1.0, true)
+		# Internal refractive facet
+		var inner_pts: PackedVector2Array = PackedVector2Array()
+		for k: int in 3:
+			inner_pts.append(c + Vector2.from_angle(rot + PI + TAU * float(k) / 3.0) * (r * 0.45))
+		inner_pts.append(inner_pts[0])
+		draw_polyline(inner_pts, Color(pal["special2"], 0.75), 1.8, true)
+		draw_circle(c, 4.5, pal["special2"], true, -1.0, true)
 
 
 func _draw_targets(appear: float) -> void:
@@ -981,11 +1085,22 @@ func _draw_targets(appear: float) -> void:
 			continue
 		var breathe: float = 1.0 + 0.035 * sin(_clock * 2.4 + float(i) * 1.7)
 		var r: float = RicochetSim.TARGET_R * breathe * appear
+		# Ambient target aura
+		draw_circle(c, r * 1.35, Color(pal["target"], 0.12), true, -1.0, true)
+		# Outer target ring
 		draw_circle(c, r, pal["target"], true, -1.0, true)
-		draw_arc(c, r * 0.46, 0.0, TAU, 32, Color(pal["top"], 0.9), 3.0, true)
+		# Inner white/top contrast ring
+		draw_arc(c, r * 0.52, 0.0, TAU, 32, Color(pal["top"], 0.95), 2.8, true)
+		# Radiant center pip
+		draw_circle(c, r * 0.22, pal["target"], true, -1.0, true)
 		if hp >= 2:
-			draw_arc(c, r + 8.0, 0.0, TAU, 48, pal["target"], 4.0, true)
-			draw_arc(c, r + 8.0, 0.0, TAU, 48, Color(pal["ink"], 0.25), 1.5, true)
+			# Armored target: distinctive faceted outer shield ring with 4 brackets
+			var r_shield: float = r + 8.5
+			draw_arc(c, r_shield, 0.0, TAU, 48, pal["target"], 4.0, true)
+			for b_idx: int in 4:
+				var ang: float = float(b_idx) * PI * 0.5 + _clock * 0.4
+				var b_dir: Vector2 = Vector2.from_angle(ang)
+				draw_circle(c + b_dir * r_shield, 3.4, Color(pal["top"], 0.95), true, -1.0, true)
 
 
 func _draw_orbs() -> void:
@@ -1008,13 +1123,16 @@ func _draw_launcher() -> void:
 	if not playing and shots_left() > 0:
 		var bob: float = 1.0 + 0.05 * sin(_clock * 3.0)
 		OrbStyles.draw_orb(self, orb_style, c, RicochetSim.ORB_R * bob, pal, _clock, false)
-	# Bounce allowance as pips arched over the launcher.
+	# Bounce allowance as refined luminous beads arched over the launcher
 	var n: int = int(level.get("bounces", 0))
 	var spread: float = deg_to_rad(16.0)
 	var base: float = aim_angle if (aiming or has_aim) and not playing else -PI / 2.0
 	for i: int in n:
 		var a: float = base + (float(i) - float(n - 1) * 0.5) * spread
-		draw_circle(c + Vector2.from_angle(a) * 38.0, 3.6, Color(ink, 0.85), true, -1.0, true)
+		var pip_p: Vector2 = c + Vector2.from_angle(a) * 38.0
+		draw_circle(pip_p, 4.2, Color(ink, 0.25), true, -1.0, true)
+		draw_circle(pip_p, 3.2, Color(ink, 0.9), true, -1.0, true)
+		draw_circle(pip_p + Vector2(-0.8, -0.8), 1.0, Color.WHITE, true, -1.0, true)
 
 
 func _draw_fx() -> void:
